@@ -17,9 +17,8 @@ Writes .env at the repo root and examples/inspect/.env (legacy) unless disabled.
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
-
 
 # --------------------------
 # Utilities
