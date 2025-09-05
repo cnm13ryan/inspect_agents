@@ -8,14 +8,12 @@ imports succeed consistently across environments.
 
 from __future__ import annotations
 
-import importlib.util
-import os
-import sys
-from types import ModuleType
-from pathlib import Path
 import importlib.abc as _abc
 import importlib.machinery as _machinery
-import importlib.util as _util
+import importlib.util
+import sys
+from types import ModuleType
+
 
 # Ensure vendored Inspect-AI loads cleanly with approvals shim, and make the
 # commonly patched subpackage `inspect_ai.model` available on the parent.
@@ -89,16 +87,16 @@ def _ensure_inspect_ai_approval_apply() -> None:
 
     # Install stub submodule
     mod = ModuleType("inspect_ai.approval._apply")
-    _POLICIES: list[object] | None = None
+    _policies: list[object] | None = None
 
     def init_tool_approval(policies):  # noqa: D401
         """Initialize tool approval policies (shim)."""
-        nonlocal _POLICIES
-        _POLICIES = list(policies) if policies else []
+        nonlocal _policies
+        _policies = list(policies) if policies else []
 
     def have_tool_approval():  # noqa: D401
         """Return True if any approval policies are active (shim)."""
-        return bool(_POLICIES)
+        return bool(_policies)
 
     async def apply_tool_approval(message, call, viewer, history):  # noqa: D401
         """Approve by default (shim)."""
