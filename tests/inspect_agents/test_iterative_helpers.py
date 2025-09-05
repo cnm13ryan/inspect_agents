@@ -80,10 +80,13 @@ def test_prune_with_debug_threshold_logs_and_keeps_tail(caplog: pytest.LogCaptur
         reason="threshold",
         threshold=4,
     )
-    # Keep last 2 messages
-    assert len(pruned) == 2
-    # Expect exact threshold log format
-    expect = "Prune: reason=threshold pre=5 post=2 keep_last=2 threshold=4"
+    # Contract: first user is preserved + last keep_last tail => 1 + 2 = 3
+    assert len(pruned) == 3
+    # Composition: first preserved user, then last two tail entries
+    contents = [getattr(m, "content", None) for m in pruned]
+    assert contents == ["m0", "m3", "m4"]
+    # Expect exact threshold log format (post reflects first user + tail)
+    expect = "Prune: reason=threshold pre=5 post=3 keep_last=2 threshold=4"
     assert any(expect in rec.getMessage() for rec in caplog.records)
 
 
@@ -101,7 +104,9 @@ def test_prune_with_debug_overflow_logs(caplog: pytest.LogCaptureFixture):
         debug=True,
         reason="overflow",
     )
-    assert len(pruned) == 2
-    expect = "Prune: reason=overflow pre=5 post=2 keep_last=2"
+    # Contract: first user is preserved + last keep_last tail => 1 + 2 = 3
+    assert len(pruned) == 3
+    contents = [getattr(m, "content", None) for m in pruned]
+    assert contents == ["m0", "m3", "m4"]
+    expect = "Prune: reason=overflow pre=5 post=3 keep_last=2"
     assert any(expect in rec.getMessage() for rec in caplog.records)
-
