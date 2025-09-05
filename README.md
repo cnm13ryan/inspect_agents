@@ -55,6 +55,16 @@ pip install -e .
 python -c "import inspect_agents; print('deepagents OK')"
 ```
 
+### Configure Environment Variables
+
+Use the interactive configurator to generate .env files with sensible defaults:
+
+```bash
+uv run python env_templates/configure.py
+```
+
+This writes a `.env` at the repo root and `examples/inspect/.env`. You can also point runners to the file with `--env-file` or by exporting `INSPECT_ENV_FILE=path/to/.env`.
+
 ## Quick Start
 
 ### Offline Test (No API Keys Required)
