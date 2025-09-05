@@ -42,6 +42,122 @@ def _format_progress_time(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
+def _remaining_timeout(
+    start: float,
+    limit_sec: int | None,
+    total_retry_time: float,
+    productive_time_enabled: bool,
+    *,
+    now: float | None = None,
+) -> int | None:
+    """Compute remaining per-call timeout in seconds.
+
+    Returns None when no overall limit is set; otherwise clamps to at least 1s.
+    Pass `now` from the injected `clock()` for test determinism.
+    """
+    if limit_sec is None:
+        return None
+    # Use provided 'now' (from injected clock) when available to preserve tests
+    if now is None:
+        now = time.time()
+    wall = float(now - start)
+    elapsed = wall - total_retry_time if productive_time_enabled else wall
+    remaining = int(limit_sec - elapsed)
+    return max(1, remaining) if remaining > 0 else 1
+
+
+def _should_emit_progress(step: int, every: int | None) -> bool:
+    """Return True when a progress ping should be emitted for this step."""
+    try:
+        return bool(every) and step % int(every) == 0
+    except Exception:
+        return False
+
+
+def _append_overflow_hint(messages: list[object]) -> None:
+    """Append the standard overflow hint message to the conversation."""
+    # Local import to avoid heavy import at module import time
+    from inspect_ai.model._chat_message import ChatMessageUser
+
+    messages.append(
+        ChatMessageUser(
+            content=(
+                "Context too long; please summarize recent steps and continue."
+            )
+        )
+    )
+
+
+def _prune_with_debug(
+    messages: list[object],
+    *,
+    keep_last: int,
+    token_cap: int | None,
+    last_k: int,
+    debug: bool,
+    reason: str = "threshold",
+    threshold: int | None = None,
+) -> list[object]:
+    """Apply token-aware truncation (optional) then prune tail, with debug logs.
+
+    - `reason` controls the log label: "threshold" or "overflow".
+    - `threshold` is logged only for the "threshold" reason to preserve formats.
+    """
+    # Local import to avoid heavy import at module import time
+    try:
+        from ._conversation import prune_messages as _prune
+        from ._conversation import truncate_conversation_tokens as _truncate
+    except Exception:  # pragma: no cover - defensive fallback
+        _prune = None  # type: ignore
+        _truncate = None  # type: ignore
+
+    # Token-aware truncation first (if available and configured)
+    try:
+        if _truncate is not None and token_cap is not None:
+            size_pre = len(messages)
+            messages = _truncate(
+                messages,
+                max_tokens_per_msg=int(token_cap),
+                last_k=int(last_k),
+            )
+            if debug:
+                logger.info(
+                    "Truncate: reason=%s size_pre=%d last_k=%d cap=%d",
+                    reason,
+                    size_pre,
+                    int(last_k),
+                    int(token_cap),
+                )
+    except Exception:
+        # Best-effort only
+        pass
+
+    # Length-based pruning (keep tail)
+    pre_len = len(messages)
+    if _prune is not None:
+        try:
+            messages = _prune(messages, keep_last=int(keep_last))
+            if debug:
+                if reason == "threshold":
+                    logger.info(
+                        "Prune: reason=threshold pre=%d post=%d keep_last=%d threshold=%s",
+                        pre_len,
+                        len(messages),
+                        int(keep_last),
+                        "None" if threshold is None else int(threshold),
+                    )
+                else:
+                    logger.info(
+                        "Prune: reason=overflow pre=%d post=%d keep_last=%d",
+                        pre_len,
+                        len(messages),
+                        int(keep_last),
+                    )
+        except Exception:
+            pass
+
+    return messages
+
 def _base_tools() -> list[object]:
     """Return a minimal toolset: Files tools + optional exec if enabled.
 
@@ -418,7 +534,7 @@ def build_iterative_agent(
                     pass
 
                 # Progress ping every N steps (persisted)
-                if progress_every and step % int(progress_every) == 0:
+                if _should_emit_progress(step, progress_every):
                     _wall = clock() - start
                     _elapsed = (
                         _wall - total_retry_time if productive_time_enabled else _wall
@@ -450,40 +566,18 @@ def build_iterative_agent(
                 # Opportunistic global prune when message list exceeds threshold
                 try:
                     if (
-                        prune_messages
-                        and _eff_prune_after is not None
+                        _eff_prune_after is not None
                         and len(state.messages) > _eff_prune_after
                     ):
-                        # First, token-aware truncation over the last K messages (if enabled)
-                        try:
-                            if truncate_conversation_tokens and _eff_token_cap is not None:
-                                _pre_tokens = len(state.messages)
-                                state.messages = truncate_conversation_tokens(
-                                    state.messages,
-                                    max_tokens_per_msg=int(_eff_token_cap),
-                                    last_k=int(_eff_truncate_last_k),
-                                )
-                                if _prune_debug:
-                                    logger.info(
-                                        "Truncate: reason=threshold size_pre=%d last_k=%d cap=%d",
-                                        _pre_tokens,
-                                        int(_eff_truncate_last_k),
-                                        int(_eff_token_cap),
-                                    )
-                        except Exception:
-                            pass
-                        _pre = len(state.messages)
-                        state.messages = prune_messages(
-                            state.messages, keep_last=_eff_prune_keep
+                        state.messages = _prune_with_debug(
+                            state.messages,
+                            keep_last=_eff_prune_keep,
+                            token_cap=_eff_token_cap,
+                            last_k=_eff_truncate_last_k,
+                            debug=_prune_debug,
+                            reason="threshold",
+                            threshold=_eff_prune_after,
                         )
-                        if _prune_debug:
-                            logger.info(
-                                "Prune: reason=threshold pre=%d post=%d keep_last=%d threshold=%s",
-                                _pre,
-                                len(state.messages),
-                                int(_eff_prune_keep),
-                                "None" if _eff_prune_after is None else int(_eff_prune_after),
-                            )
                 except Exception:
                     pass
 
@@ -493,14 +587,13 @@ def build_iterative_agent(
                 ]
 
                 # Compute per-call timeout so we do not run past the budget
-                gen_timeout: int | None = None
-                if _time_limit is not None:
-                    _wall = clock() - start
-                    _rem = _time_limit - (
-                        (_wall - total_retry_time) if productive_time_enabled else _wall
-                    )
-                    remaining = int(_rem)
-                    gen_timeout = max(1, remaining) if remaining > 0 else 1
+                gen_timeout: int | None = _remaining_timeout(
+                    start,
+                    _time_limit,
+                    total_retry_time,
+                    productive_time_enabled,
+                    now=clock(),
+                )
 
                 length_overflow = False
                 try:
@@ -527,45 +620,17 @@ def build_iterative_agent(
 
                 # If model hit length limits, append a small hint and continue
                 if length_overflow or (getattr(state.output, "stop_reason", None) == "model_length"):
-                    state.messages.append(
-                        ChatMessageUser(
-                            content=(
-                                "Context too long; please summarize recent steps and continue."
-                            )
-                        )
-                    )
+                    _append_overflow_hint(state.messages)
                     # Apply pruning immediately after overflow to reduce context
                     try:
-                        if prune_messages:
-                            # Token-aware truncation first (if enabled)
-                            try:
-                                if truncate_conversation_tokens and _eff_token_cap is not None:
-                                    _pre_tokens = len(state.messages)
-                                    state.messages = truncate_conversation_tokens(
-                                        state.messages,
-                                        max_tokens_per_msg=int(_eff_token_cap),
-                                        last_k=int(_eff_truncate_last_k),
-                                    )
-                                    if _prune_debug:
-                                        logger.info(
-                                            "Truncate: reason=overflow size_pre=%d last_k=%d cap=%d",
-                                            _pre_tokens,
-                                            int(_eff_truncate_last_k),
-                                            int(_eff_token_cap),
-                                        )
-                            except Exception:
-                                pass
-                            _pre = len(state.messages)
-                            state.messages = prune_messages(
-                                state.messages, keep_last=_eff_prune_keep
-                            )
-                            if _prune_debug:
-                                logger.info(
-                                    "Prune: reason=overflow pre=%d post=%d keep_last=%d",
-                                    _pre,
-                                    len(state.messages),
-                                    int(_eff_prune_keep),
-                                )
+                        state.messages = _prune_with_debug(
+                            state.messages,
+                            keep_last=_eff_prune_keep,
+                            token_cap=_eff_token_cap,
+                            last_k=_eff_truncate_last_k,
+                            debug=_prune_debug,
+                            reason="overflow",
+                        )
                     except Exception:
                         pass
                     continue
@@ -575,15 +640,13 @@ def build_iterative_agent(
                 tool_calls = getattr(msg, "tool_calls", None) if msg else None
                 if tool_calls:
                     # Per‑call timeout equals remaining budget
-                    timeout_ctx = None
-                    if _time_limit is not None:
-                        _wall = clock() - start
-                        _rem = _time_limit - (
-                            (_wall - total_retry_time)
-                            if productive_time_enabled
-                            else _wall
-                        )
-                        timeout_ctx = max(1, int(_rem)) if _rem > 0 else 1
+                    timeout_ctx = _remaining_timeout(
+                        start,
+                        _time_limit,
+                        total_retry_time,
+                        productive_time_enabled,
+                        now=clock(),
+                    )
 
                     try:
                         # Helper to feature-detect max_output support at runtime.
