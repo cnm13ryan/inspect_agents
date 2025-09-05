@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Final
 
 import anyio
 
@@ -23,19 +22,7 @@ import anyio
 from .exceptions import ToolException
 
 # --- Truthy/Config helpers ----------------------------------------------------
-
-_TRUTHY_VALUES: Final[set[str]] = {"1", "true", "yes", "on"}
-
-
-def truthy(env_val: str | None) -> bool:
-    """Return True for common truthy string values.
-
-    Recognized values (case-insensitive): {"1", "true", "yes", "on"}.
-    """
-
-    if env_val is None:
-        return False
-    return env_val.strip().lower() in _TRUTHY_VALUES
+from .settings import truthy  # single source of truth
 
 
 def fs_mode() -> str:
