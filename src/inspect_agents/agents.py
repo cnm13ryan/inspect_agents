@@ -164,6 +164,7 @@ def build_iterative_agent(
     *,
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
+    code_only: bool = False,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
@@ -185,6 +186,7 @@ def build_iterative_agent(
     return _impl(
         prompt=prompt,
         tools=tools,
+        code_only=code_only,
         model=model,
         real_time_limit_sec=real_time_limit_sec,
         max_steps=max_steps,
