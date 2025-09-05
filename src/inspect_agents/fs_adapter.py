@@ -12,12 +12,10 @@ reusing helpers from inspect_agents.fs and upstream Inspect tools.
 from __future__ import annotations
 
 import shlex
-from typing import Optional
 
 import anyio
 
 from . import fs as _fs
-from .exceptions import ToolException
 
 
 class SandboxFsAdapter:
@@ -46,7 +44,7 @@ class SandboxFsAdapter:
         await _fs.deny_symlink(path)
 
     # --- Bash helpers ------------------------------------------------------
-    async def wc_bytes(self, path: str) -> Optional[int]:
+    async def wc_bytes(self, path: str) -> int | None:
         """Return file byte count via `wc -c` or None on any failure."""
         try:
             from inspect_ai.tool._tools._bash_session import bash_session

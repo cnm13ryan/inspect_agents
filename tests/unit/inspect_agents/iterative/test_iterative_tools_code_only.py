@@ -1,8 +1,6 @@
 import asyncio
+from collections.abc import Sequence
 from types import SimpleNamespace
-from typing import Any, Sequence
-
-import pytest
 
 from inspect_ai.agent._agent import AgentState
 from inspect_ai.model._chat_message import (

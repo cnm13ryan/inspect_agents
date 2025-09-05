@@ -50,8 +50,8 @@ def test_prune_messages_drops_orphan_tool_and_salvages_pair():
 def test_overflow_model_length_appends_hint_then_prunes(monkeypatch):
     from inspect_ai.agent._agent import AgentState
     from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageSystem, ChatMessageUser
-    from inspect_ai.model._model_output import ModelOutput
     from inspect_ai.model._model import Model
+    from inspect_ai.model._model_output import ModelOutput
 
     # Stub retry wrapper to simulate provider returning model_length with a small reply
     async def fake_generate_with_retry_time(model, *, input, tools, cache, config, **_):  # noqa: ARG001
@@ -117,8 +117,8 @@ def test_prune_history_drops_non_adjacent_tool(monkeypatch):
         ChatMessageTool,
         ChatMessageUser,
     )
-    from inspect_ai.model._model_output import ModelOutput
     from inspect_ai.model._model import Model
+    from inspect_ai.model._model_output import ModelOutput
 
     # Use a dummy model that returns a tiny assistant once so the loop runs
     class DummyModel(Model):

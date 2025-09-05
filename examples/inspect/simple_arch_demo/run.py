@@ -25,12 +25,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
 
-from inspect_agents.approval import activate_approval_policies, approval_preset
 from inspect_agents.agents import build_iterative_agent, build_supervisor
+from inspect_agents.approval import activate_approval_policies, approval_preset
 from inspect_agents.run import run_agent
-
 
 # --- Demo Environment & Memory Tools (example-local) -------------------------
 
@@ -55,7 +53,7 @@ class InMemoryTextEnv:
         self.log.clear()
         return f"Env: {self.description} (max_steps={self.max_steps}, stop='{self.stop_on}')"
 
-    def step(self, action: str) -> Tuple[str, bool]:
+    def step(self, action: str) -> tuple[str, bool]:
         self.steps += 1
         self.log.append(action)
         done = action.strip().lower() == self.stop_on.lower() or self.steps >= self.max_steps
@@ -88,7 +86,7 @@ def environment_tools(env: InMemoryTextEnv) -> list[Tool]:
 @dataclass
 class KVMemory:
     capacity: int = 256
-    data: Dict[str, str] = field(default_factory=dict)
+    data: dict[str, str] = field(default_factory=dict)
 
     def put(self, key: str, value: str) -> None:
         if len(self.data) >= self.capacity and key not in self.data:
