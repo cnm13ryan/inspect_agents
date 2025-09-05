@@ -4,13 +4,13 @@ Inspect task: Iterative Agent (no submit) — runs via `inspect eval`.
 Usage
 - uv run inspect eval examples/research/iterative_task.py \
     -T prompt="List files and propose a small refactor plan" \
-    -T time_limit=300 -T max_steps=30 -T enable_exec=true
+    -T time_limit=300 -T max_steps=30 -T enable_exec=true -T enable_web_search=true
 
 Notes
 - Optional tools are env-gated:
-  - enable exec:   set -T enable_exec=true (sets INSPECT_ENABLE_EXEC=1)
-  - enable search: export INSPECT_ENABLE_WEB_SEARCH=1 and provider keys; or use
-    repo examples that expose a research composition with web_search tools.
+  - enable exec:    set -T enable_exec=true (sets INSPECT_ENABLE_EXEC=1)
+  - enable search:  set -T enable_web_search=true (sets INSPECT_ENABLE_WEB_SEARCH=1; requires provider keys)
+    or use repo examples that expose a research composition with web_search tools.
 """
 
 from __future__ import annotations
