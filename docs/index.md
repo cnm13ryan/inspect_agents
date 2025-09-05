@@ -1,6 +1,6 @@
-# DeepAgents Documentation
+# Inspect Agents Documentation
 
-Welcome to the unified documentation site for DeepAgents. This site collects all project docs under `docs/` and presents them with MkDocs.
+Welcome to the unified documentation site for Inspect Agents. This site collects all project docs under `docs/` and presents them with MkDocs.
 
 ## Quick Links
 
@@ -14,7 +14,7 @@ Welcome to the unified documentation site for DeepAgents. This site collects all
 - ADRs: [Index](adr/README.md)
 - Open Questions: [Discussion Topics](design/open-questions.md)
 
-For a fuller section-by-section map of all docs, see the in-repo index at [docs/README.md](README.md).
+For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md).
 
 ## Acknowledgments
 
