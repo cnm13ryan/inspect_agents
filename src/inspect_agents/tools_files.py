@@ -152,45 +152,32 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
         args={"instance": params.instance},
     )
 
-    # Sandbox FS mode: use bash_session to run ls command
-    if _use_sandbox_fs() and await _ensure_sandbox_ready("bash session"):
-        try:
-            # Use the configured FS root for ls operation
-            root = _fs_root()
+    # Sandbox FS mode: use adapter to run ls via bash session
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("bash session"):
+            try:
+                root = _fs_root()
+                file_list = await adapter.ls(root)
 
-            import shlex
-
-            from inspect_ai.tool._tools._bash_session import bash_session
-
-            bash = bash_session()
-            # Properly escape the root path for shell execution
-            escaped_root = shlex.quote(root)
-            with anyio.fail_after(_default_tool_timeout()):
-                result = await bash(action="run", command=f"ls -1 {escaped_root}")
-                if result and hasattr(result, "stdout") and result.stdout:
-                    # Parse output into list, filtering empty lines
-                    file_list = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
-                else:
-                    file_list = []
-
-            if _use_typed_results():
+                if _use_typed_results():
+                    _log_tool_event(
+                        name="files:ls",
+                        phase="end",
+                        extra={"ok": True, "count": len(file_list)},
+                        t0=_t0,
+                    )
+                    return FileListResult(files=file_list)
                 _log_tool_event(
                     name="files:ls",
                     phase="end",
                     extra={"ok": True, "count": len(file_list)},
                     t0=_t0,
                 )
-                return FileListResult(files=file_list)
-            _log_tool_event(
-                name="files:ls",
-                phase="end",
-                extra={"ok": True, "count": len(file_list)},
-                t0=_t0,
-            )
-            return file_list
-        except Exception:
-            # Graceful fallback to store-backed mode
-            pass
+                return file_list
+            except Exception:
+                # Graceful fallback to store-backed mode
+                pass
 
     # Store-backed mode (in-memory Files store) with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
