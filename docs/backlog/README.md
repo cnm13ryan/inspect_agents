@@ -1,6 +1,6 @@
 # Backlog Index
 
-Last updated: 2025-09-04
+Last updated: 2025-09-05
 
 Curated index of all items under `docs/backlog/`, grouped for quick navigation. This index is non‑destructive: it does not move or rename files to avoid breaking links. Use it to find the right TODO quickly.
 
@@ -29,10 +29,10 @@ Note on status:
 ### Config & YAML — sorted by name
 - [Model Roles Map — Implementation Checklists](./TODO-model-roles-map.md)
 - [YAML Config — Add Role Mapping for Sub‑Agents](./todo_feature_yaml_subagent_role_mapping.md)
-- [YAML Limits — Parse and Return Inspect Limits](./todo_feature_yaml_limits_parser.md)
+- [YAML Limits — Parse and Return Inspect Limits](./todo_feature_yaml_limits_parser.md) — DONE.
 
 ### Filesystem Sandbox (ADR‑0004) — sorted by name
-- [Filesystem Sandbox — Enforce Read‑Only Mode Flag](./todo_feature_fs_readonly_flag.md)
+- [Filesystem Sandbox — Enforce Read‑Only Mode Flag](./todo_feature_fs_readonly_flag.md) — DONE.
 - [Docs Adjustments — Supervisor Tool Exposure & ADR 0004 Baseline](./todo_feature_readme_docs_updates.md)
 
 ### Iterative Agent & Pruning — sorted by name
@@ -57,6 +57,21 @@ Note on status:
 ### Epics & Misc
 - [Rewrite Epic](./rewrite/README.md)
 - [General Todos](./todos/README.md)
+
+### Bugs & Fixes — new
+- [run_agent: mutable default for limits](./todo_bug_run_mutable_limits_default.md)
+- [delete (sandbox): unify error code/message with docs](./todo_docs_delete_sandbox_error_alignment.md)
+- [read_file numbering: make sandbox/store formatting consistent](./todo_docs_read_file_line_numbering.md)
+
+### Tests & Coverage — new
+- [Observability: one‑time effective tool‑output limit log precedence + log‑once](./todo_obs_effective_tool_output_limit_tests.md)
+- [Model resolver: precedence + sentinel env cases](./todo_tests_model_resolver_precedence.md)
+- [Filters: default_input_filter cascade/inherit + scoped summary caps](./todo_tests_filters_quarantine_inherit.md)
+- [Iterative: pruning/truncation behaviors (overflow hint, keep_first/last, token cap)](./todo_tests_iterative_prune_truncate.md)
+
+### Docs Alignment — new
+- [YAML limits schema and examples: align docs with current parser](./todo_feature_yaml_limits_parser.md)
+- [Filesystem read‑only: expand docs and examples across how‑to + env ref](./todo_docs_fs_read_only_alignment.md)
 
 ## Overlaps / Duplicates
 - CI exclusivity for the research runner is tracked in both:
