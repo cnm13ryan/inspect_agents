@@ -300,20 +300,24 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                 # Enforce requested limit defensively in case sed stub ignores the range
                 if params.limit is not None and params.limit > 0:
                     lines = lines[: int(params.limit)]
-                formatted_lines, joined_output = _format_lines(lines, start_line, pad=True)
+                # Legacy string output uses padded numbering; typed results do not
+                padded_lines, joined_output = _format_lines(lines, start_line, pad=True)
 
                 if _use_typed_results():
+                    nopad_lines, _ = _format_lines(lines, start_line, pad=False)
                     _log_tool_event(
                         name="files:read",
                         phase="end",
-                        extra={"ok": True, "lines": len(formatted_lines)},
+                        extra={"ok": True, "lines": len(nopad_lines)},
                         t0=_t0,
                     )
                     return FileReadResult(
-                        lines=formatted_lines,
-                        summary=f"Read {len(formatted_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                        lines=nopad_lines,
+                        summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
                     )
-                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+                _log_tool_event(
+                    name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0
+                )
                 return joined_output
             except Exception:
                 # Graceful fallback to store-backed mode
@@ -368,18 +372,19 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     selected_lines = lines[start_idx:end_idx]
     # Format with correct line numbers starting from offset + 1
-    formatted_lines, joined_output = _format_lines(selected_lines, start_idx + 1, pad=True)
+    _padded, joined_output = _format_lines(selected_lines, start_idx + 1, pad=True)
 
     if _use_typed_results():
-        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+        nopad_lines, _ = _format_lines(selected_lines, start_idx + 1, pad=False)
+        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(nopad_lines)}, t0=_t0)
         return FileReadResult(
-            lines=formatted_lines,
+            lines=nopad_lines,
             summary=(
-                f"Read {len(formatted_lines)} lines from {params.file_path} "
-                f"(lines {start_idx + 1}-{start_idx + len(formatted_lines)})"
+                f"Read {len(nopad_lines)} lines from {params.file_path} "
+                f"(lines {start_idx + 1}-{start_idx + len(nopad_lines)})"
             ),
         )
-    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(selected_lines)}, t0=_t0)
     return joined_output
 
 
@@ -625,10 +630,8 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
             extra={"ok": False, "error": "SandboxUnsupported"},
             t0=_t0,
         )
-        raise ToolException(
-            "delete is disabled in sandbox mode; set INSPECT_AGENTS_FS_MODE=store "
-            "to delete from the in-memory Files store"
-        )
+        # Canonical short error code expected by tests/docs
+        raise ToolException("SandboxUnsupported")
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
@@ -709,7 +712,18 @@ def files_tool():  # -> Tool
             elif isinstance(command_params, EditParams):
                 return await execute_edit(command_params)
             elif isinstance(command_params, DeleteParams):
-                return await execute_delete(command_params)
+                try:
+                    return await execute_delete(command_params)
+                except ToolException as e:
+                    # For sandbox mode, rephrase the canonical code into a more
+                    # descriptive message for higher-level tool usage so tests
+                    # asserting human-readable text continue to pass.
+                    if str(e) == "SandboxUnsupported" or getattr(e, "message", "") == "SandboxUnsupported":
+                        raise ToolException(
+                            "delete is disabled in sandbox mode; set INSPECT_AGENTS_FS_MODE=store "
+                            "to delete from the in-memory Files store"
+                        )
+                    raise
             else:
                 raise ToolException(f"Unknown command type: {type(command_params)}")
 
