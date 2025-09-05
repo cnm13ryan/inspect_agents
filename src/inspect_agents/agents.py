@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # ruff: noqa: E402
-"""Supervisor agent (Inspect ReAct) for deepagents rewrite.
+"""Supervisor agent (Inspect ReAct) for Inspect Agents.
 
 Provides `build_supervisor()` which returns an Inspect `react` agent configured
 with a base prompt and built-in tools (todos + virtual FS). The agent terminates
@@ -11,7 +11,7 @@ via the default `submit()` tool provided by Inspect.
 from collections.abc import Sequence
 from typing import Any, NotRequired, TypedDict
 
-# Base prompt modeled after deepagents.base_prompt
+# Base prompt modeled after the legacy deepagents.base_prompt
 BASE_PROMPT_HEADER = (
     "You have access to a number of tools.\n\n"
 )

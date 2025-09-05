@@ -9,7 +9,7 @@ from inspect_agents.settings import truthy as _truthy  # centralized truthy
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
-    """Convert deepagents interrupt config to Inspect ApprovalPolicy list.
+    """Convert legacy deepagents-style interrupt config to Inspect policies.
 
     Mapping rules:
     - Keys = tool name or glob pattern.
@@ -19,7 +19,7 @@ def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
       - modified_args / modify_args: dict of new tool arguments when decision==modify
       - modified_function / modify_function: optional new tool function name when decision==modify
       - explanation: optional explanation string
-    - allow_ignore=True is unsupported and raises ValueError (parity with deepagents).
+    - allow_ignore=True is unsupported and raises ValueError (parity with legacy behavior).
     """
     from inspect_ai.approval._approval import Approval  # type: ignore
     try:

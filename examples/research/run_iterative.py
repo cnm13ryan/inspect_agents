@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run the deepagents Iterative Agent (no submit): small, time/step‑bounded steps.
+Run the Inspect Agents Iterative Agent (no submit): small, time/step‑bounded steps.
 
 Examples
 - Minimal:  uv run python examples/research/run_iterative.py "List repo files and summarize"

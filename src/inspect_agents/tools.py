@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # ruff: noqa: E402
-"""Inspect‑native tools for the deepagents rewrite.
+"""Inspect‑native tools for Inspect Agents.
 
 Currently includes:
 - write_todos: update the shared Todos list in the Store
@@ -444,7 +444,7 @@ def read_file():  # -> Tool
     DEPRECATED: Use files_tool() with command='read' instead.
     This is a backward-compatible wrapper.
 
-    Mirrors deepagents semantics: offset/limit by lines, per-line 2000-char truncation,
+    Mirrors legacy semantics: offset/limit by lines, per-line 2000-char truncation,
     and friendly error messages.
     """
     from inspect_ai.tool._tool import tool

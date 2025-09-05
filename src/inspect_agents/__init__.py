@@ -1,4 +1,4 @@
-"""Inspect-AI–native building blocks for deepagents rewrite.
+"""Inspect-AI–native building blocks for Inspect Agents.
 
 Exports lightweight state models backed by Inspect-AI's Store/StoreModel and
 agent builders (react supervisor and iterative supervisor).
