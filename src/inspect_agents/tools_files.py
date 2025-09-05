@@ -295,12 +295,12 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                     _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
                     return empty_message
 
-                # Format returned content (unpadded numbering in sandbox mode)
+                # Format returned content with padded numbering (match store mode)
                 lines = str(raw).splitlines()
                 # Enforce requested limit defensively in case sed stub ignores the range
                 if params.limit is not None and params.limit > 0:
                     lines = lines[: int(params.limit)]
-                formatted_lines, joined_output = _format_lines(lines, start_line, pad=False)
+                formatted_lines, joined_output = _format_lines(lines, start_line, pad=True)
 
                 if _use_typed_results():
                     _log_tool_event(
