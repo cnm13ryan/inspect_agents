@@ -1,18 +1,18 @@
-# deepagents
+# inspect_agents
 > Inspect-AI-native, CLI-first agents with typed state, tools, and rich traces.
 
 ![TODO: Project Logo or 10s Demo GIF – capture a terminal session running the one-line CLI quickstart below; crop to 1280×720; show the command, a short model completion, and the printed transcript path](TODO: add link)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/cnm13ryan/deepagents/ci.yml?branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/actions)
-[![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/deepagents/tests.yml?label=tests&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/cnm13ryan/deepagents?branch=inspect-ai-rewrite)](https://app.codecov.io/gh/cnm13ryan/deepagents)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/ci.yml?branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/tests.yml?label=tests&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/cnm13ryan/inspect_agents?branch=inspect-ai-rewrite)](https://app.codecov.io/gh/cnm13ryan/inspect_agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PyPI Version](https://img.shields.io/pypi/v/deepagents)](https://pypi.org/project/deepagents/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/deepagents)](https://pypi.org/project/deepagents/)
-[![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/deepagents/inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/commits/inspect-ai-rewrite)
+[![PyPI Version](https://img.shields.io/pypi/v/inspect-agents)](https://pypi.org/project/inspect-agents/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/inspect-agents)](https://pypi.org/project/inspect-agents/)
+[![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/inspect_agents/inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/commits/inspect-ai-rewrite)
 
-## Why deepagents?
-Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. deepagents removes the overhead with an Inspect-AI-native, CLI-first workflow: one command to run; typed state (todos/files); built-in tools; transcripts and traces by default. Ship in minutes, not days.
+## Why Inspect Agents?
+Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. Inspect Agents removes the overhead with an Inspect-AI-native, CLI-first workflow: one command to run; typed state (todos/files); built-in tools; transcripts and traces by default. Ship in minutes, not days.
 
 ## Key Features
 - ✅ **CLI-first**: One command to run an agent or eval with Inspect
