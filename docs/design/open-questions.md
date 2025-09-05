@@ -848,3 +848,25 @@ Context
 - Current state: `settings.py` exists; not yet surfaced in docs.
 - Actions: add an “Environment & Settings” section to `docs/reference/environment.md`; cross‑link from quickstart and approvals how‑to.
 - Exit criteria: docs updated; code snippets use `settings.*`.
+
+## 9) Deprecation signaling (warnings) for `_truthy`
+
+- Current state: `fs.py` now delegates `truthy` to `settings.truthy` and exports `_truthy = truthy` for compatibility. No deprecation warnings are emitted.
+- Why it matters: we want to encourage migration without introducing log noise or breaking tests that treat warnings as errors.
+- Options:
+  - A) Keep silent alias for one release; document removal timeline.
+  - B) Emit a `DeprecationWarning` once per process on first alias access; keep alias for N cycles.
+  - C) Gate warnings behind `INSPECT_SHOW_DEPRECATIONS=1` (opt‑in), keeping default runs quiet; switch to B next cycle.
+- Recommendation: C → B → removal. Start with opt‑in warnings this cycle, default warnings next, then remove alias in the following release.
+- Exit criteria: deprecation policy documented; env flag recognized; downstream repos migrate to `settings.truthy` or `fs.truthy`.
+
+## 10) Standardize `env_templates/configure.py` truthy semantics
+
+- Current state: configurator accepts `"y"/"Y"` in addition to the canonical set (`{"1","true","yes","on"}`) used by runtime parsing. Divergence is limited to this interactive script.
+- Why it matters: differences between template UX and runtime can confuse users reading docs/examples.
+- Options:
+  - A) Standardize now by importing `settings.truthy` (drop `"y"`).
+  - B) Keep `"y"` as an interactive convenience but document that runtime accepts only the canonical set; optionally rename helper to `ui_truthy` for clarity.
+  - C) Expand runtime `settings.truthy` to include `"y"` (cross‑cutting behavior change; not recommended this cycle).
+- Recommendation: B — keep the UX convenience localized to the configurator, add a short note in environment docs about the canonical runtime set.
+- Exit criteria: configurator helper renamed/commented; docs updated; no changes to runtime semantics.
