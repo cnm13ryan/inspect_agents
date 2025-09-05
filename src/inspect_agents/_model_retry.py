@@ -127,14 +127,19 @@ async def generate_with_retry_time(
     tools: list[object],
     cache: bool,
     config: Any,
-    # Optional knobs via env (provide as args if needed in future)
+    # Optional overrides for deterministic tests; when None, fall back to env
+    max_attempts: int | None = None,
+    initial_backoff_s: float | None = None,
+    max_backoff_s: float | None = None,
+    jitter_s: float | None = None,
     retry_predicate: Callable[[BaseException], bool] | None = None,
 ) -> tuple[Any, float]:
     """Call `model.generate(...)` with retries and report backoff time.
 
     Returns a tuple of (output, retry_sleep_seconds_accumulated).
 
-    Behavior is controlled by env vars:
+    Behavior is controlled by optional args and env vars:
+    - Optional args (if provided) take precedence over env.
     - INSPECT_RETRY_MAX_ATTEMPTS: max attempts including the first (default 6)
     - INSPECT_RETRY_INITIAL_SECONDS: initial backoff (default 1.0)
     - INSPECT_RETRY_MAX_SECONDS: cap on backoff (default 60.0)
@@ -144,10 +149,28 @@ async def generate_with_retry_time(
     returned backoff time from your loop accounting.
     """
 
-    max_attempts = max(1, _int_env("INSPECT_RETRY_MAX_ATTEMPTS", 6))
-    initial = max(0.0, _float_env("INSPECT_RETRY_INITIAL_SECONDS", 1.0))
-    wait_max = max(initial, _float_env("INSPECT_RETRY_MAX_SECONDS", 60.0))
-    jitter = max(0.0, _float_env("INSPECT_RETRY_JITTER", 0.0))
+    # Resolve each parameter: arg > env > default
+    max_attempts_val = (
+        max(1, int(max_attempts))
+        if max_attempts is not None
+        else max(1, _int_env("INSPECT_RETRY_MAX_ATTEMPTS", 6))
+    )
+    initial = (
+        max(0.0, float(initial_backoff_s))
+        if initial_backoff_s is not None
+        else max(0.0, _float_env("INSPECT_RETRY_INITIAL_SECONDS", 1.0))
+    )
+    env_max_backoff = max(initial, _float_env("INSPECT_RETRY_MAX_SECONDS", 60.0))
+    wait_max = (
+        max(initial, float(max_backoff_s))
+        if max_backoff_s is not None
+        else env_max_backoff
+    )
+    jitter = (
+        max(0.0, float(jitter_s))
+        if jitter_s is not None
+        else max(0.0, _float_env("INSPECT_RETRY_JITTER", 0.0))
+    )
 
     pred = retry_predicate or _default_retry_predicate
     retry_sleep_total = 0.0
@@ -166,7 +189,7 @@ async def generate_with_retry_time(
 
         @retry(
             wait=wait_exponential_jitter(initial=initial, max=wait_max, jitter=jitter),
-            stop=stop_after_attempt(max_attempts),
+            stop=stop_after_attempt(max_attempts_val),
             retry=retry_if_exception(pred),
             before_sleep=_before_sleep,
         )
@@ -183,7 +206,7 @@ async def generate_with_retry_time(
     attempts = 0
     delay = initial
     last_exc: BaseException | None = None
-    while attempts < max_attempts:
+    while attempts < max_attempts_val:
         try:
             return (
                 await _call_generate(model, input=input, tools=tools, cache=cache, config=config),
@@ -191,7 +214,7 @@ async def generate_with_retry_time(
             )
         except BaseException as ex:  # pragma: no cover - exercised only w/o tenacity
             last_exc = ex
-            if not pred(ex) or attempts + 1 >= max_attempts:
+            if not pred(ex) or attempts + 1 >= max_attempts_val:
                 raise
             await asyncio.sleep(delay)
             retry_sleep_total += float(delay)
@@ -204,4 +227,3 @@ async def generate_with_retry_time(
 
 
 __all__ = ["generate_with_retry_time", "RetryableGenerateError"]
-
