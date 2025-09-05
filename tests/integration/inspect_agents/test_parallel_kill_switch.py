@@ -132,7 +132,8 @@ def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog
     # Repo-local logger emits a skipped event for kill switch
     events = _parse_tool_events(caplog)
     skipped = [e for e in events if e.get("tool") == "parallel_kill_switch" and e.get("phase") == "skipped"]
-    assert skipped, "Expected at least one parallel_kill_switch skipped event"
+    # Exactly one subsequent call in this test, so exactly one skipped event
+    assert len(skipped) == 1, "Expected a single parallel_kill_switch skipped event"
 
     # Cleanup env
     monkeypatch.delenv("INSPECT_TOOL_PARALLELISM_DISABLE", raising=False)
