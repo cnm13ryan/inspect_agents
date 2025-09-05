@@ -23,6 +23,16 @@ This is the entry point for the Inspect Agents documentation. It organizes all e
 ## Design Notes
 - Inspect Agents Implementation Prompts: `./design/deepagents_implementation_prompts.md`
 
+## Examples
+- Simple Architecture Demo (conceptual scaffold wired via public APIs):
+  - Path: `examples/inspect/simple_arch_demo/run.py`
+  - Usage:
+    ```bash
+    uv run python -m examples.inspect.simple_arch_demo.run "Your task here"
+    # Optional approvals preset (dev):
+    uv run python -m examples.inspect.simple_arch_demo.run --dev-approvals "..."
+    ```
+
 ## Architectural Decisions (ADRs)
 - D0002 — Model Roles Map — Env‑Driven Resolution: `./adr/0002-model-roles-map.md`
 - D0003 — Supervisor Limits & Observability: `./adr/0003-supervisor-limits-and-observability.md`
@@ -62,4 +72,3 @@ Inspect‑AI Rewrite backlog: see `./backlog/rewrite/README.md` (index updated w
 - Aggregation pages (rewrite backlog index, todos index, docs Backlog section, STATUS.md) are updated by `scripts/sweep_status.py`.
   - CI should run: `python3 scripts/sweep_status.py` (check‑only) and fail on drift.
   - To reconcile locally, run: `python3 scripts/sweep_status.py --write` and commit the changes.
-

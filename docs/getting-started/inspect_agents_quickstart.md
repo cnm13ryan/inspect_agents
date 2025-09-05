@@ -105,6 +105,24 @@ print("Completion:", result.output.completion)
 print("Transcript log:", write_transcript())
 ```
 
+## Simple Architecture Demo (examples)
+
+A small, runnable demonstration of the conceptual simple architecture lives under `examples/inspect/simple_arch_demo/`. It composes only public surfaces from this repo (agent builders, approvals presets, tools) and defines two example tools (a toy environment and a key/value memory).
+
+Run it like this:
+
+```bash
+uv run python -m examples.inspect.simple_arch_demo.run "Research topic X"
+
+# Optional: enable development approvals (handoff exclusivity + parallel kill-switch)
+uv run python -m examples.inspect.simple_arch_demo.run --dev-approvals "Research topic X"
+
+# Switch agent style (default is supervisor)
+uv run python -m examples.inspect.simple_arch_demo.run --mode iterative "Refactor file Y"
+```
+
+Note: the example is not part of the library API and is excluded from tests; use it as a reference for composing agents with this framework.
+
 ### Sub-agent config (experimental)
 
 You can declare sub‑agent quarantine behavior in YAML via `context_scope` (strict|scoped) and `include_state_summary` (for scoped):
