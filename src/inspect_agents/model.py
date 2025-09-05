@@ -13,7 +13,7 @@ Rules (summary):
 - Prefer local (Ollama) by default: use `OLLAMA_MODEL_NAME` or a sensible default.
 - If a remote provider is selected, fail fast when required API keys are absent.
 
-Environment compatibility is aligned with the legacy deepagents behavior for the
+Environment compatibility aligns with the legacy DeepAgents behavior for the
 two common local paths (Ollama, LM Studio) while returning Inspect-style model
 strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 """

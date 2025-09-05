@@ -96,10 +96,11 @@ def create_deep_agent(
     attempts: int = 1,
     truncation: str = "disabled",
 ) -> object:
-    """Drop-in deepagents-style constructor backed by Inspect.
+    """Drop-in constructor with deepagents-style compatibility (backed by Inspect).
 
-    Maps the familiar deepagents surface to Inspect's ReAct agent, sub-agents,
-    and optional approval policies. Unused params are accepted for parity.
+    Maps the familiar legacy deepagents surface to Inspect's ReAct agent,
+    sub-agents, and optional approval policies. Unused params are accepted for
+    parity.
     """
     from inspect_ai.agent._agent import agent as as_agent
     from inspect_ai.agent._react import react

@@ -1,4 +1,4 @@
-"""Iterative agent (ReAct-style stepper) for deepagents.
+"""Iterative agent (ReAct-style stepper) for Inspect Agents.
 
 This mirrors the "iterative" concept from PaperBench's basic_agent_iterative:
 
