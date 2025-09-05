@@ -438,27 +438,23 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
     summary = f"Updated file {params.file_path}"
 
-    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
-        # Validate path is within configured root first (before try block to prevent fallback)
-        validated_path = _validate_sandbox_path(params.file_path)
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("editor"):
+            # Validate path is within configured root and deny symlinks
+            validated_path = adapter.validate(params.file_path)
+            await adapter.deny_symlink(validated_path)
 
-        # Deny symlinks for security
-        await _deny_symlink(validated_path)
+            try:
+                await adapter.create(validated_path, params.content)
 
-        try:
-            from inspect_ai.tool._tools._text_editor import text_editor
-
-            editor = text_editor()
-            with anyio.fail_after(_default_tool_timeout()):
-                await editor(command="create", path=validated_path, file_text=params.content)
-
-            if _use_typed_results():
+                if _use_typed_results():
+                    _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
+                    return FileWriteResult(path=params.file_path, summary=summary + " (sandbox mode)")
                 _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-                return FileWriteResult(path=params.file_path, summary=summary + " (sandbox mode)")
-            _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-            return summary
-        except Exception:
-            pass
+                return summary
+            except Exception:
+                pass
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
