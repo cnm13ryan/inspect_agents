@@ -1,4 +1,4 @@
-# DeepAgents Test Guides
+# Inspect Agents Test Guides
 
 Central index of testing guides for this repository. Tests default to offline, fast, and deterministic runs.
 

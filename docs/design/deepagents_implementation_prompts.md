@@ -1,4 +1,4 @@
-# DeepAgents Implementation Prompts
+# Inspect Agents Implementation Prompts
 
 ## done 5.1 Context Quarantine Implementation (via Filters + StoreModel)
 
