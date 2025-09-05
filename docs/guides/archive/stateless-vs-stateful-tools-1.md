@@ -31,7 +31,7 @@ For MCP servers specifically, stateful servers require persistent connections to
 The distinction is particularly important when using Model Context Protocol (MCP) servers, as it determines whether you need persistent connections to maintain server state across tool calls. The inspect_ai framework provides built-in support for both patterns through different connection management strategies.
 
 Wiki pages you might want to explore:
-- [Agents and Tools (UKGovernmentBEIS/inspect_ai)](/wiki/UKGovernmentBEIS/inspect_ai#5)
+- [Agents and Tools (UKGovernmentBEIS/inspect_ai)](https://github.com/UKGovernmentBEIS/inspect_ai/wiki)
 
 ---
 
@@ -77,4 +77,4 @@ Both stateless and stateful tools must provide proper type annotations for param
 The choice between stateless and stateful design significantly impacts tool complexity, error handling, and parallel execution capabilities. Stateless tools are generally preferred for their simplicity and reliability, while stateful tools are necessary when you need to maintain context across multiple invocations, such as with interactive sessions or cumulative operations.
 
 Wiki pages you might want to explore:
-- [Model System (UKGovernmentBEIS/inspect_ai)](/wiki/UKGovernmentBEIS/inspect_ai#3)
+- [Model System (UKGovernmentBEIS/inspect_ai)](https://github.com/UKGovernmentBEIS/inspect_ai/wiki)
