@@ -36,6 +36,15 @@ Proposed Direction
 Decision Needed
 - Approve switching `fs.py` to `from inspect_agents.exceptions import ToolException`.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `fs.py` imports `ToolException` from the centralized exceptions module, ensuring a single exception type across modules.
+**Evidence**: See `src/inspect_agents/fs.py` (imports `from .exceptions import ToolException`).
+**Conclusion**: Option A is implemented (centralized exceptions). This item can be marked resolved.
+
+</details>
+
 ### Q2 — Logging Path for Preflight Warnings
 
 Question
@@ -56,6 +65,15 @@ Proposed Direction
 
 Decision Needed
 - Confirm whether parity via observability hook is required now.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `ensure_sandbox_ready()` logs a structured JSON payload via the module logger (not `observability.log_tool_event`).
+**Evidence**: `src/inspect_agents/fs.py` — in the preflight failure path, emits `logger.info("tool_event %s", json.dumps(payload, ...))` with fields `{tool:"files:sandbox_preflight", phase:"warn", ok:false, ...}`.
+**Conclusion**: Option B is in effect (local JSON logging with identical fields). No parity hook is used.
+
+</details>
 
 ### Q3 — Public vs Underscore API Names
 
@@ -78,6 +96,15 @@ Proposed Direction
 Decision Needed
 - Approve deprecation timeline for underscore aliases.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Public helpers exist alongside underscore aliases for back‑compat.
+**Evidence**: `src/inspect_agents/fs.py` exports both public helpers and underscore alias names (e.g., `_truthy = truthy`, `_fs_mode = fs_mode`, `_use_sandbox_fs = use_sandbox_fs`).
+**Conclusion**: Option A (keep both) is implemented. A formal deprecation timeline is not yet encoded in code/docs (timeline decision remains optional).
+
+</details>
+
 ### Q4 — Duplicate Code Cleanup in `tools_files.py`
 
 Question
@@ -85,6 +112,15 @@ Question
 
 Background
 - `tools_files.py` currently overrides local helpers with `fs` bindings to ensure centralized behavior without removing code blocks yet.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `tools_files.py` now directly binds to `inspect_agents.fs` helpers and no longer carries duplicate local implementations of those helpers.
+**Evidence**: `src/inspect_agents/tools_files.py` adopts `fs` helpers via assignments (e.g., `reset_sandbox_preflight_cache = _fs.reset_sandbox_preflight_cache`, `_ensure_sandbox_ready = _fs.ensure_sandbox_ready`, etc.).
+**Conclusion**: Option A (delete shadowed helper bodies / keep only aliases) is effectively complete.
+
+</details>
 
 Options
 - A) Delete shadowed helper bodies now (small, targeted diff) and keep only the alias assignments.
@@ -120,6 +156,15 @@ Proposed Direction
 Decision Needed
 - Approve migration of `tools.py` to `fs` helpers.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: `src/inspect_agents/tools.py` still defines `_fs_mode()` / `_use_sandbox_fs()` locally and does not import these from `fs`.
+**Evidence**: `src/inspect_agents/tools.py` shows local implementations for FS mode helpers.
+**Conclusion**: Migration not yet applied; proceed with Option A when ready to remove duplication.
+
+</details>
+
 ### Q6 — Unit Tests for `fs.py`
 
 Question
@@ -141,6 +186,15 @@ Proposed Direction
 Decision Needed
 - Approve adding an `fs` test module in the next change.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Dedicated unit tests for `fs` behavior exist (preflight `skip/force/auto` + TTL, logging context).
+**Evidence**: `tests/unit/inspect_agents/fs/test_sandbox_preflight_modes.py` exercises `_ensure_sandbox_ready` and `reset_sandbox_preflight_cache()` across modes with log assertions.
+**Conclusion**: Tests are already in place; this item can be marked complete.
+
+</details>
+
 ### Q7 — Documentation Updates
 
 Question
@@ -159,6 +213,15 @@ Trade‑offs
 Proposed Direction
 - A. Add a short “Design Note” in Filesystem How‑To and Reference pages linking to this section.
 
+<details>
+<summary>✅ Answer Found in Implementation (Docs Updated)</summary>
+
+**Finding**: Filesystem behavior and knobs are documented in How‑To and Reference pages, including sandbox routing, preflight, delete policy, and read‑only mode.
+**Evidence**: `docs/how-to/filesystem.md` (Routing, Preflight, Delete Policy, Size/Timeouts); `docs/reference/environment.md` (FS env flags, including `INSPECT_AGENTS_FS_READ_ONLY`).
+**Conclusion**: Documentation reflects the consolidated FS design. A brief cross‑link/“Design Note” back to this section can be added later but is not a blocker.
+
+</details>
+
 Decision Needed
 - Approve doc updates in the next doc PR.
 
@@ -176,6 +239,15 @@ Open Points
 
 Next Steps
 - Finalize error/message contract and add tests covering ls/read allowed and write/edit/delete denied with correct logs/fields.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Read‑only behavior is implemented behind `INSPECT_AGENTS_FS_READ_ONLY=1` for sandbox mode. Write/edit/delete return a `ToolException("SandboxReadOnly")` and emit `tool_event` with `error: "SandboxReadOnly"`; ls/read remain allowed.
+**Evidence**: `src/inspect_agents/tools_files.py` (guards in `execute_write`, `execute_edit`, `execute_delete`); tests in `tests/unit/inspect_agents/fs/test_fs_sandbox_readonly.py` assert exception text and log payloads.
+**Conclusion**: The chosen taxonomy/message and observability shape are implemented and tested.
+
+</details>
 
 #
 # Open Questions — Side‑Effect Tool Application Helper (Migration)
@@ -206,6 +278,15 @@ Recommendation
 Acceptance Criteria
 - Decide visibility and reflect it in `__all__`, docs, and tests.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `_apply_side_effect_calls` remains private; only `create_deep_agent` is exported.
+**Evidence**: `src/inspect_agents/migration.py` defines `_apply_side_effect_calls(...)`; `__all__ = ["create_deep_agent"]`.
+**Conclusion**: Private visibility chosen (status quo).
+
+</details>
+
 ### Q2 — Helper Location (module placement)
 
 Question
@@ -219,6 +300,15 @@ Recommendation
 
 Acceptance Criteria
 - Confirm location; if moved, update imports and docs.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: The helper remains in `migration.py`.
+**Evidence**: `src/inspect_agents/migration.py` contains the helper and its caller; no separate module exists.
+**Conclusion**: Keep-in-place option selected.
+
+</details>
 
 ### Q3 — Fallback Scope (which tools to mirror)
 
@@ -234,6 +324,15 @@ Recommendation
 Acceptance Criteria
 - Enumerate tools to mirror, add tests, and document rationale.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Fallback mirrors only `write_file` and `write_todos` side‑effects.
+**Evidence**: `src/inspect_agents/migration.py` fallback branch updates `Files.put_file(...)` and `Todos.set_todos(...)`; no other tools are mirrored.
+**Conclusion**: Minimal scope retained (as recommended).
+
+</details>
+
 ### Q4 — API Shape and Typing
 
 Question
@@ -248,6 +347,15 @@ Recommendation
 Acceptance Criteria
 - Decide typing strictness; if tightened, update annotations and add type‑focused tests.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Dynamic typing is used (`list[Any]`, `Sequence[object]`); no strict typed API introduced.
+**Evidence**: `src/inspect_agents/migration.py` signatures for the helper and builder.
+**Conclusion**: Keep dynamic typing (status quo).
+
+</details>
+
 ### Q5 — Error Reporting and Observability
 
 Question
@@ -258,6 +366,15 @@ Recommendation
 
 Acceptance Criteria
 - Define log fields/levels; add a test asserting a log entry in failure/fallback paths.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The helper swallows exceptions and does not emit debug logs when replay fails or fallbacks apply.
+**Evidence**: `src/inspect_agents/migration.py` wraps failures in `try/except` without logging.
+**Conclusion**: Decision pending on adding debug‑level logs and corresponding tests.
+
+</details>
 
 ### Q6 — Approvals and Policy Interplay
 
@@ -274,6 +391,15 @@ Recommendation
 Acceptance Criteria
 - Specify allowed fallback conditions; add tests simulating approval denials to ensure no Store mutation occurs.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Fallbacks do not currently distinguish approval denials from other failures.
+**Evidence**: `src/inspect_agents/migration.py` applies fallbacks whenever `execute_tools` path does not complete, with no policy check.
+**Conclusion**: Decision pending on making fallbacks policy‑aware.
+
+</details>
+
 ### Q7 — Idempotency and Double‑Application
 
 Question
@@ -284,6 +410,15 @@ Recommendation
 
 Acceptance Criteria
 - Implement a success check and add tests to cover both branches.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The helper does not verify tool execution success before applying fallbacks, risking double application.
+**Evidence**: `src/inspect_agents/migration.py` does not inspect returned tool messages/results prior to fallbacks.
+**Conclusion**: Add a success/side‑effect detection to prevent double‑apply.
+
+</details>
 
 ### Q8 — Instance Scoping for Store Models
 
@@ -299,6 +434,15 @@ Recommendation
 Acceptance Criteria
 - Decide scoping; if parameterized, update callers and tests.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Fallbacks write to default Store instances; no per‑agent instance parameter is plumbed.
+**Evidence**: `src/inspect_agents/migration.py` uses `store_as(Files)` / `store_as(Todos)` without `instance`.
+**Conclusion**: Decision pending on scoping behavior.
+
+</details>
+
 ### Q9 — Limits and Large Content
 
 Question
@@ -309,6 +453,15 @@ Recommendation
 
 Acceptance Criteria
 - Define the limit and behavior on exceed (clip vs. error); add tests.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Fallback writes do not enforce size ceilings comparable to tool paths.
+**Evidence**: `src/inspect_agents/migration.py` fallbacks call `Files.put_file(...)` and `Todos.set_todos(...)` without size checks; tool paths enforce byte limits.
+**Conclusion**: Decide on limits for fallbacks and implement.
+
+</details>
 
 ### Q10 — Test Coverage Extensions
 
@@ -343,6 +496,15 @@ Proposed Direction
 Decision Needed
 - Approve adding a supervisor subsection to the Iterative Agent reference.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No "Supervisor Runner" subsection is present in the Iterative Agent reference.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` focuses on iterative runners; supervisor flags are documented elsewhere.
+**Conclusion**: Proceed per Proposed Direction (add compact subsection) or defer.
+
+</details>
+
 ### Q2 — Docs Placement (Getting Started vs Reference)
 
 Question
@@ -363,6 +525,15 @@ Proposed Direction
 
 Decision Needed
 - Approve adding the Getting Started card and link.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Getting Started does not yet include an iterative quick‑start card; examples link to the reference.
+**Evidence**: `docs/getting-started/inspect_agents_quickstart.md` focuses on supervisor/FS/approvals; iterative quick‑start not present.
+**Conclusion**: Add a minimal iterative snippet and link, if desired.
+
+</details>
 
 ### Q3 — Default Budgets (Time/Steps)
 
