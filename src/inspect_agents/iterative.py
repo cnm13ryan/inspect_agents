@@ -276,15 +276,7 @@ def build_iterative_agent(
         active_generate_config = None  # type: ignore
         set_active_generate_config = None  # type: ignore
     from inspect_ai.model._model import get_model
-    # Lightweight, provider-agnostic pruning
-    try:
-        from ._conversation import (
-            prune_messages,
-            truncate_conversation_tokens,
-        )
-    except Exception:  # pragma: no cover - fallback if module unavailable
-        prune_messages = None  # type: ignore
-        truncate_conversation_tokens = None  # type: ignore
+    # Lightweight, provider-agnostic pruning already imported above
 
     sys_message = prompt or _default_system_message(code_only=code_only)
     step_nudge = continue_message or _default_continue_message()
