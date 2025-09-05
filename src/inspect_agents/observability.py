@@ -11,6 +11,9 @@ from typing import Any
 # Local defaults (env-configurable)
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
 
+# One-time emission guard for effective tool-output limit log
+_EFFECTIVE_LIMIT_LOGGED = False
+
 
 def _parse_int(env_val: str | None) -> int | None:
     try:
@@ -34,21 +37,12 @@ def maybe_emit_effective_tool_output_limit_log() -> None:
     - Logs a one-time `tool_event` with fields:
         { tool: "observability", phase: "info",
           effective_tool_output_limit: <int>, source: "env"|"default" }
-    - One-time behavior is coordinated via `inspect_agents.tools._EFFECTIVE_LIMIT_LOGGED`
-      when available to preserve test reset hooks; otherwise, a local fallback is used.
+    - One-time behavior is coordinated entirely within this module to avoid
+      cross-module import coupling with tools.
     """
-    # Coordinate one-time behavior through tools module if available
-    tmod = None
-    try:
-        import inspect_agents.tools as _tmod  # type: ignore
-
-        tmod = _tmod
-        if getattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", False):
-            return
-    except Exception:
-        # Local fallback flag when tools module isn't imported yet
-        if getattr(maybe_emit_effective_tool_output_limit_log, "_logged", False):  # type: ignore[attr-defined]
-            return
+    global _EFFECTIVE_LIMIT_LOGGED
+    if _EFFECTIVE_LIMIT_LOGGED:
+        return
 
     env_raw = os.getenv("INSPECT_MAX_TOOL_OUTPUT")
     env_limit = _parse_int(env_raw)
@@ -101,14 +95,8 @@ def maybe_emit_effective_tool_output_limit_log() -> None:
             {"tool": "observability", "phase": "info", "effective_tool_output_limit": effective, "source": source},
         )
 
-    # Mark as logged
-    if tmod is not None:
-        try:
-            setattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", True)
-        except Exception:
-            pass
-    else:
-        setattr(maybe_emit_effective_tool_output_limit_log, "_logged", True)  # type: ignore[attr-defined]
+    # Mark as logged within this module only
+    _EFFECTIVE_LIMIT_LOGGED = True
 
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
@@ -196,4 +184,3 @@ def log_tool_event(
         logger.info("tool_event %s", {k: ("[obj]" if k == "args" else v) for k, v in data.items()})
 
     return now if phase == "start" else (t0 or now)
-
