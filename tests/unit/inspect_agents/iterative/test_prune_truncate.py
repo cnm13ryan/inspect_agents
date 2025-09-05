@@ -105,3 +105,51 @@ def test_overflow_model_length_appends_hint_then_prunes(monkeypatch):
 
 
 # (adjacency behavior tested in a separate commit)
+
+
+@pytest.mark.truncation
+def test_prune_history_drops_non_adjacent_tool(monkeypatch):
+    """_prune_history keeps first system+user and drops tool not adjacent to assistant."""
+    from inspect_ai.agent._agent import AgentState
+    from inspect_ai.model._chat_message import (
+        ChatMessageAssistant,
+        ChatMessageSystem,
+        ChatMessageTool,
+        ChatMessageUser,
+    )
+    from inspect_ai.model._model_output import ModelOutput
+    from inspect_ai.model._model import Model
+
+    # Use a dummy model that returns a tiny assistant once so the loop runs
+    class DummyModel(Model):
+        async def generate(self, input, tools, config, cache: bool = False):  # noqa: ARG002
+            return ModelOutput.from_message(
+                ChatMessageAssistant(content="ok", source="generate")
+            )
+
+    agent = build_iterative_agent(
+        model=DummyModel.__new__(DummyModel),
+        max_steps=1,
+        max_turns=2,  # enable _prune_history windowing
+        prune_after_messages=None,  # disable threshold prune to isolate _prune_history
+        per_msg_token_cap=None,
+    )
+
+    # Tail has: user, assistant, user, tool (tool is not adjacent to assistant)
+    msgs = [
+        ChatMessageSystem(content="sys"),
+        ChatMessageUser(content="u0"),
+        ChatMessageUser(content="u1"),
+        ChatMessageAssistant(content="a1"),
+        ChatMessageUser(content="u2"),  # breaks adjacency
+        ChatMessageTool(content="t1", tool_call_id="xyz"),
+    ]
+    state = AgentState(messages=msgs)
+
+    new_state = asyncio.run(agent(state))
+
+    # Expect first system+user preserved; tool not adjacent to assistant is dropped
+    roles = [m.__class__.__name__ for m in new_state.messages]
+    assert roles[0] == "ChatMessageSystem"
+    assert any(r == "ChatMessageUser" for r in roles[:2])
+    assert all(not isinstance(m, ChatMessageTool) for m in new_state.messages)
