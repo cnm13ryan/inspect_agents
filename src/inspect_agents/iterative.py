@@ -158,22 +158,26 @@ def _prune_with_debug(
 
     return messages
 
-def _base_tools() -> list[object]:
-    """Return a minimal toolset: Files tools + optional exec if enabled.
+def _base_tools(*, code_only: bool = False) -> list[object]:
+    """Return base toolset for the iterative agent.
 
-    We reuse our project tools to remain sandbox‑safe by default. Execution
-    tools can be enabled via INSPECT_ENABLE_EXEC=1, which is honored by
-    `standard_tools()`.
+    - Always include Files tools (write/read/ls/edit).
+    - When `code_only=True`, exclude all "standard" tools (think, exec, search,
+      browser, etc.) regardless of environment flags.
+    - When `code_only=False` (default), append tools from `standard_tools()`
+      based on env toggles.
     """
     from .tools import edit_file, ls, read_file, standard_tools, write_file
 
-    # Core FS tools are always available; append any enabled standard tools
-    # (think, web_search, bash/python when INSPECT_ENABLE_EXEC=1, etc.).
-    return [write_file(), read_file(), ls(), edit_file()] + standard_tools()
+    fs_tools = [write_file(), read_file(), ls(), edit_file()]
+    if code_only:
+        return fs_tools
+    # Core FS tools + any enabled standard tools (think, web_search, exec, etc.)
+    return fs_tools + standard_tools()
 
 
-def _default_system_message() -> str:
-    return (
+def _default_system_message(*, code_only: bool = False) -> str:
+    base = (
         "You are an iterative coding agent.\n"
         "- Work in small, verifiable steps (one tool call per message).\n"
         "- Read or edit files as needed; keep the repo tidy and reproducible.\n"
@@ -181,6 +185,12 @@ def _default_system_message() -> str:
         "- If a step requires execution, use bash responsibly and capture outputs.\n"
         "- Continue improving until time is up or explicit stop.\n"
     )
+    if code_only:
+        base += (
+            "- Code-only mode: no exec/search/browser tools are available; "
+            "prefer read/edit file tools.\n"
+        )
+    return base
 
 
 def _default_continue_message() -> str:
@@ -194,6 +204,7 @@ def build_iterative_agent(
     *,
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
+    code_only: bool = False,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
@@ -275,9 +286,9 @@ def build_iterative_agent(
         prune_messages = None  # type: ignore
         truncate_conversation_tokens = None  # type: ignore
 
-    sys_message = prompt or _default_system_message()
+    sys_message = prompt or _default_system_message(code_only=code_only)
     step_nudge = continue_message or _default_continue_message()
-    active_tools = list(tools or _base_tools())
+    active_tools = list(tools or _base_tools(code_only=code_only))
 
     @agent(name="iterative_supervisor")
     def _iterative() -> Any:
