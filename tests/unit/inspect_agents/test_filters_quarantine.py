@@ -60,3 +60,41 @@ async def test_per_agent_override_scoped_adds_summary_and_records_mode(monkeypat
 
     # The chosen mode should be recorded into the Store for inheritance
     assert store().get(ACTIVE_INPUT_FILTER_KEY) == "scoped"
+
+
+@pytest.mark.asyncio
+async def test_inherit_strict_mode_from_store_when_enabled(monkeypatch):
+    """When inheritance is enabled, a pre-set store mode should cascade.
+
+    - Pre-seed Store with ACTIVE_INPUT_FILTER_KEY="strict"
+    - Global env is "off" to prove inheritance takes precedence
+    - Result should be strictly filtered to the last user message
+    - Active mode remains recorded as "strict"
+    """
+    _fresh_store()
+    monkeypatch.setenv("INSPECT_QUARANTINE_INHERIT", "1")
+    monkeypatch.setenv("INSPECT_QUARANTINE_MODE", "off")
+
+    # Pre-seed parent mode in the Store
+    store().set(ACTIVE_INPUT_FILTER_KEY, "strict")
+
+    # Build messages including assistant with tool_calls (should be stripped)
+    from inspect_ai.model._chat_message import ChatMessageAssistant
+    from inspect_ai.tool import ToolCall
+
+    messages = [
+        ChatMessageSystem(content="sys"),
+        ChatMessageUser(content="one"),
+        ChatMessageAssistant(content="tooly", tool_calls=[ToolCall(id="a", function="x", arguments={})]),
+        ChatMessageUser(content="final"),
+    ]
+
+    filt = default_input_filter("child")
+    result = await filt(messages)
+
+    # Strict filter yields only the last message (content-only)
+    assert len(result) == 1
+    assert isinstance(result[0], ChatMessageUser)
+    assert result[0].text == "final"
+    # Mode remains recorded
+    assert store().get(ACTIVE_INPUT_FILTER_KEY) == "strict"
