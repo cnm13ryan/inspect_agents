@@ -1,10 +1,8 @@
-import asyncio
 import json
 
 import pytest
-
-from inspect_ai.util._store import Store, init_subtask_store, store
 from inspect_ai.model._chat_message import ChatMessageSystem, ChatMessageUser
+from inspect_ai.util._store import Store, init_subtask_store, store
 
 from inspect_agents.filters import (
     ACTIVE_INPUT_FILTER_KEY,
@@ -109,7 +107,7 @@ async def test_scoped_summary_caps_trim_bytes_todos_files(monkeypatch, caplog):
     - Verify JSON summary reflects caps and final size <= byte cap
     - Optionally assert a trimming log line is emitted
     """
-    s = _fresh_store()
+    _fresh_store()
     # Force scoped via per-agent override
     monkeypatch.setenv("INSPECT_QUARANTINE_MODE__researcher", "scoped")
     monkeypatch.setenv("INSPECT_QUARANTINE_MODE", "strict")
@@ -120,7 +118,8 @@ async def test_scoped_summary_caps_trim_bytes_todos_files(monkeypatch, caplog):
 
     # Seed store models with oversized data
     from inspect_ai.util._store_model import store_as
-    from inspect_agents.state import Todo, Todos, Files
+
+    from inspect_agents.state import Files, Todo, Todos
 
     todos_model = store_as(Todos)
     files_model = store_as(Files)
