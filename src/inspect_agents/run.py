@@ -7,7 +7,7 @@ async def run_agent(
     agent: Any,
     input: str | list[Any],
     approval: list[Any] | None = None,
-    limits: list[Any] = [],
+    limits: list[Any] | None = None,
     return_limit_error: bool = False,
     raise_on_limit: bool = False,
 ):
@@ -23,6 +23,10 @@ async def run_agent(
 
     This preserves backward compatibility when both flags are left as False.
     """
+    # Normalize optional args to avoid mutable default pitfalls
+    # (ensure each call gets its own list instance)
+    limits = [] if limits is None else limits
+
     if approval:
         try:
             from inspect_ai.approval._apply import init_tool_approval  # type: ignore
