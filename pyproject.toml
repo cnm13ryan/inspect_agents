@@ -31,8 +31,8 @@ Issues = "https://github.com/cnm13ryan/inspect_agents/issues"
 
 # Development tools - pinned versions for reproducible CI/CD
 dev = [
-    # Linting and formatting
-    "ruff==0.12.11",
+    # Linting and formatting - allow flexibility for workspace compatibility
+    "ruff>=0.9.6,<0.13.0",
     # Type checking
     "pyright==1.1.401",
     # Git hooks
@@ -170,6 +170,14 @@ environments = [
     "sys_platform == 'linux' and python_version >= '3.12'",
     "sys_platform == 'darwin' and python_version >= '3.12'",
 ]
+
+[tool.uv.workspace]
+members = [
+    "external/inspect_ai",
+]
+
+[tool.uv.sources]
+inspect-ai = { workspace = true }
 
 [build-system]
 requires = ["pdm-backend>=2.4.4"]
