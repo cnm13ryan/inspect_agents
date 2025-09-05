@@ -9,9 +9,10 @@ async def test_effective_limit_log_with_env(caplog, monkeypatch):
     # Ensure fresh state for one-time logger and active config
     from inspect_ai.model._generate_config import GenerateConfig, set_active_generate_config
 
-    import inspect_agents.tools as tmod
+    import inspect_agents.observability as obs
 
-    monkeypatch.setattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
+    # Reset observability's one-time flag locally (decoupled from tools)
+    monkeypatch.setattr(obs, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
     set_active_generate_config(GenerateConfig())
 
     # Apply env override
@@ -53,9 +54,10 @@ async def test_effective_limit_log_default_when_no_env(caplog, monkeypatch):
         set_active_generate_config,
     )
 
-    import inspect_agents.tools as tmod
+    import inspect_agents.observability as obs
 
-    monkeypatch.setattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
+    # Reset observability's one-time flag locally (decoupled from tools)
+    monkeypatch.setattr(obs, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
     set_active_generate_config(GenerateConfig())
 
     # Ensure env is unset
@@ -90,4 +92,3 @@ async def test_effective_limit_log_default_when_no_env(caplog, monkeypatch):
 
     assert obs[0].get("effective_tool_output_limit") == expected
     assert obs[0].get("source") == "default"
-
