@@ -1,7 +1,7 @@
-site_name: DeepAgents
+site_name: Inspect Agents
 site_description: Inspect-AI–based agents and tools
-site_url: https://cnm13ryan.github.io/deepagents
-repo_url: https://github.com/cnm13ryan/deepagents
+site_url: https://cnm13ryan.github.io/inspect_agents
+repo_url: https://github.com/cnm13ryan/inspect_agents
 docs_dir: docs
 edit_uri: edit/main/docs/
 
@@ -68,7 +68,7 @@ nav:
       - D0004 — Filesystem Sandbox Guardrails: adr/0004-filesystem-sandbox-guardrails.md
       - D0004 — Tool Output Truncation Defaults: adr/0004-tool-output-truncation.md
       - D0005 — Tool Parallelism Policy: adr/0005-tool-parallelism-policy.md
-  - Docs Index: README.md
+  - Docs Index: DOCS_INDEX.md
   - Backlog:
       - Rewrite Backlog: backlog/rewrite/README.md
       - Todos Index: backlog/todos/README.md
