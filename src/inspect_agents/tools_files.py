@@ -17,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 from . import fs as _fs
 from .exceptions import ToolException
+from .fs_adapter import get_default_adapter as _get_sandbox_adapter
 from .observability import log_tool_event as _log_tool_event
 from .settings import (
     typed_results_enabled as _use_typed_results,
@@ -264,78 +265,50 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     empty_message = "System reminder: File exists but has empty contents"
 
-    # Sandbox FS mode: call text_editor('view', ...) then format lines
-    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
-        # Validate path is within configured root first (before try block to prevent fallback)
-        validated_path = _validate_sandbox_path(params.file_path)
+    # Sandbox FS mode: delegate to adapter (text_editor/sed) then format lines
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("editor"):
+            # Validate path and deny symlinks before attempting IO
+            validated_path = adapter.validate(params.file_path)
+            await adapter.deny_symlink(validated_path)
 
-        # Deny symlinks for security
-        await _deny_symlink(validated_path)
-
-        try:
-            # Preflight check: attempt wc -c via bash to enforce byte ceiling.
-            # If bash isn't available (common in unit tests), gracefully skip.
-            file_bytes: int | None = None
             try:
-                import shlex
+                # Optional byte preflight via wc -c
+                file_bytes = await adapter.wc_bytes(validated_path)
+                if file_bytes is not None:
+                    max_bytes = _max_bytes()
+                    if file_bytes > max_bytes:
+                        _log_tool_event(
+                            name="files:read",
+                            phase="error",
+                            extra={
+                                "ok": False,
+                                "error": "FileSizeExceeded",
+                                "actual_bytes": file_bytes,
+                                "max_bytes": max_bytes,
+                            },
+                            t0=_t0,
+                        )
+                        raise ToolException(
+                            f"File exceeds maximum size limit: {file_bytes:,} bytes > {max_bytes:,} bytes. "
+                            f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
+                        )
 
-                from inspect_ai.tool._tools._bash_session import bash_session
-
-                bash = bash_session()
-                escaped_path = shlex.quote(validated_path)
-                with anyio.fail_after(_default_tool_timeout()):
-                    wc_result = await bash(action="run", command=f"wc -c {escaped_path}")
-                    if wc_result and hasattr(wc_result, "stdout") and wc_result.stdout:
-                        try:
-                            file_bytes = int(wc_result.stdout.strip().split()[0])
-                        except (ValueError, IndexError):
-                            file_bytes = None
-            except Exception:
-                # Ignore wc failures; proceed to editor read
-                file_bytes = None
-
-            if file_bytes is not None:
-                max_bytes = _max_bytes()
-                if file_bytes > max_bytes:
-                    # Use centralized ToolException
-                    _log_tool_event(
-                        name="files:read",
-                        phase="error",
-                        extra={
-                            "ok": False,
-                            "error": "FileSizeExceeded",
-                            "actual_bytes": file_bytes,
-                            "max_bytes": max_bytes,
-                        },
-                        t0=_t0,
-                    )
-                    raise ToolException(
-                        f"File exceeds maximum size limit: {file_bytes:,} bytes > {max_bytes:,} bytes. "
-                        f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
-                    )
-
-            # Prefer bash 'sed -n' for reading line ranges when available (unit tests stub bash).
-            try:
-                import shlex
-
-                from inspect_ai.tool._tools._bash_session import bash_session
-
-                bash = bash_session()
+                # Compute 1-based start and inclusive end; -1 means EOF
                 start_line = max(1, int(params.offset) + 1)
-                if params.limit is None or params.limit <= 0:
-                    end_line = -1
-                else:
-                    end_line = start_line + int(params.limit) - 1
+                end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
 
-                escaped_path = shlex.quote(validated_path)
-                sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
-                with anyio.fail_after(_default_tool_timeout()):
-                    sed_result = await bash(action="run", command=f"sed -n '{sed_range}' {escaped_path}")
-                raw = getattr(sed_result, "stdout", None)
+                raw = await adapter.view(validated_path, start_line, end_line)
+
                 if raw is None or str(raw).strip() == "":
-                    # Fallback to editor if sed produced no output (common in tests)
-                    raise RuntimeError("sed returned no output")
+                    if _use_typed_results():
+                        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                        return FileReadResult(lines=[], summary=empty_message)
+                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                    return empty_message
 
+                # Format returned content (unpadded numbering in sandbox mode)
                 lines = str(raw).splitlines()
                 # Enforce requested limit defensively in case sed stub ignores the range
                 if params.limit is not None and params.limit > 0:
@@ -356,47 +329,8 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                 _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
                 return joined_output
             except Exception:
-                # Fall back to text_editor('view') if bash isn't usable
-                from inspect_ai.tool._tools._text_editor import text_editor
-
-                editor = text_editor()
-                start_line = max(1, int(params.offset) + 1)
-                if params.limit is None or params.limit <= 0:
-                    view_range = [start_line, -1]
-                else:
-                    view_range = [start_line, start_line + int(params.limit) - 1]
-                with anyio.fail_after(_default_tool_timeout()):
-                    raw = await editor(
-                        command="view",
-                        path=validated_path,
-                        view_range=view_range,
-                    )
-                if raw is None or str(raw).strip() == "":
-                    if _use_typed_results():
-                        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                        return FileReadResult(lines=[], summary=empty_message)
-                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                    return empty_message
-
-                lines = str(raw).splitlines()
-                formatted_lines, joined_output = _format_lines(lines, start_line, pad=False)
-
-                if _use_typed_results():
-                    _log_tool_event(
-                        name="files:read",
-                        phase="end",
-                        extra={"ok": True, "lines": len(formatted_lines)},
-                        t0=_t0,
-                    )
-                    return FileReadResult(
-                        lines=formatted_lines,
-                        summary=f"Read {len(formatted_lines)} lines from file_path={params.file_path} (sandbox mode)",
-                    )
-                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
-                return joined_output
-        except Exception:
-            # Graceful fallback to store-backed mode
-            pass
+                # Graceful fallback to store-backed mode
+                pass
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
