@@ -49,9 +49,6 @@ from .tools_files import (
     execute_write,
 )
 
-_EFFECTIVE_LIMIT_LOGGED = False  # maintained for test reset; used by observability
-
-
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
     # Backwards-compat shim: delegate to observability
     from .observability import _redact_and_truncate as _impl
