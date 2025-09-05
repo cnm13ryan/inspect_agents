@@ -1,6 +1,5 @@
 # test(iterative): ensure build_iterative_agent forwards retry args to retry shim
 
-import types
 
 import pytest
 
@@ -44,8 +43,9 @@ async def test_forward_retry_args(monkeypatch):
     import inspect_agents._model_retry as retry_mod
     monkeypatch.setattr(retry_mod, "generate_with_retry_time", _stub_generate_with_retry_time, raising=True)
 
-    from inspect_agents.iterative import build_iterative_agent
     from inspect_ai.agent._agent import AgentState
+
+    from inspect_agents.iterative import build_iterative_agent
 
     agent = build_iterative_agent(
         model=SimpleModel(),

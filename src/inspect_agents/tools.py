@@ -38,18 +38,14 @@ from .tools_files import (
     FileEditResult,
     FileListResult,
     FileReadResult,
+    FilesParams,
     FileWriteResult,
     LsParams,
     ReadParams,
     WriteParams,
-    FilesParams,
     files_tool,
-    execute_delete,
-    execute_edit,
-    execute_ls,
-    execute_read,
-    execute_write,
 )
+
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
     # Backwards-compat shim: delegate to observability
