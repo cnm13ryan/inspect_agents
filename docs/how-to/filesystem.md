@@ -67,7 +67,7 @@ Programmatic reset
 
 ## Delete Policy
 - `delete_file` is supported only in `store` mode.
-- In `sandbox` mode, delete is intentionally disabled and returns a structured error indicating it’s unsupported. The message includes guidance to switch to store mode.
+- In `sandbox` mode, delete is intentionally disabled and raises `ToolException("SandboxUnsupported")`. Switch to store mode (`INSPECT_AGENTS_FS_MODE=store`) to delete from the in‑memory Files store. In sandbox read‑only mode (`INSPECT_AGENTS_FS_READ_ONLY=1`), delete raises `ToolException("SandboxReadOnly")`.
 
 ## Confinement, Symlinks, and Size
 - Root confinement (sandbox): file paths are validated to live under `INSPECT_AGENTS_FS_ROOT` (absolute, default `/repo`). Attempts to access paths outside the root are rejected before invoking the editor.

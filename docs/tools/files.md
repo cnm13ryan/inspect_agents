@@ -39,7 +39,7 @@ See also: [Typed Results vs Legacy Outputs](typed_results.md) for examples and t
 ## Sandbox vs Store
 - When `INSPECT_AGENTS_FS_MODE=sandbox` and sandbox is available:
   - read/edit/write route to `text_editor` operations; `ls` proxies to a shell `ls -1` via sandbox.
-  - delete is intentionally disabled and will raise an error.
+  - delete is intentionally disabled and raises `ToolException("SandboxUnsupported")`.
 - When sandbox is unavailable or `store` mode is active, operations use the in‑memory `Files` store.
 
 ## Security & Confinement
