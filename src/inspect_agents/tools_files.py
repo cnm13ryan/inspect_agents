@@ -499,79 +499,54 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         _log_tool_event(name="files:edit", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
         raise ToolException("SandboxReadOnly")
     # For sandbox mode, we need to preflight check file size before edit
-    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
-        # Validate path is within configured root first (before try block to prevent fallback)
-        validated_path = _validate_sandbox_path(params.file_path)
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("editor"):
+            # Validate path is within configured root first (before try block to prevent fallback)
+            validated_path = adapter.validate(params.file_path)
 
-        # Deny symlinks for security
-        await _deny_symlink(validated_path)
+            # Deny symlinks for security
+            await adapter.deny_symlink(validated_path)
 
-        try:
-            # Preflight check: attempt wc -c via bash to estimate new size. If bash
-            # isn't available (common in unit tests), skip estimation.
-            current_bytes: int | None = None
             try:
-                import shlex
+                # Preflight: estimate new size via wc -c when available
+                current_bytes = await adapter.wc_bytes(validated_path)
+                if current_bytes is not None:
+                    # Estimate new size based on string replacement (approximate)
+                    old_bytes = len(params.old_string.encode("utf-8"))
+                    new_bytes = len(params.new_string.encode("utf-8"))
+                    estimated_new_bytes = current_bytes + (new_bytes - old_bytes)
 
-                from inspect_ai.tool._tools._bash_session import bash_session
+                    max_bytes = _max_bytes()
+                    if estimated_new_bytes > max_bytes:
+                        # Use centralized ToolException
+                        _log_tool_event(
+                            name="files:edit",
+                            phase="error",
+                            extra={
+                                "ok": False,
+                                "error": "FileSizeExceeded",
+                                "estimated_bytes": estimated_new_bytes,
+                                "max_bytes": max_bytes,
+                            },
+                            t0=_t0,
+                        )
+                        raise ToolException(
+                            f"Edit would result in file exceeding maximum size limit: ~{estimated_new_bytes:,} bytes > {max_bytes:,} bytes. "
+                            f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
+                        )
 
-                bash = bash_session()
-                escaped_path = shlex.quote(validated_path)
-                with anyio.fail_after(_default_tool_timeout()):
-                    wc_result = await bash(action="run", command=f"wc -c {escaped_path}")
-                    if wc_result and hasattr(wc_result, "stdout") and wc_result.stdout:
-                        try:
-                            current_bytes = int(wc_result.stdout.strip().split()[0])
-                        except (ValueError, IndexError):
-                            current_bytes = None
-            except Exception:
-                current_bytes = None
+                await adapter.str_replace(validated_path, params.old_string, params.new_string)
 
-            if current_bytes is not None:
-                # Estimate new size based on string replacement (approximate)
-                old_bytes = len(params.old_string.encode("utf-8"))
-                new_bytes = len(params.new_string.encode("utf-8"))
-                estimated_new_bytes = current_bytes + (new_bytes - old_bytes)
-
-                max_bytes = _max_bytes()
-                if estimated_new_bytes > max_bytes:
-                    # Use centralized ToolException
-                    _log_tool_event(
-                        name="files:edit",
-                        phase="error",
-                        extra={
-                            "ok": False,
-                            "error": "FileSizeExceeded",
-                            "estimated_bytes": estimated_new_bytes,
-                            "max_bytes": max_bytes,
-                        },
-                        t0=_t0,
-                    )
-                    raise ToolException(
-                        f"Edit would result in file exceeding maximum size limit: ~{estimated_new_bytes:,} bytes > {max_bytes:,} bytes. "
-                        f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
-                    )
-
-            from inspect_ai.tool._tools._text_editor import text_editor
-
-            editor = text_editor()
-            with anyio.fail_after(_default_tool_timeout()):
-                await editor(
-                    command="str_replace",
-                    path=validated_path,
-                    old_str=params.old_string,
-                    new_str=params.new_string,
-                )
-
-            summary = f"Updated file {params.file_path} (sandbox mode)"
-            if _use_typed_results():
-                # In sandbox mode, we don't know exact replacement count
+                summary = f"Updated file {params.file_path} (sandbox mode)"
+                if _use_typed_results():
+                    # In sandbox mode, we don't know exact replacement count
+                    _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": 1}, t0=_t0)
+                    return FileEditResult(path=params.file_path, replaced=1, summary=summary)
                 _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": 1}, t0=_t0)
-                return FileEditResult(path=params.file_path, replaced=1, summary=summary)
-            _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": 1}, t0=_t0)
-            return summary
-        except Exception:
-            pass
+                return summary
+            except Exception:
+                pass
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
