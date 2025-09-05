@@ -31,11 +31,14 @@ def iterative_task(
     time_limit: int = 600,
     max_steps: int = 40,
     enable_exec: bool = False,
+    enable_web_search: bool = False,
 ):
     """Expose the Iterative Agent as an Inspect task (no submit semantics)."""
 
     if enable_exec:
         os.environ["INSPECT_ENABLE_EXEC"] = "1"
+    if enable_web_search:
+        os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
 
     agent = build_iterative_agent(
         prompt=(
