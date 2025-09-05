@@ -36,6 +36,18 @@ async def run_agent(
             # If approval initialization isn't available in test stubs, continue.
             pass
 
+    # Guard: some tests install a minimal inspect_ai.approval._apply stub that
+    # lacks `have_tool_approval` expected by newer Inspect. Patch it in before
+    # importing Inspect internals to avoid ImportError during import-time wiring.
+    try:  # pragma: no cover - exercised in integration tests
+        import sys as _sys
+
+        _apply = _sys.modules.get("inspect_ai.approval._apply")
+        if _apply is not None and not hasattr(_apply, "have_tool_approval"):
+            setattr(_apply, "have_tool_approval", lambda: bool(getattr(_apply, "_POLICIES", None)))
+    except Exception:
+        pass
+
     # Import submodule directly to bypass stubbed package __init__ in tests
     from inspect_ai.agent._run import run as agent_run  # type: ignore
 
