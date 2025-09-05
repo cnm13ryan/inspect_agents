@@ -216,6 +216,12 @@ def build_iterative_agent(
     # Optional injections for deterministic testing (kw-only, default real time)
     clock: Callable[[], float] = time.time,
     timeout_factory: Callable[[int], Any] = asyncio.timeout,
+    # Retry controls: forwarded to generate_with_retry_time; None => env/defaults
+    retry_max_attempts: int | None = None,
+    retry_initial_backoff_s: float | None = None,
+    retry_max_backoff_s: float | None = None,
+    retry_jitter_s: float | None = None,
+    retry_predicate: Callable[[BaseException], bool] | None = None,
 ) -> Any:
     """Create an Inspect agent that runs an iterative tool loop.
 
@@ -229,6 +235,12 @@ def build_iterative_agent(
         message_limit: Optional hard cap on total messages in the conversation. When the limit is met at the start of a loop iteration, the agent appends a final user message explaining the limit and stops. This is an agent-level soft stop and is independent of runner limits.
         token_limit: Optional approximate cap on total tokens across the conversation. Evaluated at the start of each loop iteration using a lightweight estimator (tiktoken when available; otherwise a char/4 heuristic). On overflow, append a final explanatory user message and stop. This is agent-level and independent of runner limits.
         continue_message: Ephemeral user message appended each step (not persisted).
+
+    Retry behavior:
+        Optional args `retry_max_attempts`, `retry_initial_backoff_s`,
+        `retry_max_backoff_s`, `retry_jitter_s`, and `retry_predicate` are
+        forwarded to `generate_with_retry_time`. When left as None, behavior
+        follows env vars `INSPECT_RETRY_*` and built-in defaults.
 
     Returns:
         Inspect Agent compatible with `inspect_ai.agent._run.run`.
@@ -607,6 +619,11 @@ def build_iterative_agent(
                         tools=active_tools,
                         cache=False,
                         config=GenerateConfig(timeout=gen_timeout),
+                        max_attempts=retry_max_attempts,
+                        initial_backoff_s=retry_initial_backoff_s,
+                        max_backoff_s=retry_max_backoff_s,
+                        jitter_s=retry_jitter_s,
+                        retry_predicate=retry_predicate,
                     )
                     # Accrue retry wait and persist model output
                     try:
