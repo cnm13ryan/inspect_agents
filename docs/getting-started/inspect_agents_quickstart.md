@@ -123,6 +123,41 @@ uv run python -m examples.inspect.simple_arch_demo.run --mode iterative "Refacto
 
 Note: the example is not part of the library API and is excluded from tests; use it as a reference for composing agents with this framework.
 
+### Simple Architecture (Inspect‑AI)
+
+The diagram below maps the demo’s components to Inspect‑AI concepts: a Supervisor agent can invoke tools (standard, environment, memory) and optionally hand off to a sub‑agent via an Inspect `handoff` tool. Approvals/policies gate tool calls and enforce handoff exclusivity.
+
+```mermaid
+flowchart TD
+  %% Nodes
+  Approvals["Approvals / Policies"]
+  Supervisor["Supervisor (Inspect Agent)"]
+  SubAgent["Sub‑agent (Inspect Agent)"]
+  StdTools["Standard Tools\n(think, web_search, files)"]
+  EnvTools["Environment Tools\n(env_observe, env_act)"]
+  MemoryTools["Memory Tools\n(read_memory, write_memory, list_memory)"]
+
+  %% Invocation edges (solid)
+  Supervisor -->|tools| StdTools
+  Supervisor -->|tools| EnvTools
+  Supervisor -->|tools| MemoryTools
+  Supervisor -->|handoff: transfer_to_researcher\n(strict/scoped quarantine)| SubAgent
+
+  %% Data/result flow (dashed)
+  StdTools -.-> Supervisor
+  EnvTools -.-> Supervisor
+  MemoryTools -.-> Supervisor
+  SubAgent -.->|submit/result| Supervisor
+
+  %% Approvals influence (dashed)
+  Approvals -.->|approve/deny tool calls\n+ handoff exclusivity| Supervisor
+  Approvals -.-> SubAgent
+
+  %% Styling
+  classDef nodeStyle fill:#f9f9f9,stroke:#333,stroke-width:2px
+  class Approvals,Supervisor,SubAgent,StdTools,EnvTools,MemoryTools nodeStyle
+```
+
 ### Sub-agent config (experimental)
 
 You can declare sub‑agent quarantine behavior in YAML via `context_scope` (strict|scoped) and `include_state_summary` (for scoped):
