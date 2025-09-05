@@ -39,7 +39,36 @@ Default step for bots/automation: if tests are discoverable, run the test comman
 - Prefer safe defaults locally: use approval presets when enabling risky tools.
   - Python API: `from inspect_agents.approval import approval_preset, activate_approval_policies; activate_approval_policies(approval_preset("dev"))`.
   - CLI/evals: pass approval policies via your runner as documented in `docs/how-to/approvals.md`.
-- Handoff exclusivity: when a handoff tool (`transfer_to_*`) is emitted alongside other tools in one assistant turn, only the handoff should proceed. The policy helper `handoff_exclusive_policy()` is available; presets may include it in future.
+- Handoff exclusivity: when a handoff tool (`transfer_to_*`) appears alongside other tools in one assistant turn, only the first handoff should execute.
+  - Included by default in `approval_preset("dev")` and `approval_preset("prod")` via `handoff_exclusive_policy()`; `ci` does not include it. See `src/inspect_agents/approval.py` and `docs/adr/0005-tool-parallelism-policy.md`.
+  - To opt out, build a custom approval chain instead of using `dev`/`prod` presets.
+- Parallelism kill‑switch (non‑handoff tools): set `INSPECT_TOOL_PARALLELISM_DISABLE=1` (or `INSPECT_DISABLE_TOOL_PARALLEL=1`) to approve only the first non‑handoff tool in a batch; others are skipped. Useful for deterministic tests and ops.
+
+## Filesystem Sandbox Guardrails
+- Modes: `INSPECT_AGENTS_FS_MODE=store|sandbox` (default `store`). In `sandbox` mode, file ops route via `text_editor`/`bash_session`; host FS is protected.
+- Confinement: paths must live under `INSPECT_AGENTS_FS_ROOT` (absolute; default `/repo`); symlinks are denied. Delete is intentionally disabled in sandbox.
+- Read‑only: `INSPECT_AGENTS_FS_READ_ONLY=1` in sandbox blocks write/edit/delete; `ls` and `read` remain allowed.
+- Preflight: `INSPECT_SANDBOX_PREFLIGHT=auto|skip|force` with TTL `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` (default 300). Use `inspect_agents.fs.reset_sandbox_preflight_cache()` to force recheck.
+- See details and examples: `docs/how-to/filesystem.md`.
+
+## Tool Output Truncation & Observability
+- Default effective cap: 16 KiB per tool call output when no explicit cap is provided.
+- Precedence: per‑call arg `max_output` > per‑run `GenerateConfig.max_tool_output` > env `INSPECT_MAX_TOOL_OUTPUT` > default 16 KiB.
+- On the first tool event, the repo logs a one‑time structured line with the effective limit and source. See `src/inspect_agents/observability.py` and `docs/adr/0004-tool-output-truncation.md`.
+
+## Iterative Agent Controls (env)
+- Time/steps: `INSPECT_ITERATIVE_TIME_LIMIT` (seconds), `INSPECT_ITERATIVE_MAX_STEPS`.
+- Pruning: `INSPECT_PRUNE_AFTER_MESSAGES` (≤0 disables), `INSPECT_PRUNE_KEEP_LAST`.
+- Token‑aware trimming (optional): `INSPECT_PER_MSG_TOKEN_CAP`, `INSPECT_TRUNCATE_LAST_K`.
+- Productive‑time accounting: set `INSPECT_PRODUCTIVE_TIME=1` to subtract provider retry/backoff time from the real‑time budget.
+- Reference: `docs/reference/iterative-agent-behavior.md`.
+
+## Runner Limits API
+- Use `inspect_agents.run.run_agent(agent, input, limits=[...])` to apply Inspect limits (time/message/token) at the call site.
+- Error handling:
+  - `return_limit_error=True` returns `(state, err)` without raising.
+  - `raise_on_limit=True` raises the limit error (e.g., `LimitExceededError`).
+  See examples in `docs/guides/supervisor-limits.md`.
 
 ## Testing Guidelines
 - Framework: `pytest` (tests live under `tests/inspect_agents/`, named `test_*.py`).
