@@ -24,7 +24,7 @@ owner: docs
 - Execution timeout: 15s (configurable via `INSPECT_AGENTS_TOOL_TIMEOUT`).
 
 ## Sandbox Notes
-- Sandbox mode: not supported — attempting to delete raises a `ToolException("delete unsupported in sandbox mode")`.
+- Sandbox mode: not supported — attempting to delete raises `ToolException("SandboxUnsupported")`.
 - Use the unified [files](files.md) tool or wrappers like [read_file](read_file.md), [write_file](write_file.md), [edit_file](edit_file.md) for other operations.
 
 ## Examples
@@ -53,7 +53,7 @@ delete_file(file_path="docs/note.md")
 See also: [Typed Results vs Legacy Outputs](typed_results.md).
 
 ## Troubleshooting
-- Sandbox error — Switch to store mode (`INSPECT_AGENTS_FS_MODE=store`) for delete operations.
+- Sandbox error — In sandbox mode, delete raises `ToolException("SandboxUnsupported")`. Switch to store mode (`INSPECT_AGENTS_FS_MODE=store`) for delete operations. In sandbox read‑only mode (`INSPECT_AGENTS_FS_READ_ONLY=1`), delete raises `ToolException("SandboxReadOnly")`.
 - File did not exist — The response notes idempotent behavior and continues.
 
 ## Source of Truth
