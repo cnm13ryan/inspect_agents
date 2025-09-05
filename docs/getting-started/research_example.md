@@ -1,6 +1,6 @@
 # Research Example (Inspect‑AI)
 
-Run the research example using the Inspect‑AI path included in this repo. No DeepAgents/LangGraph or extra example‑only packages are required.
+Run the research example using the Inspect‑AI path included in this repo. No legacy DeepAgents/LangGraph or extra example‑only packages are required.
 
 ## Quick Run
 

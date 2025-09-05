@@ -69,7 +69,7 @@ model = resolve_model(provider="lm-studio")  # or "ollama", "openai", etc.
 sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=model)
 ```
 
-Environment variables (shared with `deepagents`):
+Environment variables (legacy deepagents names supported):
 
 - `DEEPAGENTS_MODEL_PROVIDER`: `ollama` (default) | `lm-studio` | `openai` | others
 - Ollama: `OLLAMA_MODEL_NAME`, optional `OLLAMA_BASE_URL`/`OLLAMA_HOST`

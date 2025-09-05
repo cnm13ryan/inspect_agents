@@ -33,7 +33,7 @@ Current behavior (as implemented):
 
 ## Problem
 
-Operating on a host filesystem introduces risks (path traversal, symlink abuse, accidental destructive edits, large-file stalls, and content leakage via logs). We need clear guidance and recommended defaults that align with deepagents’ safety-first design, without forcing consumers to adopt heavy guardrails before they are implemented.
+Operating on a host filesystem introduces risks (path traversal, symlink abuse, accidental destructive edits, large-file stalls, and content leakage via logs). We need clear guidance and recommended defaults that align with the legacy DeepAgents safety-first design, without forcing consumers to adopt heavy guardrails before they are implemented.
 
 ## Decision
 
@@ -57,7 +57,7 @@ Document a security baseline and recommended defaults for sandbox FS operations,
 
 ## Rationale
 
-These recommendations follow deepagents’ design principles:
+These recommendations follow the legacy DeepAgents design principles:
 - Safe-by-default, opt-in to heavier capabilities.  
 - Graceful degradation and deterministic tests (stubs for sandbox tools).  
 - Minimal surface area wrappers with lazy imports and clear docstrings.  

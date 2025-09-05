@@ -1,4 +1,4 @@
-# Sandboxing in `inspect_agents` (DeepAgents Inspect-AI Path)
+# Sandboxing in `inspect_agents` (Inspect Agents path)
 
 This guide explains how sandboxing is implemented and used by the Inspect‑AI–native path under `src/inspect_agents/`, and how it integrates with Inspect’s core sandbox API. It is more detailed than the brief instructions in `examples/research/README.md` and is intended for maintainers and advanced users.
 

@@ -1,6 +1,6 @@
-# Inspect Console Cheat Sheet (deepagents Inspect path)
+# Inspect Console Cheat Sheet (Inspect Agents path)
 
-This page explains how to run and navigate the Inspect‑AI console when using the deepagents Inspect path.
+This page explains how to run and navigate the Inspect‑AI console when using the Inspect Agents path.
 
 ## Quick Run (Preferred)
 
@@ -24,7 +24,7 @@ uv run inspect eval examples/inspect/prompt_task.py \
 
 ## Enable Standard Tools at Runtime
 
-The task loads deepagents Todo/FS tools by default and appends Inspect’s standard tools when enabled via env:
+The task loads Inspect Agents Todo/FS tools by default and appends Inspect’s standard tools when enabled via env:
 
 ```bash
 # Structured thinking
@@ -106,7 +106,7 @@ uv run inspect trace dump logs/inspect_ai/trace.log | jq
 
 ## Models & Environment
 
-The task resolves the model using deepagents’ resolver, so it respects these variables:
+The task resolves the model using the Inspect Agents resolver, so it respects these variables:
 
 - `DEEPAGENTS_MODEL_PROVIDER`: `ollama` (default) | `lm-studio` | `openai` | others
 - LM Studio: `LM_STUDIO_BASE_URL` (…/v1), `LM_STUDIO_MODEL_NAME`, `LM_STUDIO_API_KEY`

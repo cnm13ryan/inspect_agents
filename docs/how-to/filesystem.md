@@ -1,6 +1,6 @@
 # Filesystem Tools — Store vs Sandbox
 
-This page explains how DeepAgents’ file tools operate in the default in‑memory store and in optional sandbox mode, including routing, fallbacks, delete policy, and size/truncation behavior.
+This page explains how Inspect Agents’ file tools operate in the default in‑memory store and in optional sandbox mode, including routing, fallbacks, delete policy, and size/truncation behavior.
 
 ## Modes
 - Default: `store` (in‑memory virtual filesystem; isolated per run).

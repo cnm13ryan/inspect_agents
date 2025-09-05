@@ -1,4 +1,4 @@
-# Contributing to deepagents
+# Contributing to Inspect Agents
 
 We welcome contributions of all kinds — bug fixes, docs, tests, and new examples. This guide helps you get set up quickly and submit high‑quality changes.
 
@@ -89,4 +89,4 @@ Please follow these conventions for any new backlog/TODO documents so the sweep 
 - Tag the release (e.g., `v0.0.x`) and publish to PyPI if applicable.
 - Update CHANGELOG and README badges if needed.
 
-Thanks for contributing to deepagents!
+Thanks for contributing to Inspect Agents!

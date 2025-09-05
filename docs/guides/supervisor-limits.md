@@ -1,6 +1,6 @@
 # Supervisor Limits & Observability — Practical Guide
 
-This guide explains how DeepAgents (Inspect‑native) applies execution limits for safety, cost control, and determinism, and how to observe/diagnose limit events.
+This guide explains how Inspect Agents (Inspect‑native) applies execution limits for safety, cost control, and determinism, and how to observe/diagnose limit events.
 
 What you get
 - Supervisor: submit‑terminated ReAct loop with `attempts` control.

@@ -46,7 +46,7 @@ uv run inspect log dump logs/<run>.eval | jq '.eval.config.approval'
 This reflects the active approval policy config at run start. 〖F:external/inspect_ai/src/inspect_ai/log/_log.py†L89〗 〖F:external/inspect_ai/src/inspect_ai/_eval/eval.py†L994〗
 
 ## Tool lifecycle logs (repo‑specific)
-DeepAgents adds minimal structured log lines for tool starts/ends/errors. They show up as `event=="logger"` in the transcript with a `message` string containing a JSON payload prefixed by `tool_event`.
+Inspect Agents adds minimal structured log lines for tool starts/ends/errors. They show up as `event=="logger"` in the transcript with a `message` string containing a JSON payload prefixed by `tool_event`.
 
 Examples:
 ```bash
