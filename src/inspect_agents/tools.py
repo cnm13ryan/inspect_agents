@@ -42,6 +42,8 @@ from .tools_files import (
     LsParams,
     ReadParams,
     WriteParams,
+    FilesParams,
+    files_tool,
     execute_delete,
     execute_edit,
     execute_ls,
@@ -417,9 +419,10 @@ def ls():  # -> Tool
     @tool
     def _factory() -> Tool:
         async def execute(instance: str | None = None) -> list[str] | FileListResult:
-            # Convert old-style parameters to new unified format
+            # Convert wrapper params to unified FilesParams and delegate to files tool
             params = LsParams(command="ls", instance=instance)
-            return await execute_ls(params)
+            files = files_tool()
+            return await files(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["instance"] = json_schema(str)
@@ -457,10 +460,11 @@ def read_file():  # -> Tool
             limit: int = 2000,
             instance: str | None = None,
         ) -> str | FileReadResult:
-            # Convert old-style parameters to new unified format
+            # Convert wrapper params to unified FilesParams and delegate to files tool
             params = ReadParams(command="read", file_path=file_path, offset=offset, limit=limit, instance=instance)
             try:
-                return await execute_read(params)
+                files = files_tool()
+                return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message"):
@@ -509,9 +513,10 @@ def write_file():  # -> Tool
             content: str,
             instance: str | None = None,
         ) -> str | FileWriteResult:
-            # Convert old-style parameters to new unified format
+            # Convert wrapper params to unified FilesParams and delegate to files tool
             params = WriteParams(command="write", file_path=file_path, content=content, instance=instance)
-            return await execute_write(params)
+            files = files_tool()
+            return await files(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["file_path"] = json_schema(str)
@@ -552,7 +557,7 @@ def edit_file():  # -> Tool
             replace_all: bool = False,
             instance: str | None = None,
         ) -> str | FileEditResult:
-            # Convert old-style parameters to new unified format
+            # Convert wrapper params to unified FilesParams and delegate to files tool
             params = EditParams(
                 command="edit",
                 file_path=file_path,
@@ -562,7 +567,8 @@ def edit_file():  # -> Tool
                 instance=instance,
             )
             try:
-                return await execute_edit(params)
+                files = files_tool()
+                return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message"):
@@ -611,10 +617,11 @@ def delete_file():  # -> Tool
             file_path: str,
             instance: str | None = None,
         ) -> str | FileDeleteResult:
-            # Convert old-style parameters to new unified format
+            # Convert wrapper params to unified FilesParams and delegate to files tool
             params = DeleteParams(command="delete", file_path=file_path, instance=instance)
             try:
-                return await execute_delete(params)
+                files = files_tool()
+                return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message"):
