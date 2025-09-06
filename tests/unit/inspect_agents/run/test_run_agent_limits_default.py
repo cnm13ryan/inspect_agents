@@ -67,3 +67,4 @@ def test_run_agent_limits_default_isolated():
         assert calls[1]["list"] == []
     finally:
         _uninstall_inspect_stub()
+
