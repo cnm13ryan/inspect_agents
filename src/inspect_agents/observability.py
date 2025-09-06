@@ -139,8 +139,10 @@ def log_tool_event(
     Returns a perf counter when phase == "start" so callers can pass it back
     on "end"/"error" to compute a duration.
     """
-    # Emit one-time effective limit log on the very first tool event
-    maybe_emit_effective_tool_output_limit_log()
+    # Defer one-time effective limit log until after the first real tool event
+    # is logged, so timelines read naturally: event → cap log. Gate internal
+    # diagnostics (e.g., "limits", "observability").
+    _defer_cap_log = name not in {"limits", "observability"}
 
     logger = logging.getLogger("inspect_agents.tools")  # preserve logger name
     now = time.perf_counter()
@@ -182,5 +184,9 @@ def log_tool_event(
         logger.info("tool_event %s", json.dumps(data, ensure_ascii=False))
     except Exception:
         logger.info("tool_event %s", {k: ("[obj]" if k == "args" else v) for k, v in data.items()})
+
+    # Emit the cap log after logging the first real tool event
+    if _defer_cap_log:
+        maybe_emit_effective_tool_output_limit_log()
 
     return now if phase == "start" else (t0 or now)
