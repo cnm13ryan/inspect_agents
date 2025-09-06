@@ -557,6 +557,15 @@ Proposed Direction
 Decision Needed
 - Approve documentation standard of 300/20 and defer script changes.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Script defaults remain at 600s/40 steps for the basic runner and 120s/20 steps for the profiled runner; docs do not uniformly standardize examples at 300/20.
+**Evidence**: `examples/research/run_iterative.py` defaults `--time-limit=600`, `--max-steps=40`; `examples/research/run_profiled.py` defaults `--time-limit=120`, `--max-steps=20`. Reference page lacks a blanket 300/20 standard.
+**Conclusion**: Proposed documentation standardization not applied; decision pending.
+
+</details>
+
 ### Q4 — CI/Test Scope for Docs‑Only PRs
 
 Question
@@ -577,6 +586,15 @@ Proposed Direction
 
 Decision Needed
 - Approve adding the docs‑only CI job.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No dedicated docs‑only CI job exists; current workflows run lint and unit tests universally.
+**Evidence**: `.github/workflows/ci.yml` and `tests.yml` define generic jobs; none are conditioned on docs‑only changes or run a link checker subset.
+**Conclusion**: Add a docs‑only job if desired (fast unit subset + link check), or document policy to skip.
+
+</details>
 
 ### Q5 — CLI Quick Reference Table
 
@@ -599,6 +617,15 @@ Proposed Direction
 Decision Needed
 - Approve adding the quick‑reference table.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The Iterative Agent reference lacks a top‑of‑page quick‑reference table for flags.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` contains prose and examples only; no compact table.
+**Conclusion**: Table not yet added; proceed per Proposed Direction if approved.
+
+</details>
+
 ### Q6 — Cross‑Linking Between Reference and Examples
 
 Question
@@ -620,6 +647,15 @@ Proposed Direction
 Decision Needed
 - Approve adding the “See Also” links.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No dedicated “See Also” block exists in the Iterative Agent reference.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` has sections for runners/tasks but no bottom “See Also”.
+**Conclusion**: Add concise backlinks if approved.
+
+</details>
+
 ### Q7 — Additional Example: `INSPECT_MAX_TOOL_OUTPUT`
 
 Question
@@ -640,6 +676,15 @@ Proposed Direction
 
 Decision Needed
 - Approve adding the example to the Iterative Agent reference.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The reference mentions the env but does not include a concrete command‑line example with `INSPECT_MAX_TOOL_OUTPUT=...`.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` “Tool‑Output Truncation” section describes behavior; no example invocation present.
+**Conclusion**: Add one illustrative command (with caution note) if approved.
+
+</details>
 
 ---
 
