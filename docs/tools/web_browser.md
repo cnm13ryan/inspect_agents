@@ -27,6 +27,7 @@ owner: docs
 
 ## Enablement
 - Disabled by default. Set `INSPECT_ENABLE_WEB_BROWSER=1` to enable the browser tool family.
+- Requires a sandbox environment. For a ready Playwright setup via Docker, see: ../how-to/sandboxing_inspect_agents.md
 
 ## Examples
 ```
