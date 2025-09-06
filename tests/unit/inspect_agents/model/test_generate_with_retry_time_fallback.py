@@ -1,6 +1,5 @@
 # test(retry): cover fallback path and non-retryable behavior
 
-import importlib
 import types
 
 import pytest
@@ -20,9 +19,8 @@ class _FlakyModel:
 
 @pytest.mark.asyncio
 async def test_retry_fallback_accumulates_sleep(monkeypatch):
-    # Force fallback path (pretend Tenacity not available)
-    mod = importlib.import_module("inspect_agents._model_retry")
-    monkeypatch.setattr(mod, "_TENACITY_AVAILABLE", False, raising=True)
+    # Force fallback path (without touching private module state)
+    monkeypatch.setenv("INSPECT_RETRY_DISABLE_TENACITY", "1")
 
     # Fast retry budget
     monkeypatch.setenv("INSPECT_RETRY_MAX_ATTEMPTS", "3")
@@ -41,8 +39,8 @@ async def test_retry_fallback_accumulates_sleep(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_retry_fallback_non_retryable_raises(monkeypatch):
-    mod = importlib.import_module("inspect_agents._model_retry")
-    monkeypatch.setattr(mod, "_TENACITY_AVAILABLE", False, raising=True)
+    # Force fallback path via env
+    monkeypatch.setenv("INSPECT_RETRY_DISABLE_TENACITY", "1")
 
     class BadModel:
         async def generate(self, *, input, tools, cache, config):
@@ -52,4 +50,3 @@ async def test_retry_fallback_non_retryable_raises(monkeypatch):
 
     with pytest.raises(ValueError):
         await generate_with_retry_time(BadModel(), input=[], tools=[], cache=False, config=None)
-
