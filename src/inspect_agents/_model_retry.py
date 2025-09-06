@@ -132,6 +132,9 @@ async def generate_with_retry_time(
     initial_backoff_s: float | None = None,
     max_backoff_s: float | None = None,
     jitter_s: float | None = None,
+    # Force the fallback path (bypass tenacity) if True. When None, consult env
+    # var INSPECT_RETRY_DISABLE_TENACITY. Defaults preserve auto-detect behavior.
+    force_fallback: bool | None = None,
     retry_predicate: Callable[[BaseException], bool] | None = None,
 ) -> tuple[Any, float]:
     """Call `model.generate(...)` with retries and report backoff time.
@@ -144,6 +147,9 @@ async def generate_with_retry_time(
     - INSPECT_RETRY_INITIAL_SECONDS: initial backoff (default 1.0)
     - INSPECT_RETRY_MAX_SECONDS: cap on backoff (default 60.0)
     - INSPECT_RETRY_JITTER: if >0 enables jitter range in seconds (default 0)
+    - INSPECT_RETRY_DISABLE_TENACITY: if truthy, bypasses tenacity and uses the
+      fallback loop regardless of whether tenacity is installed. You can also
+      pass `force_fallback=True` to override env.
 
     This wrapper is always safe to use even when you choose not to subtract the
     returned backoff time from your loop accounting.
@@ -175,8 +181,15 @@ async def generate_with_retry_time(
     pred = retry_predicate or _default_retry_predicate
     retry_sleep_total = 0.0
 
+    # Decide whether to use tenacity: kwarg > env > auto-detect
+    disable_tenacity = (
+        bool(force_fallback)
+        if force_fallback is not None
+        else _bool_env("INSPECT_RETRY_DISABLE_TENACITY", False)
+    )
+
     # Tenacity path with before_sleep accumulation
-    if _TENACITY_AVAILABLE:
+    if _TENACITY_AVAILABLE and not disable_tenacity:
         upcoming: dict[str, float] = {"sleep": 0.0}
 
         async def _before_sleep(state: RetryCallState) -> None:  # type: ignore[override]
