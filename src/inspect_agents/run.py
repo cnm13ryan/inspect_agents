@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 import os
+import asyncio
+import contextlib
 from .observability import log_tool_event
 
 
@@ -65,7 +67,96 @@ async def run_agent(
     # Import submodule directly to bypass stubbed package __init__ in tests
     from inspect_ai.agent._run import run as agent_run  # type: ignore
 
-    result = await agent_run(agent, input, limits=limits)
+    # --- Limit‑nearing telemetry (runner time budgets) ---
+    # If a runner time limit exists, schedule a single, cancellable timer to
+    # emit an "info" event before the limit is exceeded.
+    def _parse_threshold_env() -> float:
+        raw = os.getenv("INSPECT_LIMIT_NEARING_THRESHOLD", "")
+        try:
+            val = float(str(raw).strip()) if raw else 0.8
+        except Exception:
+            val = 0.8
+        # Clamp to (0, 1); default to 0.8 if out of range
+        return val if 0.0 < val < 1.0 else 0.8
+
+    def _extract_time_limit_seconds(items: list[Any]) -> float | None:
+        """Return the runner time limit in seconds, if present.
+
+        Tries to detect Inspect's internal _TimeLimit type first; otherwise falls
+        back to a conservative heuristic (float-valued limit without a 'check()').
+        If multiple time limits are present, returns the smallest positive one.
+        """
+        if not items:
+            return None
+        candidates: list[float] = []
+        # Prefer explicit type checks when available
+        _TimeLimitType: Any | None = None
+        try:  # Inspect exports the internal class symbol from the module
+            from inspect_ai.util._limit import _TimeLimit as _TL  # type: ignore
+
+            _TimeLimitType = _TL
+        except Exception:
+            _TimeLimitType = None
+
+        for it in items:
+            try:
+                if _TimeLimitType is not None and isinstance(it, _TimeLimitType):
+                    limit_val = getattr(it, "limit", None)
+                else:
+                    # Heuristic: time limits have float limits and no 'check()'
+                    limit_val = getattr(it, "limit", None)
+                    if not isinstance(limit_val, (float, int)):
+                        continue
+                    # Exclude token/message/working which expose a check()
+                    if hasattr(it, "check"):
+                        continue
+                if isinstance(limit_val, (float, int)):
+                    limit_f = float(limit_val)
+                    if limit_f > 0:
+                        candidates.append(limit_f)
+            except Exception:
+                continue
+
+        return min(candidates) if candidates else None
+
+    _near_task: asyncio.Task[None] | None = None
+    _time_limit = _extract_time_limit_seconds(limits)
+    if _time_limit is not None and _time_limit > 0:
+        _threshold = _parse_threshold_env()
+        _delay = _threshold * float(_time_limit)
+
+        async def _emit_after_delay(delay_s: float, limit_s: float) -> None:
+            try:
+                await asyncio.sleep(delay_s)
+                try:
+                    log_tool_event(
+                        name="limits",
+                        phase="info",
+                        extra={
+                            "event": "limit_nearing",
+                            "scope": "runner",
+                            "kind": "time",
+                            "threshold": float(limit_s),
+                            "used": float(delay_s),
+                        },
+                    )
+                except Exception:
+                    # Observability must never affect control flow
+                    pass
+            except asyncio.CancelledError:
+                # Expected on early completion paths
+                return
+
+        _near_task = asyncio.create_task(_emit_after_delay(_delay, float(_time_limit)))
+
+    try:
+        result = await agent_run(agent, input, limits=limits)
+    finally:
+        # Ensure timer is cancelled on any exit path to avoid stray logs
+        if _near_task is not None:
+            _near_task.cancel()
+            with contextlib.suppress(Exception):
+                await _near_task
 
     # Inspect returns a tuple when limits are provided; otherwise it's the state
     if isinstance(result, tuple):
