@@ -161,3 +161,4 @@ async def test_scoped_summary_caps_trim_bytes_todos_files(monkeypatch, caplog):
     # Log includes trimming indicator (best-effort; don't fail if logging disabled)
     trimmed_lines = [m for m in caplog.messages if "scoped_summary" in m]
     assert any("trimmed=True" in m for m in trimmed_lines), trimmed_lines
+
