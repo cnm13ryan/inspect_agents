@@ -239,10 +239,10 @@ mkdocs serve
 Then open http://127.0.0.1:8000. Sources live under `docs/` and the site is configured via `mkdocs.yml`.
 
 ## Project Status
-- **Version**: 0.0.4 (repo) / 0.0.5 (PyPI)
+- **Version**: 0.0.4 (repo) / see PyPI badge for latest
 - **Status**: Beta
 - **Python**: 3.11+ (tested on 3.12)
-- **Roadmap**: [GitHub Milestones](https://github.com/cnm13ryan/deepagents/milestones) | [Projects](https://github.com/cnm13ryan/deepagents/projects)
+- **Roadmap**: [Milestones](https://github.com/cnm13ryan/inspect_agents/milestones) | [Projects](https://github.com/cnm13ryan/inspect_agents/projects)
 
 ### Coming Soon
 - CI workflows (tests, lint, coverage) and release automation
@@ -270,8 +270,8 @@ echo "See tests/README.md; locally opt-in to CI-style guide links: export DEEPAG
 ```
 
 ## Support
-- **Questions**: [GitHub Discussions](https://github.com/cnm13ryan/deepagents/discussions)
-- **Bugs & Features**: Open an [Issue](https://github.com/cnm13ryan/deepagents/issues) with repro steps
+- **Questions**: [GitHub Discussions](https://github.com/cnm13ryan/inspect_agents/discussions)
+- **Bugs & Features**: Open an [Issue](https://github.com/cnm13ryan/inspect_agents/issues) with repro steps
 
 ## License & Acknowledgments
 - Licensed under [MIT](LICENSE)
