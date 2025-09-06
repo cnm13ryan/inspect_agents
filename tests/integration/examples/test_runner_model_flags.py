@@ -36,7 +36,7 @@ def _run(cmd, cwd: Path, env: dict) -> subprocess.CompletedProcess:
 
 def test_run_local_explicit_provider_and_model_echoes_prefixed_model():
     repo = _repo_root(Path(__file__).resolve())
-    script = repo / "examples" / "research" / "run_local.py"
+    script = repo / "examples" / "runners" / "research_runner.py"
     env = _env_with_paths(repo)
     # Bare model name + provider should resolve to provider/model
     proc = _run([sys.executable, str(script), "--provider", "ollama", "--model", "llama3.1", "noop"], cwd=repo, env=env)
@@ -48,11 +48,10 @@ def test_run_local_explicit_provider_and_model_echoes_prefixed_model():
 
 def test_run_iterative_explicit_model_passthrough():
     repo = _repo_root(Path(__file__).resolve())
-    script = repo / "examples" / "research" / "run_iterative.py"
+    script = repo / "examples" / "runners" / "iterative_runner.py"
     env = _env_with_paths(repo)
     # Fully-qualified model should pass through unchanged
     proc = _run([sys.executable, str(script), "--model", "openai/gpt-4o-mini", "noop"], cwd=repo, env=env)
     assert proc.returncode == 0, proc.stderr
     first_line = (proc.stdout or "").strip().splitlines()[0]
     assert first_line == "openai/gpt-4o-mini"
-
