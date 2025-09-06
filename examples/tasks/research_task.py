@@ -7,7 +7,7 @@ Usage
   -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025"
 
 Options
-- -T config="examples/configs/research_supervisor.yaml"  # load YAML composition
+- -T config="examples/configs/research/supervisor.yaml"  # load YAML composition
 - -T enable_web_search=true                   # enable standard web_search tool
 
 Environment
