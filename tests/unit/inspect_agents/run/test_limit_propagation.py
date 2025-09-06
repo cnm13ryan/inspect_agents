@@ -56,3 +56,4 @@ async def test_run_agent_tuple_return_and_raise_on_limit(monkeypatch):
     # Raise when flagged
     with pytest.raises(RuntimeError):
         await run_agent(agent=object(), input="x", raise_on_limit=True)
+
