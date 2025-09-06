@@ -34,7 +34,10 @@ Standard tools:
 Standard tools:
 
 - `web_browser_*` — navigation and interaction tools backed by a persistent browser/context. A per‑session id is created on first use and attached to subsequent calls. Multiple tool names (e.g., `web_browser_go`, `web_browser_click`, `web_browser_type_submit`, `web_browser_scroll`, `web_browser_back`, `web_browser_forward`, `web_browser_refresh`) share the same session.
-- `bash_session` — interactive shell session with actions (`type`, `type_submit`, `read`, `interrupt`, `restart`) bound to a long‑lived shell process identified by a session id. Not enabled by default in this repo’s helper (`standard_tools()`), but part of Inspect’s standard toolset.
+
+Internal‑only in this repo:
+
+- `bash_session` — interactive shell session with actions (`type`, `type_submit`, `read`, `interrupt`, `restart`) bound to a long‑lived shell process. In this repository, `bash_session` is intentionally not surfaced via `standard_tools()` and remains an internal dependency used by the filesystem sandbox adapter for targeted operations (e.g., `sed`, `ls`, `wc -c`). This preserves a smaller blast radius for default agents while retaining sandbox performance benefits. See the FS path in the architecture diagram for context.
 
 ## FS Mode and Safety
 
