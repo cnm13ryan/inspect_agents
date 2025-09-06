@@ -159,7 +159,7 @@ ID D13 — Migration Shim (`create_deep_agent`)
 
 ID D14 — Examples & CLI
 - Behavior (deepagents): example scripts + LangGraph studio.
-- Behavior (Inspect-native): `examples/inspect/*` + minimal dev CLI (`python -m inspect_agents.cli`).
+- Behavior (Inspect-native): `examples/{tasks,runners,demos,configs}` + minimal dev CLI (`python -m inspect_agents.cli`).
 - Options: parallel examples; document both paths.
 - Proposed Default: keep both; mark Inspect as experimental until parity passes.
 - Impact: smoother adoption.

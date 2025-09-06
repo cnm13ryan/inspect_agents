@@ -13,10 +13,10 @@ Welcome to the unified documentation site for Inspect Agents. This site collects
 - Architecture: [Overview](ARCHITECTURE.md)
 - ADRs: [Index](adr/README.md)
 - Open Questions: [Discussion Topics](design/open-questions.md)
-- Examples: Simple Architecture Demo — `examples/inspect/simple_arch_demo/run.py`
+- Examples: Simple Architecture Demo — `examples/demos/simple_arch_demo.py`
 
-For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md). The Simple Architecture shown in the diagram is conceptual; see the example under `examples/inspect/simple_arch_demo/` for a runnable demo that composes only public APIs (agent builders, approvals, tools).
+For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md). The Simple Architecture shown in the diagram is conceptual; see the example under `examples/demos/` for a runnable demo that composes only public APIs (agent builders, approvals, tools).
 
 ## Acknowledgments
 
-The iterative agent approach described in examples (`examples/research/`), reference guides, and the `src/inspect_agents/` implementation draws inspiration from the PaperBench project on iterative multi‑step agent evaluation. See: PaperBench — https://arxiv.org/abs/2504.01848.
+The iterative agent approach described in examples (`examples/tasks/` and `examples/runners/`), reference guides, and the `src/inspect_agents/` implementation draws inspiration from the PaperBench project on iterative multi‑step agent evaluation. See: PaperBench — https://arxiv.org/abs/2504.01848.

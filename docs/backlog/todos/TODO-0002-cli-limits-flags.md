@@ -2,17 +2,17 @@
 
 Context & Motivation
 - Purpose: Users can set execution budgets (messages/tokens/time/working) without code changes.
-- Problem: `examples/inspect/run.py` lacks `--limit` flags; limits cannot be applied from CLI.
+- Problem: `examples/runners/supervisor_runner.py` lacks `--limit` flags; limits cannot be applied from CLI.
 - Constraint: Map flags to Inspect limit objects and pass to `run_agent(..., limits=...)`.
 
 Scope
-- Add repeatable `--limit` flags to `examples/inspect/run.py` that accept specs like `message=24`, `tokens=20k`, `time=90s`, `working=60s`.
+- Add repeatable `--limit` flags to `examples/runners/supervisor_runner.py` that accept specs like `message=24`, `tokens=20k`, `time=90s`, `working=60s`.
 - Parse to Inspect limit instances and forward into `run_agent`.
 - Maintain backward compatibility for existing flags and behavior.
 
 Files & Pointers
-- CLI: `examples/inspect/run.py` — argparse setup and `run_agent(...)` call.  
-  Grep: `argparse`, `--enable-`, `run_agent(`, `limits=`. 〖F:examples/inspect/run.py†L88-L101〗 〖F:examples/inspect/run.py†L149-L157〗
+- CLI: `examples/runners/supervisor_runner.py` — argparse setup and `run_agent(...)` call.  
+  Grep: `argparse`, `--enable-`, `run_agent(`, `limits=`. 〖F:examples/runners/supervisor_runner.py†L88-L101〗 〖F:examples/runners/supervisor_runner.py†L149-L157〗
 - Runner: `src/inspect_agents/run.py` — accepts `limits` list.  
   〖F:src/inspect_agents/run.py†L21-L27〗
 - Limit constructors (read-only): `external/inspect_ai/src/inspect_ai/util/_limit.py` — `message_limit`, `token_limit`, `time_limit`, `working_limit`.  
@@ -27,7 +27,7 @@ Tasks
 - [ ] Validate inputs; show helpful errors for malformed specs.
 
 Acceptance Criteria
-- Running `uv run python examples/inspect/run.py "..." --limit message=2` terminates early due to message cap (see logs/transcript), process exits 0.
+- Running `uv run python examples/runners/supervisor_runner.py "..." --limit message=2` terminates early due to message cap (see logs/transcript), process exits 0.
 - `--limit tokens=20000 --limit time=90s` accepted and forwarded (manual verification in logs/transcript).
 
 Test Plan
@@ -39,4 +39,3 @@ Risks & Rollback
 - Rollback: isolate changes to CLI file; remove flag handling.
 
 ---
-

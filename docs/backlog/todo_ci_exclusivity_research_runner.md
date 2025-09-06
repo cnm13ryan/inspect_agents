@@ -2,11 +2,11 @@
 
 Context & Motivation
 - Purpose: Make CI runs deterministic by enforcing single‑handoff behavior.
-- Problem: `examples/research/run_local.py` only added exclusivity for `dev`/`prod`; CI remained permissive. This caused non‑determinism when a turn emitted multiple tools including a handoff.
+- Problem: `examples/runners/research_runner.py` only added exclusivity for `dev`/`prod`; CI remained permissive. This caused non‑determinism when a turn emitted multiple tools including a handoff.
 - Impact: Stabilizes automated test/demo workflows by ensuring only the first handoff executes in a turn under `--approval ci`.
 
 Implementation Guidance
-- File: `examples/research/run_local.py` — extend the conditional that appends `handoff_exclusive_policy()` to include `"ci"`.
+- File: `examples/runners/research_runner.py` — extend the conditional that appends `handoff_exclusive_policy()` to include `"ci"`.
 - Grep terms: `--approval`, `approval_preset`, `handoff_exclusive_policy`.
 - Pattern: Preserve default behavior when `--approval` is not supplied.
 
@@ -21,7 +21,7 @@ Success Criteria
 - Docs: Open questions captured in `docs/design/open-questions.md`.
 
 Task Checklist
-- [x] Patch runner to append exclusivity for `ci`. 〖F:examples/research/run_local.py†L187-L193〗
+- [x] Patch runner to append exclusivity for `ci`. 〖F:examples/runners/research_runner.py†L187-L193〗
 - [x] Add targeted test `tests/research/test_run_local_exclusive_ci.py` asserting exclusivity is applied. 〖F:tests/research/test_run_local_exclusive_ci.py†L1-L40〗 〖F:tests/research/test_run_local_exclusive_ci.py†L42-L76〗
 - [ ] Optional: Note `--approval ci` determinism in `examples/research/README.md`.
 - [x] Record related design questions in `docs/design/open-questions.md`.

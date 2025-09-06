@@ -18,7 +18,7 @@ Inspect‑AI Capabilities (source of truth)
 Design Principles (repo‑specific)
 - Keep imports light at module top; do heavy/optional imports locally inside functions. 〖F:src/inspect_agents/agents.py†L79-L93〗
 - Prefer env‑first configuration with safe defaults; support per‑agent overrides using `__<AGENT_NAME>` suffix normalization (see quarantine filters). 〖F:src/inspect_agents/filters.py†L162-L170〗 〖F:src/inspect_agents/filters.py†L186-L205〗
-- Mirror some flags via CLI that write env vars before constructing agents (examples runner). 〖F:examples/inspect/run.py†L85-L118〗 〖F:examples/inspect/run.py†L142-L161〗
+- Mirror some flags via CLI that write env vars before constructing agents (examples runner). 〖F:examples/runners/supervisor_runner.py†L85-L118〗 〖F:examples/runners/supervisor_runner.py†L142-L161〗
 
 Configuration Surface (proposed)
 - Env vars (global defaults; can be overridden per sub‑agent via `__<AGENT_NAME>` suffix):
@@ -66,4 +66,3 @@ Observability
 FAQ
 - Why not enable cache globally by default? Tests and time‑sensitive interactions can break or hide regressions; opt‑in avoids surprises.
 - Why use a wrapper/bridge instead of patching Inspect? This repo deliberately wraps Inspect and keeps top‑level imports light; a wrapper keeps changes local, reversible, and consistent with existing design.
-

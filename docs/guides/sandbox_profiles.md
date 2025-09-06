@@ -112,7 +112,7 @@ Task(
 
 ## Defaults in this repository
 
-- Example task (`examples/research/iterative_task.py`) sets `sandbox="local"` and attaches approvals; exec tools are enabled only when `-T enable_exec=true` is passed.
+- Example task (`examples/tasks/iterative_task.py`) sets `sandbox="local"` and attaches approvals; exec tools are enabled only when `-T enable_exec=true` is passed.
 - A detailed integration guide for `inspect_agents` sandboxing is in `docs/how-to/sandboxing_inspect_agents.md`.
 
 ## Operational guidance

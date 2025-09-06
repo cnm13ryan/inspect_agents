@@ -12,7 +12,7 @@ Scope — Do
   - [x] `def create_deep_agent(tools, instructions, model=None, subagents=None, state_schema=None, builtin_tools=None, interrupt_config=None, ...) -> Callable|Solver` mapping to Inspect
   - [x] Internally: resolve built-ins (Store tools), build subagents (handoff), build supervisor (ReAct), build approval (policy)
 - [x] Tests `tests/unit/inspect_agents/test_migration.py` verifying a minimal flow (todos + file write) works via shim
- - [x] Quickstart example under `examples/inspect/`
+ - [x] Quickstart example under `examples/`
 
 Scope — Don’t
 - Do not change existing `src/deepagents/*`

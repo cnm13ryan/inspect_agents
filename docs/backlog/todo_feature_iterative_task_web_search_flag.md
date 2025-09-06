@@ -2,11 +2,11 @@
 
 ## Context & Motivation
 - Purpose: parity with local runner flag; simple way to enable search for the iterative task.
-- Problem: `examples/research/iterative_task.py` exposes only `enable_exec`.
+- Problem: `examples/tasks/iterative_task.py` exposes only `enable_exec`.
 - Value: easier demos/tests; fewer env steps.
 
 ## Implementation Guidance
-- Examine: `examples/research/iterative_task.py`.
+- Examine: `examples/tasks/iterative_task.py`.
 - Grep tokens: `enable_exec`, `INSPECT_ENABLE_EXEC`, `os.environ`.
 
 ## Scope Definition

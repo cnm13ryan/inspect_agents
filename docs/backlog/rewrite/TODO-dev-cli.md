@@ -18,5 +18,5 @@ Scope — Don’t
 - Don’t bundle provider keys or assume network connectivity by default
 
 Success Criteria
-- [x] `uv run python examples/inspect/run.py --help` works
+- [x] `uv run python examples/runners/supervisor_runner.py --help` works
 - [x] Running with a sample prompt produces transcript and expected results

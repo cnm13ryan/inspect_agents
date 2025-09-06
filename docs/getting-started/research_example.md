@@ -9,7 +9,7 @@ Run the research example using the Inspect‑AI path included in this repo. No l
 uv sync  # or: python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .
 
 # Run the example (local‑first model resolution; no keys required)
-uv run python examples/research/run_local.py "What is Inspect‑AI?"
+uv run python examples/runners/research_runner.py "What is Inspect‑AI?"
 ```
 
 Notes
@@ -29,7 +29,7 @@ export GOOGLE_CSE_ID=...
 export GOOGLE_CSE_API_KEY=...
 
 # Enable at runtime (also works without setting env ahead of time)
-uv run python examples/research/run_local.py --enable-web-search "Research LangGraph vs Inspect"
+uv run python examples/runners/research_runner.py --enable-web-search "Research LangGraph vs Inspect"
 ```
 
 ## Approvals & Quarantine (safety)
@@ -38,7 +38,7 @@ uv run python examples/research/run_local.py --enable-web-search "Research LangG
 
 ```bash
 # Dev: escalate sensitive tools; also enforces handoff exclusivity
-uv run python examples/research/run_local.py --approval dev "Delegate research and finish"
+uv run python examples/runners/research_runner.py --approval dev "Delegate research and finish"
 
 # CI: approve all (fast), Prod: terminate on sensitive tools
 #   --approval ci | --approval prod
@@ -56,7 +56,7 @@ Prefer declarative config? Use the provided YAML to build the same composition:
 
 ```bash
 # Run using YAML (includes sub‑agents and optional scoped quarantine)
-uv run python examples/research/run_local.py --config examples/research/inspect.yaml \
+uv run python examples/runners/research_runner.py --config examples/configs/research_supervisor.yaml \
   "Delegate research on Inspect‑AI and summarize"
 ```
 
