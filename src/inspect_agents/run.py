@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import os
 
 
 async def run_agent(
@@ -35,6 +36,18 @@ async def run_agent(
         except Exception:
             # If approval initialization isn't available in test stubs, continue.
             pass
+    else:
+        # Optional env-activated presets when no explicit approvals are supplied
+        # INSPECT_APPROVAL_PRESET=ci|dev|prod
+        preset = (os.getenv("INSPECT_APPROVAL_PRESET") or "").strip().lower()
+        if preset in {"ci", "dev", "prod"}:
+            try:
+                from .approval import approval_preset, activate_approval_policies
+
+                activate_approval_policies(approval_preset(preset))
+            except Exception:
+                # Safe no-op if approval wiring is unavailable in the environment
+                pass
 
     # Guard: some tests install a minimal inspect_ai.approval._apply stub that
     # lacks `have_tool_approval` expected by newer Inspect. Patch it in before
