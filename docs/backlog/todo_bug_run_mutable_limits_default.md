@@ -1,5 +1,9 @@
 # TODO: run_agent — Mutable Default for `limits`
 
+Status: DONE (2025-09-06)
+- Implemented: `run_agent(..., limits: list[Any] | None = None)` with in-function normalization to a new list when `None`.
+  - Code: `src/inspect_agents/run.py` (signature updated; defensive normalization added near top).
+
 ## Context & Motivation
 - `run_agent(..., limits: list[Any] = [])` uses a mutable default list.
 - Mutable defaults can leak state across calls and surprise users/tests.
@@ -18,4 +22,3 @@
 ## Success Criteria
 - Code updated as above.
 - Tests: new test passes; no regressions.
-
