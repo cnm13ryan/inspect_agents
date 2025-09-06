@@ -9,7 +9,7 @@ import pytest
 import asyncio
 
 
-def test_sandbox_preflight_ttl_warn_once_within_ttl(monkeypatch, caplog):
+def test_sandbox_preflight_ttl_warn_once_within_ttl(monkeypatch, caplog, tool_modules_guard):
     """ensure_sandbox_ready emits a single warning log within the TTL window.
 
     We simulate an unavailable sandbox by stubbing
@@ -43,7 +43,7 @@ def test_sandbox_preflight_ttl_warn_once_within_ttl(monkeypatch, caplog):
         raise RuntimeError("sandbox unavailable")
 
     stub.tool_support_sandbox = tool_support_sandbox  # type: ignore[attr-defined]
-    sys.modules[mod_name] = stub
+    monkeypatch.setitem(sys.modules, mod_name, stub)
 
     # Capture logs from the fs module
     caplog.set_level(logging.INFO, logger="inspect_agents.fs")

@@ -5,7 +5,7 @@ import types
 from inspect_agents.tools import read_file, write_file
 
 
-def _install_editor_stub(fs: dict[str, str]):
+def _install_editor_stub(monkeypatch, fs: dict[str, str]):
     mod_name = "inspect_ai.tool._tools._text_editor"
     sys.modules.pop(mod_name, None)
 
@@ -41,10 +41,10 @@ def _install_editor_stub(fs: dict[str, str]):
         return execute
 
     mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
-def _install_bash_stub():
+def _install_bash_stub(monkeypatch):
     mod_name = "inspect_ai.tool._tools._bash_session"
     sys.modules.pop(mod_name, None)
 
@@ -65,7 +65,7 @@ def _install_bash_stub():
         return execute
 
     mod.bash_session = bash_session
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
 def test_store_numbering_padded(monkeypatch):
@@ -94,8 +94,8 @@ def test_sandbox_numbering_padded(monkeypatch):
 
     # In-memory FS and stubs so sandbox path is exercised without external deps
     fs: dict[str, str] = {}
-    _install_editor_stub(fs)
-    _install_bash_stub()
+    _install_editor_stub(monkeypatch, fs)
+    _install_bash_stub(monkeypatch)
 
     r = read_file()
     w = write_file()
@@ -109,4 +109,3 @@ def test_sandbox_numbering_padded(monkeypatch):
     lines = str(out).splitlines()
     assert lines[0].startswith("     1\t") and lines[0].endswith("alpha")
     assert lines[1].startswith("     2\t") and lines[1].endswith("beta")
-
