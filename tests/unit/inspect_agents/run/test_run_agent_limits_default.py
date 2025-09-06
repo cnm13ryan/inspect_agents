@@ -5,7 +5,7 @@ import sys
 import types
 
 
-def _install_inspect_stub(calls: list[dict]) -> None:
+def _install_inspect_stub(monkeypatch, calls: list[dict]) -> None:
     """Install a minimal stub for `inspect_ai.agent._run.run`.
 
     The stub records the `limits` argument and mutates it to simulate a
@@ -26,14 +26,25 @@ def _install_inspect_stub(calls: list[dict]) -> None:
         return "STATE"
 
     # Create package/module hierarchy: inspect_ai -> agent -> _run
+    # Preserve vendored package path so other submodules (e.g., log._transcript) still import
+    import pathlib
     pkg = types.ModuleType("inspect_ai")
+    vendor_pkg_path = pathlib.Path(__file__).resolve().parents[4] / "external" / "inspect_ai" / "src" / "inspect_ai"
+    try:
+        pkg.__path__ = [str(vendor_pkg_path)]  # type: ignore[attr-defined]
+    except Exception:
+        pass
     mod_agent = types.ModuleType("inspect_ai.agent")
+    try:
+        mod_agent.__path__ = [str(vendor_pkg_path / "agent")]  # type: ignore[attr-defined]
+    except Exception:
+        pass
     mod_run = types.ModuleType("inspect_ai.agent._run")
     mod_run.run = run  # type: ignore[attr-defined]
 
-    sys.modules["inspect_ai"] = pkg
-    sys.modules["inspect_ai.agent"] = mod_agent
-    sys.modules["inspect_ai.agent._run"] = mod_run
+    monkeypatch.setitem(sys.modules, "inspect_ai", pkg)
+    monkeypatch.setitem(sys.modules, "inspect_ai.agent", mod_agent)
+    monkeypatch.setitem(sys.modules, "inspect_ai.agent._run", mod_run)
 
 
 def _uninstall_inspect_stub() -> None:
@@ -41,9 +52,9 @@ def _uninstall_inspect_stub() -> None:
         sys.modules.pop(name, None)
 
 
-def test_run_agent_limits_default_isolated():
+def test_run_agent_limits_default_isolated(monkeypatch):
     calls: list[dict] = []
-    _install_inspect_stub(calls)
+    _install_inspect_stub(monkeypatch, calls)
     try:
         from inspect_agents.run import run_agent
 
@@ -67,4 +78,3 @@ def test_run_agent_limits_default_isolated():
         assert calls[1]["list"] == []
     finally:
         _uninstall_inspect_stub()
-
