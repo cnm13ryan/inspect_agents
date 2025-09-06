@@ -2,6 +2,8 @@
 
 This repo’s examples are grouped by intent so you can quickly find the right entrypoint and avoid path confusion.
 
+Canonical guide for the research example: `docs/getting-started/research_example.md`.
+
 ## Layout
 
 - tasks/: Inspect CLI tasks (run with `inspect eval`)
@@ -20,14 +22,14 @@ This repo’s examples are grouped by intent so you can quickly find the right e
   - `examples/demos/subagent_approvals_demo.py` — handoff exclusivity + approvals demo (offline).
 
 - configs/: Example configurations
-  - `examples/configs/research_supervisor.yaml` — YAML composition for the research supervisor.
+  - `examples/configs/research/supervisor.yaml` — YAML composition for the research supervisor.
 
 ## Quick Start
 
 - Inspect CLI (tasks)
   - `uv run inspect eval examples/tasks/prompt_task.py -T prompt="Write a concise overview of LangGraph"`
   - `uv run inspect eval examples/tasks/iterative_task.py -T prompt="List repo files and propose a small refactor plan"`
-  - YAML config: `uv run inspect eval examples/tasks/research_task.py -T config=examples/configs/research_supervisor.yaml -T prompt="Research topic..."`
+  - YAML config: `uv run inspect eval examples/tasks/research_task.py -T config=examples/configs/research/supervisor.yaml -T prompt="Research topic..."`
 
 - Python runners
   - `uv run python examples/runners/supervisor_runner.py "What is Inspect‑AI?"`
@@ -44,4 +46,3 @@ This repo’s examples are grouped by intent so you can quickly find the right e
 - Paths and imports: each runner/task sets `REPO_ROOT = Path(__file__).resolve().parents[2]` so local `src/` code is imported from this repo.
 - Environment: runners/tasks load `.env` from the repo root and their own folder (if present). You can also pass `--env-file` to runners that support it or set `INSPECT_ENV_FILE`.
 - Providers: defaults prefer local providers (e.g., Ollama/LM Studio). Override via CLI flags or env (see docs/reference/environment.md).
-
