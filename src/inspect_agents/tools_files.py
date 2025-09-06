@@ -253,73 +253,109 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     empty_message = "System reminder: File exists but has empty contents"
 
-    # Sandbox FS mode: delegate to adapter (text_editor/sed) then format lines
+    # Sandbox FS mode: delegate to adapter (sed via bash when possible, else editor)
     if _use_sandbox_fs():
         adapter = _get_sandbox_adapter()
-        if await adapter.preflight("editor"):
-            # Validate path and deny symlinks before attempting IO
-            validated_path = adapter.validate(params.file_path)
-            await adapter.deny_symlink(validated_path)
+        # Validate path; propagate access errors (must not read outside root)
+        validated_path = adapter.validate(params.file_path)
+        # Symlink denial (adapter itself no-ops when sandbox is unavailable)
+        await adapter.deny_symlink(validated_path)
 
-            try:
-                # Optional byte preflight via wc -c
-                file_bytes = await adapter.wc_bytes(validated_path)
-                if file_bytes is not None:
-                    max_bytes = _max_bytes()
-                    if file_bytes > max_bytes:
-                        _log_tool_event(
-                            name="files:read",
-                            phase="error",
-                            extra={
-                                "ok": False,
-                                "error": "FileSizeExceeded",
-                                "actual_bytes": file_bytes,
-                                "max_bytes": max_bytes,
-                            },
-                            t0=_t0,
-                        )
-                        raise ToolException(
-                            f"File exceeds maximum size limit: {file_bytes:,} bytes > {max_bytes:,} bytes. "
-                            f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
-                        )
-
-                # Compute 1-based start and inclusive end; -1 means EOF
-                start_line = max(1, int(params.offset) + 1)
-                end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
-
-                raw = await adapter.view(validated_path, start_line, end_line)
-
-                if raw is None or str(raw).strip() == "":
-                    if _use_typed_results():
-                        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                        return FileReadResult(lines=[], summary=empty_message)
-                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                    return empty_message
-
-                # Format returned content with padded numbering (match store mode)
-                lines = str(raw).splitlines()
-                # Enforce requested limit defensively in case sed stub ignores the range
-                if params.limit is not None and params.limit > 0:
-                    lines = lines[: int(params.limit)]
-                # Legacy string output uses padded numbering; typed results do not
-                padded_lines, joined_output = _format_lines(lines, start_line, pad=True)
-
-                if _use_typed_results():
-                    nopad_lines, _ = _format_lines(lines, start_line, pad=False)
+        try:
+            # Optional byte preflight via wc -c (no-op if bash is unavailable)
+            file_bytes = await adapter.wc_bytes(validated_path)
+            if file_bytes is not None:
+                max_bytes = _max_bytes()
+                if file_bytes > max_bytes:
                     _log_tool_event(
                         name="files:read",
-                        phase="end",
-                        extra={"ok": True, "lines": len(nopad_lines)},
+                        phase="error",
+                        extra={
+                            "ok": False,
+                            "error": "FileSizeExceeded",
+                            "actual_bytes": file_bytes,
+                            "max_bytes": max_bytes,
+                        },
                         t0=_t0,
                     )
-                    return FileReadResult(
-                        lines=nopad_lines,
-                        summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                    raise ToolException(
+                        f"File exceeds maximum size limit: {file_bytes:,} bytes > {max_bytes:,} bytes. "
+                        f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
                     )
+
+            # Compute 1-based start and inclusive end; -1 means EOF
+            start_line = max(1, int(params.offset) + 1)
+            end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
+
+            raw = await adapter.view(validated_path, start_line, end_line)
+
+            if raw is None or str(raw).strip() == "":
+                if _use_typed_results():
+                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                    return FileReadResult(lines=[], summary=empty_message)
+                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                return empty_message
+
+            # Format returned content with padded numbering (match store mode)
+            lines = str(raw).splitlines()
+            # Enforce requested limit defensively in case sed stub ignores the range
+            if params.limit is not None and params.limit > 0:
+                lines = lines[: int(params.limit)]
+            # Legacy string output uses padded numbering; typed results do not
+            padded_lines, joined_output = _format_lines(lines, start_line, pad=True)
+
+            if _use_typed_results():
+                nopad_lines, _ = _format_lines(lines, start_line, pad=False)
                 _log_tool_event(
-                    name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0
+                    name="files:read",
+                    phase="end",
+                    extra={"ok": True, "lines": len(nopad_lines)},
+                    t0=_t0,
                 )
-                return joined_output
+                return FileReadResult(
+                    lines=nopad_lines,
+                    summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                )
+            _log_tool_event(
+                name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0
+            )
+            return joined_output
+        except Exception:
+            # Secondary fallback: attempt a direct bash 'sed -n' read if available
+            try:
+                import shlex as _shlex
+                from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
+
+                start_line = max(1, int(params.offset) + 1)
+                end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
+                sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
+                bash = _bash_session()
+                with anyio.fail_after(_default_tool_timeout()):
+                    sed_result = await bash(
+                        action="run", command=f"sed -n '{sed_range}' {_shlex.quote(validated_path)}"
+                    )
+                raw2 = getattr(sed_result, "stdout", None)
+                if raw2 and str(raw2).strip() != "":
+                    lines = str(raw2).splitlines()
+                    if params.limit is not None and params.limit > 0:
+                        lines = lines[: int(params.limit)]
+                    if _use_typed_results():
+                        nopad_lines, _ = _format_lines(lines, start_line, pad=False)
+                        _log_tool_event(
+                            name="files:read",
+                            phase="end",
+                            extra={"ok": True, "lines": len(nopad_lines)},
+                            t0=_t0,
+                        )
+                        return FileReadResult(
+                            lines=nopad_lines,
+                            summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                        )
+                    _padded, joined_output = _format_lines(lines, start_line, pad=True)
+                    _log_tool_event(
+                        name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0
+                    )
+                    return joined_output
             except Exception:
                 # Graceful fallback to store-backed mode
                 pass
@@ -329,6 +365,44 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         files = store_as(Files, instance=params.instance)
         content = files.get_file(params.file_path)
     if content is None:
+        # As a last resort in sandbox mode, try a direct bash read before erroring
+        if _use_sandbox_fs():
+            try:
+                import shlex as _shlex
+                from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
+
+                start_line = max(1, int(params.offset) + 1)
+                end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
+                sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
+                bash = _bash_session()
+                with anyio.fail_after(_default_tool_timeout()):
+                    sed_result = await bash(
+                        action="run", command=f"sed -n '{sed_range}' {_shlex.quote(params.file_path)}"
+                    )
+                raw3 = getattr(sed_result, "stdout", None)
+                if raw3 and str(raw3).strip() != "":
+                    lines = str(raw3).splitlines()
+                    if params.limit is not None and params.limit > 0:
+                        lines = lines[: int(params.limit)]
+                    if _use_typed_results():
+                        nopad_lines, _ = _format_lines(lines, start_line, pad=False)
+                        _log_tool_event(
+                            name="files:read",
+                            phase="end",
+                            extra={"ok": True, "lines": len(nopad_lines)},
+                            t0=_t0,
+                        )
+                        return FileReadResult(
+                            lines=nopad_lines,
+                            summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                        )
+                    _padded, joined_output = _format_lines(lines, start_line, pad=True)
+                    _log_tool_event(
+                        name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0
+                    )
+                    return joined_output
+            except Exception:
+                pass
         _log_tool_event(
             name="files:read",
             phase="error",
