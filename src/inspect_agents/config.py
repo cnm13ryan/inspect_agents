@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any, Literal
 
 import yaml
@@ -180,6 +181,68 @@ def parse_limits(spec: list[Any] | None) -> list[Limit]:
     return limits
 
 
+def env_limits_for_agent(agent_name: str) -> list[Limit]:
+    """Return Inspect `Limit` objects from per‑agent environment overrides.
+
+    Reads the following variables after normalizing the agent name using
+    `filters._normalize_agent_env_suffix(name)` (lowercase; non‑alphanumeric
+    to `_`; collapsed underscores):
+
+    - `INSPECT_LIMIT_TIME__<agent>`: seconds (float > 0)
+    - `INSPECT_LIMIT_MESSAGES__<agent>`: max messages (int > 0)
+    - `INSPECT_LIMIT_TOKENS__<agent>`: max tokens (int > 0)
+
+    Returns a list of constructed Inspect `Limit` objects. Invalid, missing, or
+    non‑positive values are ignored. This helper does not log; callers can
+    emit diagnostics if desired.
+    """
+    try:
+        # Import locally to avoid heavy deps and circular imports at module load
+        from .filters import _normalize_agent_env_suffix  # type: ignore
+    except Exception:
+        return []
+
+    suffix = _normalize_agent_env_suffix(agent_name)
+    if not suffix:
+        return []
+
+    def _int_env(name: str) -> int | None:
+        raw = os.getenv(name)
+        if raw is None:
+            return None
+        try:
+            val = int(str(raw).strip())
+        except Exception:
+            return None
+        return val if val > 0 else None
+
+    def _float_env(name: str) -> float | None:
+        raw = os.getenv(name)
+        if raw is None:
+            return None
+        try:
+            val = float(str(raw).strip())
+        except Exception:
+            return None
+        return val if val > 0 else None
+
+    limits: list[Limit] = []
+
+    t = _float_env(f"INSPECT_LIMIT_TIME__{suffix}")
+    if t is not None:
+        limits.append(time_limit(t))
+
+    m = _int_env(f"INSPECT_LIMIT_MESSAGES__{suffix}")
+    if m is not None:
+        limits.append(message_limit(m))
+
+    tk = _int_env(f"INSPECT_LIMIT_TOKENS__{suffix}")
+    if tk is not None:
+        limits.append(token_limit(tk))
+
+    return limits
+
+
 def build_from_config(
     cfg: RootConfig, *, model: Any | None = None
 ) -> tuple[object, list[object], list[Any], list[Limit]]:
@@ -283,6 +346,7 @@ __all__ = [
     "build_from_config",
     "load_and_build",
     "parse_limits",
+    "env_limits_for_agent",
     "RootConfig",
     "SupervisorCfg",
     "SubAgentCfg",
