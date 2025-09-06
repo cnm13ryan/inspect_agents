@@ -1,5 +1,9 @@
 # TODO: read_file — Consistent Numbering (sandbox vs store)
 
+Status: DONE (2025-09-06)
+- Implemented: both sandbox and store paths use the same padded numbering via `_format_lines(..., pad=True)` for legacy string output; typed results return raw lines without padding.
+  - Code: `src/inspect_agents/tools_files.py` (`execute_read` uses `_format_lines` for both branches; sandbox branch post-sed formatting enforces padded numbering).
+
 ## Context & Motivation
 - `execute_read` formats numbered lines via `_format_lines(...)`.
 - Store mode pads line numbers to width 6 (cat‑style). Sandbox path currently uses unpadded numbering in one branch.
@@ -18,4 +22,3 @@
 
 ## Success Criteria
 - Consistent numbering across modes; docs updated; tests pass.
-
