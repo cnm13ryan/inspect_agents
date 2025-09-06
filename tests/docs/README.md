@@ -5,6 +5,7 @@ Central index of testing guides for this repository. Tests default to offline, f
 ## Structure
 - unit: fast, isolated tests (`tests/unit/**`).
   - `inspect_agents/approvals`: approval policies, handoff exclusivity, kill-switch.
+  - `inspect_agents/filters`: input/output filters and quarantine modes.
   - `inspect_agents/fs`: files tool + sandbox FS behaviors.
   - `inspect_agents/iterative`: iterative agent limits, productive time.
   - `inspect_agents/model`: model resolution + role mapping.
