@@ -7,8 +7,10 @@ from pathlib import Path
 
 
 # Legacy roots that should remain empty of code going forward.
+# Note: historically, tests lived under these roots. This repository now
+# hosts first-class suites under "tests/inspect_agents/**" (see docs), so we
+# no longer treat that path as legacy. Keep the other legacy roots guarded.
 LEGACY_ROOTS = [
-    Path("tests/inspect_agents"),
     Path("tests/tests"),
     Path("tests/research"),
     Path("tests/examples"),
@@ -64,4 +66,3 @@ def test_no_legacy_tests_present() -> None:
         "Move tests to 'tests/unit/**' or 'tests/integration/**'.\n"
         "Offending paths:\n  - " + "\n  - ".join(sorted(offenders))
     )
-
