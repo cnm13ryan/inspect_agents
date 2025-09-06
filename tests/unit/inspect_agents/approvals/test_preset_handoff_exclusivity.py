@@ -12,7 +12,7 @@ import sys
 import types
 
 
-def _install_minimal_stubs():
+def _install_minimal_stubs(monkeypatch):
     # Stub approval._approval.Approval
     appr = types.ModuleType('inspect_ai.approval._approval')
     class Approval:  # pragma: no cover - tiny shim
@@ -21,7 +21,7 @@ def _install_minimal_stubs():
             self.modified = modified
             self.explanation = explanation
     appr.Approval = Approval
-    sys.modules['inspect_ai.approval._approval'] = appr
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', appr)
 
     # Stub approval._policy.ApprovalPolicy (constructor compatibility only)
     pol = types.ModuleType('inspect_ai.approval._policy')
@@ -30,7 +30,7 @@ def _install_minimal_stubs():
             self.approver = approver
             self.tools = tools
     pol.ApprovalPolicy = ApprovalPolicy
-    sys.modules['inspect_ai.approval._policy'] = pol
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', pol)
 
     # Stub tool._tool_call.ToolCall
     tool_mod = types.ModuleType('inspect_ai.tool._tool_call')
@@ -43,7 +43,7 @@ def _install_minimal_stubs():
             self.view = view
             self.type = type
     tool_mod.ToolCall = ToolCall
-    sys.modules['inspect_ai.tool._tool_call'] = tool_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.tool._tool_call', tool_mod)
 
     # Stub registry so registry_tag attaches an attribute we can inspect
     reg = types.ModuleType('inspect_ai._util.registry')
@@ -58,7 +58,7 @@ def _install_minimal_stubs():
             pass
     reg.RegistryInfo = RegistryInfo
     reg.registry_tag = registry_tag
-    sys.modules['inspect_ai._util.registry'] = reg
+    monkeypatch.setitem(sys.modules, 'inspect_ai._util.registry', reg)
 
 
 def _load_module_via_exec():
@@ -79,8 +79,8 @@ def _policy_names(policies):
     return [n for n in names if n]
 
 
-def test_presets_include_exclusivity_marker(approval_modules_guard):
-    _install_minimal_stubs()
+def test_presets_include_exclusivity_marker(approval_modules_guard, monkeypatch):
+    _install_minimal_stubs(monkeypatch)
     mod = _load_module_via_exec()
 
     dev_names = _policy_names(mod['approval_preset']('dev'))
@@ -92,13 +92,13 @@ def test_presets_include_exclusivity_marker(approval_modules_guard):
     assert 'policy/handoff_exclusive' not in ci_names
 
 
-def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard):
+def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard, monkeypatch):
     """Find the exclusivity approver in dev/prod and validate behavior.
 
     We call the approver directly (not via policy_approver) to isolate its
     semantics: first handoff approved; non‑handoff skipped with explanation.
     """
-    _install_minimal_stubs()
+    _install_minimal_stubs(monkeypatch)
     mod = _load_module_via_exec()
 
     def get_excl(policies):
@@ -131,4 +131,3 @@ def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard)
         assert 'exclusivity' in (getattr(res2, 'explanation', '') or '')
 
 # Cleanup handled by approval_modules_guard fixture
-
