@@ -246,11 +246,17 @@ Precedence
 - Explicit limits passed to the handoff (programmatic or YAML) win when non‑empty.
 - If the sub‑agent config omits `limits` or sets an empty list, env budgets apply.
 
-Example
+Examples
 ```bash
 # Cap the Researcher handoff at 60s and 8 messages
 export INSPECT_LIMIT_TIME__researcher=60
 export INSPECT_LIMIT_MESSAGES__researcher=8
+
+# Budget the Writer by messages only
+export INSPECT_LIMIT_MESSAGES__writer=8
+
+# Cap the Grader by tokens
+export INSPECT_LIMIT_TOKENS__grader=6000
 ```
 
 
