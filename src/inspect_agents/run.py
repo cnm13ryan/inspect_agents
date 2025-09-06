@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 import os
+from .observability import log_tool_event
 
 
 async def run_agent(
@@ -69,6 +70,26 @@ async def run_agent(
     # Inspect returns a tuple when limits are provided; otherwise it's the state
     if isinstance(result, tuple):
         state, err = result
+
+        # Emit a structured event when a limit error is returned
+        if err is not None:
+            try:
+                extra: dict[str, Any] = {
+                    "scope": "runner",
+                    "error_type": type(err).__name__,
+                }
+                # Optionally enrich when attributes are available
+                for attr in ("kind", "threshold", "used"):
+                    try:
+                        value = getattr(err, attr)
+                    except Exception:
+                        value = None
+                    if value is not None:
+                        extra[attr] = value
+                log_tool_event(name="limits", phase="error", extra=extra)
+            except Exception:
+                # Never let observability interfere with control flow
+                pass
 
         # Optionally raise when a limit error occurred
         if raise_on_limit and err is not None:
