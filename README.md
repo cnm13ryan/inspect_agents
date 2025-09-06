@@ -52,7 +52,7 @@ export UV_CACHE_DIR=.uv-cache
 uv sync
 
 # Verify installation
-uv run python -c "import inspect_agents; print('deepagents OK')"
+uv run python -c "import inspect_agents; print('inspect_agents OK')"
 ```
 
 ### Using pip/venv
@@ -65,7 +65,7 @@ source .venv/bin/activate
 pip install -e .
 
 # Verify installation
-python -c "import inspect_agents; print('deepagents OK')"
+python -c "import inspect_agents; print('inspect_agents OK')"
 ```
 
 ### Configure Environment Variables
@@ -78,38 +78,12 @@ uv run python env_templates/configure.py
 
 This writes a `.env` at the repo root and `examples/inspect/.env`. You can also point runners to the file with `--env-file` or by exporting `INSPECT_ENV_FILE=path/to/.env`.
 
-## Quick Start
+## Quickstart (Offline, 60 seconds)
+Works with zero API keys and no local model server.
 
-### Offline Test (No API Keys Required)
-Create and run a toy agent to verify your setup:
-
-```python
-# scripts/quickstart_toy.py
-import asyncio
-from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageAssistant
-from inspect_agents.agents import build_supervisor
-from inspect_agents.run import run_agent
-
-@agent
-def toy_submit_model():
-    async def execute(state: AgentState, tools):
-        state.messages.append(
-            ChatMessageAssistant(
-                content="",
-                tool_calls=[{"id": "1", "function": "submit", "arguments": {"answer": "DONE"}}],
-            )
-        )
-        return state
-    return execute
-
-async def main():
-    sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
-    result = await run_agent(sup, "hello")
-    print("Completion:", result.output.completion)
-
-asyncio.run(main())
-# Expected output: "Completion: DONE"
+```bash
+python scripts/quickstart_toy.py
+# Expected: Completion: DONE
 ```
 
 ### CLI Usage
