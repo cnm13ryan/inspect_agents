@@ -26,6 +26,17 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ **Safe by default**: Approvals, quarantine filters, and sandbox file operations
 - ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
 
+## Table of Contents
+- Quickstart (offline, 60 seconds)
+- Installation
+- Usage (CLI and Python)
+- Logs & Inspect View
+- Examples
+- Documentation
+- Project Status
+- Contributing
+- Support
+
 ## Installation
 
 ### Prerequisites
