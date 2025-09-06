@@ -119,6 +119,7 @@ include = ["src"]
 
 # --- Testing ---
 [tool.pytest.ini_options]
+addopts = "-q -n auto --maxfail=1"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 filterwarnings = [
