@@ -2,6 +2,7 @@
 
 import asyncio
 from unittest.mock import AsyncMock, Mock, patch
+from tests.fixtures.patching import patch_use_site
 
 import pytest
 
@@ -32,16 +33,27 @@ class TestFilesToolUnified:
         """Test ls command in store mode."""
 
         async def _test():
-            with (
-                patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-                patch("inspect_agents.tools_files._use_typed_results", return_value=False),
-                patch("inspect_ai.util._store_model.store_as") as mock_store_as,
-            ):
-                # Mock Files store
-                mock_files = Mock()
-                mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
-                mock_store_as.return_value = mock_files
+            # Prepare a mock for store_as we can assert on
+            mock_files = Mock()
+            mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
+            mock_store_as = Mock(return_value=mock_files)
 
+            with (
+                patch_use_site(
+                    "inspect_agents.tools_files._use_sandbox_fs",
+                    new=lambda: False,
+                ),
+                patch_use_site(
+                    "inspect_agents.tools_files._use_typed_results",
+                    new=lambda: False,
+                ),
+                # store_as signature may vary by Inspect version; avoid autospec
+                patch_use_site(
+                    "inspect_ai.util._store_model.store_as",
+                    new=mock_store_as,
+                    autospec=False,
+                ),
+            ):
                 params = FilesParams(root=LsParams(command="ls", instance=None))
                 result = await self.tool(params)
 
@@ -54,15 +66,26 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_ls_command_typed_results(self):
         """Test ls command with typed results."""
-        with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
-            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
-        ):
-            mock_files = Mock()
-            mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
-            mock_store_as.return_value = mock_files
+        # Prepare a mock for store_as we can assert on
+        mock_files = Mock()
+        mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
+        mock_store_as = Mock(return_value=mock_files)
 
+        with (
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._use_typed_results",
+                new=lambda: True,
+            ),
+            patch_use_site(
+                "inspect_ai.util._store_model.store_as",
+                new=mock_store_as,
+                autospec=False,
+            ),
+        ):
             params = FilesParams(root=LsParams(command="ls", instance="test"))
             result = await self.tool(params)
 
@@ -327,7 +350,10 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_delete_command_sandbox_mode_unsupported(self):
         """Test delete command in sandbox mode raises appropriate error."""
-        with patch("inspect_agents.tools_files._use_sandbox_fs", return_value=True):
+        with patch_use_site(
+            "inspect_agents.tools_files._use_sandbox_fs",
+            new=lambda: True,
+        ):
             params = FilesParams(root=DeleteParams(command="delete", file_path="test.txt"))
 
             with pytest.raises(Exception) as exc_info:
@@ -404,8 +430,14 @@ class TestByteCeilingEnforcement:
     async def test_write_exceeds_byte_ceiling_store_mode(self):
         """Test write command fails when content exceeds byte ceiling."""
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=100),  # Small limit
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 100,
+            ),  # Small limit
             patch("inspect_agents.tools_files.anyio.fail_after"),
         ):
             # Create content that exceeds the 100-byte limit
@@ -423,15 +455,29 @@ class TestByteCeilingEnforcement:
     @pytest.mark.asyncio
     async def test_write_within_byte_ceiling_store_mode(self):
         """Test write command succeeds when content is within byte ceiling."""
+        # Prepare a mock for store_as we can assert on
+        mock_files = Mock()
+        mock_store_as = Mock(return_value=mock_files)
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=100),
-            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 100,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._use_typed_results",
+                new=lambda: False,
+            ),
             patch("inspect_agents.tools_files.anyio.fail_after"),
-            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+            patch_use_site(
+                "inspect_ai.util._store_model.store_as",
+                new=mock_store_as,
+                autospec=False,
+            ),
         ):
-            mock_files = Mock()
-            mock_store_as.return_value = mock_files
 
             small_content = "x" * 50  # Within limit
             params = FilesParams(
@@ -471,16 +517,30 @@ class TestByteCeilingEnforcement:
     @pytest.mark.asyncio
     async def test_edit_within_byte_ceiling_store_mode(self):
         """Test edit command succeeds when result is within byte ceiling."""
+        # Prepare a mock for store_as we can assert on
+        mock_files = Mock()
+        mock_files.get_file.return_value = "Hello world"
+        mock_store_as = Mock(return_value=mock_files)
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=100),
-            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 100,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._use_typed_results",
+                new=lambda: False,
+            ),
             patch("inspect_agents.tools_files.anyio.fail_after"),
-            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+            patch_use_site(
+                "inspect_ai.util._store_model.store_as",
+                new=mock_store_as,
+                autospec=False,
+            ),
         ):
-            mock_files = Mock()
-            mock_files.get_file.return_value = "Hello world"
-            mock_store_as.return_value = mock_files
 
             params = FilesParams(
                 root=EditParams(command="edit", file_path="test.txt", old_string="world", new_string="universe")
@@ -493,15 +553,26 @@ class TestByteCeilingEnforcement:
     @pytest.mark.asyncio
     async def test_read_exceeds_byte_ceiling_store_mode(self):
         """Test read command fails when file exceeds byte ceiling."""
+        # Prepare a mock for store_as we can assert on
+        mock_files = Mock()
+        mock_files.get_file.return_value = "x" * 150  # Exceeds limit
+        mock_store_as = Mock(return_value=mock_files)
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=100),
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 100,
+            ),
             patch("inspect_agents.tools_files.anyio.fail_after"),
-            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+            patch_use_site(
+                "inspect_ai.util._store_model.store_as",
+                new=mock_store_as,
+                autospec=False,
+            ),
         ):
-            mock_files = Mock()
-            mock_files.get_file.return_value = "x" * 150  # Exceeds limit
-            mock_store_as.return_value = mock_files
 
             params = FilesParams(root=ReadParams(command="read", file_path="large.txt"))
 
@@ -514,16 +585,30 @@ class TestByteCeilingEnforcement:
     @pytest.mark.asyncio
     async def test_read_within_byte_ceiling_store_mode(self):
         """Test read command succeeds when file is within byte ceiling."""
+        # Prepare a mock for store_as we can assert on
+        mock_files = Mock()
+        mock_files.get_file.return_value = "Hello world"  # Within limit
+        mock_store_as = Mock(return_value=mock_files)
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=100),
-            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 100,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._use_typed_results",
+                new=lambda: False,
+            ),
             patch("inspect_agents.tools_files.anyio.fail_after"),
-            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+            patch_use_site(
+                "inspect_ai.util._store_model.store_as",
+                new=mock_store_as,
+                autospec=False,
+            ),
         ):
-            mock_files = Mock()
-            mock_files.get_file.return_value = "Hello world"  # Within limit
-            mock_store_as.return_value = mock_files
 
             params = FilesParams(root=ReadParams(command="read", file_path="small.txt"))
 
@@ -553,8 +638,14 @@ class TestByteCeilingEnforcement:
     async def test_unicode_content_byte_calculation(self):
         """Test that byte ceiling correctly handles unicode content."""
         with (
-            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
-            patch("inspect_agents.tools_files._max_bytes", return_value=6),  # Very small limit
+            patch_use_site(
+                "inspect_agents.tools_files._use_sandbox_fs",
+                new=lambda: False,
+            ),
+            patch_use_site(
+                "inspect_agents.tools_files._max_bytes",
+                new=lambda: 6,
+            ),  # Very small limit
             patch("inspect_agents.tools_files.anyio.fail_after"),
         ):
             # Unicode content that's 2 characters but more bytes
