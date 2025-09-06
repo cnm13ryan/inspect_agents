@@ -21,7 +21,7 @@ def _collect_limits_events(records):
 @pytest.mark.asyncio
 async def test_limits_event_on_return_tuple(caplog, monkeypatch):
     # Keep things offline/deterministic
-    monkeypatch.setenv("NO_NETWORK", "1")
+    # Offline by default via root env guard
 
     # Capture our package logs
     caplog.set_level(logging.INFO, logger="inspect_agents")
@@ -75,7 +75,7 @@ async def test_limits_event_on_return_tuple(caplog, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_limits_event_before_raise(caplog, monkeypatch):
-    monkeypatch.setenv("NO_NETWORK", "1")
+    # Offline by default via root env guard
     caplog.set_level(logging.INFO, logger="inspect_agents")
     caplog.set_level(logging.INFO, logger="inspect_agents.tools")
 
