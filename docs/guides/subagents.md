@@ -71,8 +71,18 @@ subagents:
         max: 6000
 ```
 
+Env‑only (no code/YAML edits):
+
+```bash
+# Per‑agent handoff budgets via environment
+# Agent name normalization: lowercase; non‑alphanumeric → _; collapse repeats
+export INSPECT_LIMIT_TIME__researcher=60       # seconds
+export INSPECT_LIMIT_MESSAGES__researcher=8    # turns within the handoff
+export INSPECT_LIMIT_TOKENS__researcher=6000   # token budget
+```
+
 Notes
-- Limits are Inspect `Limit` objects; construct them programmatically (time/message/token). The YAML “spec” above is a documentation aid; bind them in code until a parser maps specs → limit objects.
+- Limits are Inspect `Limit` objects. Provide them programmatically in code or set per‑agent budgets via environment as shown above. YAML specs for sub‑agent limits remain illustrative.
 - Quarantine defaults: strict filtering and optional scoped JSON state summary are provided via `inspect_agents.filters`. Use env overrides to tweak behavior.
 
 ## Recipe: Summarizer (as tool)
@@ -120,4 +130,3 @@ tools = build_subagents(sub_cfgs, base_tools=[])
 
 - Legacy `task(researcher)` ≈ call `transfer_to_researcher` (handoff).
 - Start with `handoff` to preserve behavior, then convert narrow helpers to `tool` for efficiency.
-
