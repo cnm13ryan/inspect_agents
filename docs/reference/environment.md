@@ -86,6 +86,23 @@ export LM_STUDIO_API_KEY=lm-studio
 ```
 
 
+## Approvals & Presets
+
+- `INSPECT_APPROVAL_PRESET` — `ci | dev | prod`. When set, and when callers do not pass an explicit `approval=[...]` to the runner, `run_agent(...)` auto‑initializes approvals using the chosen preset before starting the Inspect run.
+  - `ci`: approve all tools (no‑op gate).
+  - `dev`: include handoff exclusivity; escalate sensitive tools (e.g., `write_file`, `text_editor`, `bash`, `python`, `web_browser_*`).
+  - `prod`: include handoff exclusivity; terminate sensitive tools with redacted context.
+  - Parallel kill‑switch is included in the preset chain but only enforces when a kill‑switch env is truthy (see next section).
+
+Notes
+- The env preset is ignored when an explicit `approval=[...]` is provided (explicit wins).
+
+Examples
+```bash
+export INSPECT_APPROVAL_PRESET=dev
+```
+
+
 ## Tool Toggles (When to Use)
 
 - `INSPECT_ENABLE_THINK` (default: on when unset) — lightweight; safe to enable.
@@ -100,6 +117,9 @@ export LM_STUDIO_API_KEY=lm-studio
 - `INSPECT_ENABLE_WEB_BROWSER` — heavy; enable only with sandbox + approvals.
 - `INSPECT_ENABLE_TEXT_EDITOR_TOOL` — optional; the file tools call the editor
   internally in sandbox mode, so exposing it directly is rarely needed.
+
+Policy note
+- There is no environment flag in this repo to expose `bash_session`. It is reserved for internal use by the filesystem sandbox adapter and is never returned by `standard_tools()`. Enabling `INSPECT_ENABLE_EXEC` exposes only the single‑shot `bash()` and `python()` tools (no persistent shell session).
 
 Examples
 ```bash
@@ -206,6 +226,25 @@ export INSPECT_SCOPED_MAX_BYTES=2048
 ```
 
 See: ../guides/subagents.md
+
+### Per‑Agent Handoff Limits (Env)
+
+Operators can set time/message/token budgets for specific sub‑agents without editing code or YAML. Agent names are normalized the same way as quarantine overrides: lower‑cased; non‑alphanumeric → `_`; repeated underscores collapsed.
+
+- `INSPECT_LIMIT_TIME__<agent>`: time budget in seconds (float > 0)
+- `INSPECT_LIMIT_MESSAGES__<agent>`: message budget (int > 0)
+- `INSPECT_LIMIT_TOKENS__<agent>`: token budget (int > 0)
+
+Precedence
+- Explicit limits passed to the handoff (programmatic or YAML) win when non‑empty.
+- If the sub‑agent config omits `limits` or sets an empty list, env budgets apply.
+
+Example
+```bash
+# Cap the Researcher handoff at 60s and 8 messages
+export INSPECT_LIMIT_TIME__researcher=60
+export INSPECT_LIMIT_MESSAGES__researcher=8
+```
 
 
 ## Logging & Display
