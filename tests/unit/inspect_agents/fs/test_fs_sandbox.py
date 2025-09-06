@@ -1,97 +1,16 @@
 import asyncio
 import sys
-import types
 
 from inspect_agents.tools import edit_file, ls, read_file, write_file
 
-
-def _install_editor_stub(fs: dict[str, str]):
-    # Provide a lightweight text_editor that operates on the passed dict
-    mod_name = "inspect_ai.tool._tools._text_editor"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
-
-    mod = types.ModuleType(mod_name)
-
-    from inspect_ai.tool._tool import Tool, tool
-
-    @tool()
-    def text_editor() -> Tool:  # type: ignore[return-type]
-        async def execute(
-            command: str,
-            path: str,
-            file_text: str | None = None,
-            insert_line: int | None = None,
-            new_str: str | None = None,
-            old_str: str | None = None,
-            view_range: list[int] | None = None,
-        ) -> str:
-            if command == "create":
-                fs[path] = file_text or ""
-                return "OK"
-            elif command == "view":
-                content = fs.get(path, "")
-                if view_range is None:
-                    return content
-                start, end = view_range
-                lines = content.splitlines()
-                s = max(1, start) - 1
-                e = len(lines) if end == -1 else min(len(lines), end)
-                return "\n".join(lines[s:e])
-            elif command == "str_replace":
-                content = fs.get(path, None)
-                if content is None:
-                    return "ERR"
-                fs[path] = content.replace(old_str or "", new_str or "")
-                return "OK"
-            else:
-                return "UNSUPPORTED"
-
-        return execute
-
-    mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
-
-
-def _install_bash_stub(fs: dict[str, str]):
-    # Provide a lightweight bash_session that lists files from the passed dict
-    mod_name = "inspect_ai.tool._tools._bash_session"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
-
-    mod = types.ModuleType(mod_name)
-
-    from inspect_ai.tool._tool import Tool, tool
-
-    class MockResult:
-        def __init__(self, stdout: str):
-            self.stdout = stdout
-
-    @tool()
-    def bash_session() -> Tool:  # type: ignore[return-type]
-        async def execute(action: str, command: str | None = None) -> MockResult:
-            # Match the tool's usage: `ls -1 {escaped_root}` where escaped_root defaults to '/repo'
-            if action == "run" and command and command.startswith("ls -1"):
-                # Accept bare `ls -1` (legacy) and `ls -1 /repo` (current)
-                # Handle both quoted and unquoted /repo
-                if command == "ls -1" or command.endswith(" /repo") or "'/repo'" in command or '"/repo"' in command:
-                    file_list = list(fs.keys())
-                    return MockResult("\n".join(file_list))
-                # Unknown root: return empty (best-effort behavior)
-                return MockResult("")
-            return MockResult("")
-
-        return execute
-
-    mod.bash_session = bash_session
-    sys.modules[mod_name] = mod
+from tests.fixtures.editor_stubs import install_bash_stub, install_editor_stub
 
 
 def test_sandbox_mode_uses_editor_stub(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     fs: dict[str, str] = {}
-    _install_editor_stub(fs)
-    _install_bash_stub(fs)
+    install_editor_stub(fs)
+    install_bash_stub(fs)
 
     r = read_file()
     w = write_file()
@@ -133,8 +52,8 @@ def test_sandbox_mode_graceful_fallback_without_editor(monkeypatch):
 def test_sandbox_ls_command(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     fs: dict[str, str] = {"file1.txt": "content1", "file2.py": "print('hello')", "README.md": "# Project"}
-    _install_editor_stub(fs)
-    _install_bash_stub(fs)
+    install_editor_stub(fs)
+    install_bash_stub(fs)
 
     ls_tool = ls()
 
@@ -145,4 +64,3 @@ def test_sandbox_ls_command(monkeypatch):
     file_list = asyncio.run(test_ls())
     assert isinstance(file_list, list)
     assert set(file_list) == {"file1.txt", "file2.py", "README.md"}
-
