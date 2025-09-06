@@ -1,6 +1,6 @@
 # Backlog Index
 
-Last updated: 2025-09-05
+Last updated: 2025-09-06
 
 Curated index of all items under `docs/backlog/`, grouped for quick navigation. This index is non‑destructive: it does not move or rename files to avoid breaking links. Use it to find the right TODO quickly.
 
@@ -59,9 +59,9 @@ Note on status:
 - [General Todos](./todos/README.md)
 
 ### Bugs & Fixes — new
-- [run_agent: mutable default for limits](./todo_bug_run_mutable_limits_default.md)
-- [delete (sandbox): unify error code/message with docs](./todo_docs_delete_sandbox_error_alignment.md)
-- [read_file numbering: make sandbox/store formatting consistent](./todo_docs_read_file_line_numbering.md)
+- [run_agent: mutable default for limits](./todo_bug_run_mutable_limits_default.md) — DONE.
+- [delete (sandbox): unify error code/message with docs](./todo_docs_delete_sandbox_error_alignment.md) — DONE.
+- [read_file numbering: make sandbox/store formatting consistent](./todo_docs_read_file_line_numbering.md) — DONE.
 
 ### Tests & Coverage — new
 - [Observability: one‑time effective tool‑output limit log precedence + log‑once](./todo_obs_effective_tool_output_limit_tests.md)
