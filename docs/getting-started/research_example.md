@@ -56,7 +56,7 @@ Prefer declarative config? Use the provided YAML to build the same composition:
 
 ```bash
 # Run using YAML (includes sub‑agents and optional scoped quarantine)
-uv run python examples/runners/research_runner.py --config examples/configs/research_supervisor.yaml \
+uv run python examples/runners/research_runner.py --config examples/configs/research/supervisor.yaml \
   "Delegate research on Inspect‑AI and summarize"
 ```
 
@@ -75,8 +75,27 @@ uv run inspect view
 
 More viewer options: CLI → View.
 
+## Exec Tools & Sandbox (optional)
+
+Exec tools (`bash`, `python`) are disabled by default. To enable them, set
+`INSPECT_ENABLE_EXEC=1` (or use the Iterative task/runner below). When enabling
+exec, prefer running with a sandbox and approvals:
+
+- Iterative Inspect task: `uv run inspect eval examples/tasks/iterative_task.py -T enable_exec=true`
+- Profiled runner (Tx.Hx.Nx): `uv run python examples/runners/profiled_runner.py --profile T2.H1.N2 "..."`
+
+See Reference → Iterative Agent — Termination and Truncation for loop limits and
+pruning behavior.
+
 ## Troubleshooting
 
 - No model available: start a local provider (e.g., Ollama) or set `INSPECT_EVAL_MODEL` / `DEEPAGENTS_MODEL_PROVIDER` to a reachable backend.
 - Web search disabled: set `TAVILY_API_KEY` or `GOOGLE_CSE_ID`+`GOOGLE_CSE_API_KEY`, or use `--enable-web-search`.
 - Transcript missing: ensure the process can write to `.inspect/logs` or set `INSPECT_LOG_DIR`.
+
+## Related Tasks & Runners
+
+- Inspect task (research composition): `examples/tasks/research_task.py`
+- Inspect task (iterative agent): `examples/tasks/iterative_task.py`
+- Python runner (research composition): `examples/runners/research_runner.py`
+- YAML config: `examples/configs/research/supervisor.yaml`
