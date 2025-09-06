@@ -79,7 +79,11 @@ Env‑only (no code/YAML edits):
 export INSPECT_LIMIT_TIME__researcher=60       # seconds
 export INSPECT_LIMIT_MESSAGES__researcher=8    # turns within the handoff
 export INSPECT_LIMIT_TOKENS__researcher=6000   # token budget
+export INSPECT_LIMIT_MESSAGES__writer=8        # message budget for writer
+export INSPECT_LIMIT_TOKENS__grader=6000       # token budget for grader
 ```
+
+See also: ../reference/environment.md (Quarantine & Limits → Per‑Agent Handoff Limits) for precedence and normalization rules.
 
 Notes
 - Limits are Inspect `Limit` objects. Provide them programmatically in code or set per‑agent budgets via environment as shown above. YAML specs for sub‑agent limits remain illustrative.
