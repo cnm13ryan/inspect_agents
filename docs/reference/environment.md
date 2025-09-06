@@ -85,6 +85,13 @@ export LM_STUDIO_MODEL_NAME=local-model
 export LM_STUDIO_API_KEY=lm-studio
 ```
 
+One‑time fallback hint (local‑first)
+- When no explicit model, role mapping, or provider config is set, the resolver falls back to `ollama/<tag>` and emits a one‑time INFO log mentioning `final_fallback_ollama`. Configure one of the following to avoid implicit local fallback:
+  - Set a full model: `INSPECT_EVAL_MODEL=openai/gpt-4o-mini`
+  - Or set provider + model: `DEEPAGENTS_MODEL_PROVIDER=openai` and `OPENAI_MODEL=gpt-4o-mini`
+  - Or use role mapping: `INSPECT_ROLE_GRADER_PROVIDER=openai` and `INSPECT_ROLE_GRADER_MODEL=gpt-4o-mini`
+  - To disable a previously set global override without clearing env, use the sentinel: `INSPECT_EVAL_MODEL=none/none` (ignored by the resolver)
+
 
 ## Approvals & Presets
 
