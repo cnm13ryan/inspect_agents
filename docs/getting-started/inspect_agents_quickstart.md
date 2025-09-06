@@ -217,6 +217,9 @@ You can expose Inspect’s standard tools in addition to the built‑ins (todos 
 
 Reference: Standard tools overview and setup details are documented at Inspect’s official site.
 
+Policy note
+- This repository never exposes the stateful `bash_session` tool via `standard_tools()`. Setting `INSPECT_ENABLE_EXEC=1` enables only the single‑shot `bash()` and `python()` tools. `bash_session` remains an internal dependency of the filesystem sandbox adapter for targeted operations and cannot be enabled via an environment flag here.
+
 ## Quarantine Modes (env)
 
 Control default input filtering for sub‑agents (handoffs) without changing code:
