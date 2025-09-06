@@ -281,6 +281,16 @@ def build_subagents(
             )
             output_filter = cfg.get("output_filter") if "output_filter" in cfg else default_output_filter()
 
+            # Per-agent env overrides for handoff limits (time/messages/tokens)
+            # Precedence: explicit config (non-empty) > env
+            try:
+                from inspect_agents.config import env_limits_for_agent  # local import to avoid cycle
+                env_limits = env_limits_for_agent(name)
+            except Exception:
+                env_limits = []
+
+            limits_arg = cfg.get("limits") or env_limits
+
             out.append(
                 handoff(
                     agent,
@@ -288,7 +298,7 @@ def build_subagents(
                     input_filter=input_filter,
                     output_filter=output_filter,
                     tool_name=f"transfer_to_{name}",
-                    limits=cfg.get("limits", []),
+                    limits=limits_arg,
                 )
             )
 
