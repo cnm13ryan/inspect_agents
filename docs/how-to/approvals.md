@@ -23,6 +23,21 @@ activate_approval_policies(policies)
 
 Both methods call Inspect’s approval init under the hood. If the approval module is stubbed (e.g., in tests), initialization is a safe no‑op.
 
+### Env‑Selectable Preset (Runner)
+You can enable a preset without changing call sites by setting an environment variable. When `approval=None` is passed (default) to `run_agent(...)`, the runner will auto‑initialize approvals from the preset specified in `INSPECT_APPROVAL_PRESET`.
+
+Supported values: `ci`, `dev`, `prod`.
+
+Example:
+```bash
+export INSPECT_APPROVAL_PRESET=dev   # or ci | prod
+```
+
+Behavior:
+- Applied only when the `approval` argument is `None` (explicit `approval=[...]` wins).
+- Preset policies are activated before the Inspect agent run.
+- `dev`/`prod` include handoff exclusivity by default; the parallel kill‑switch policy is included but activates only if its env flag is truthy (see reference below).
+
 ## Presets (ci | dev | prod)
 Use built‑in presets to start quickly. As of 2025‑09‑04, the `dev` and `prod` presets include the handoff‑exclusivity policy by default.
 
