@@ -6,7 +6,7 @@ appropriate docs. It is intentionally lightweight and has zero effect on
 outcomes or exit codes.
 
 Behavior:
-- Always include a one-line header pointing to tests/README.md.
+- Always include a one-line header pointing to tests/docs/README.md.
 - When failures occur, emit a small section with relevant guide file paths
   inferred from failing node ids (e.g., approvals, handoffs, timeouts,
   truncation, parallel, model resolution).
