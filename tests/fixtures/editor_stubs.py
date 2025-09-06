@@ -95,8 +95,14 @@ def install_bash_stub(fs: dict[str, str]) -> None:
     sys.modules[mod_name] = mod
 
 
-def install_slow_text_editor() -> None:
-    """Install a `text_editor` stub that intentionally sleeps before returning."""
+def install_slow_text_editor(monkeypatch: object | None = None) -> None:
+    """Install a `text_editor` stub that intentionally sleeps before returning.
+
+    If a pytest ``monkeypatch`` fixture is provided, the stub is registered
+    via ``monkeypatch.setitem(sys.modules, ...)`` so it is automatically
+    cleaned up after the test. Otherwise, falls back to assigning directly
+    into ``sys.modules``.
+    """
 
     mod_name = "inspect_ai.tool._tools._text_editor"
     sys.modules.pop(mod_name, None)
@@ -123,5 +129,7 @@ def install_slow_text_editor() -> None:
         return execute
 
     mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
-
+    if monkeypatch is not None:  # use pytest auto-teardown when available
+        monkeypatch.setitem(sys.modules, mod_name, mod)
+    else:
+        sys.modules[mod_name] = mod
