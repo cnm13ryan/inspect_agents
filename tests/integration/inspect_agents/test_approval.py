@@ -13,7 +13,7 @@ from inspect_agents.approval import approval_from_interrupt_config
 from inspect_agents.run import run_agent
 
 
-def _install_apply_shim():
+def _install_apply_shim(monkeypatch):
     """Override inspect_ai.approval._apply to support policies in tests.
 
     Provides `init_tool_approval(policies)` and `apply_tool_approval(...)` that
@@ -26,7 +26,7 @@ def _install_apply_shim():
     if "inspect_ai.approval" not in sys.modules:
         pkg = types.ModuleType("inspect_ai.approval")
         pkg.__path__ = [str(approval_pkg_path)]  # type: ignore[attr-defined]
-        sys.modules["inspect_ai.approval"] = pkg
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval", pkg)
     else:
         # ensure path exists for submodule discovery
         mod = sys.modules["inspect_ai.approval"]
@@ -39,13 +39,13 @@ def _install_apply_shim():
         def read_config_object(_path):  # pragma: no cover
             return {}
         cfg_stub.read_config_object = read_config_object
-        sys.modules["inspect_ai._util.config"] = cfg_stub
+        monkeypatch.setitem(sys.modules, "inspect_ai._util.config", cfg_stub)
     if "inspect_ai.util._resource" not in sys.modules:
         res_stub = types.ModuleType("inspect_ai.util._resource")
         def resource(path, type="file"):  # pragma: no cover
             return path
         res_stub.resource = resource
-        sys.modules["inspect_ai.util._resource"] = res_stub
+        monkeypatch.setitem(sys.modules, "inspect_ai.util._resource", res_stub)
     # Ensure transcript has ApprovalEvent for logging
     if "inspect_ai.log._transcript" in sys.modules:
         tmod = sys.modules["inspect_ai.log._transcript"]
@@ -104,7 +104,7 @@ def _install_apply_shim():
 
     apply_mod.init_tool_approval = init_tool_approval
     apply_mod.apply_tool_approval = apply_tool_approval
-    sys.modules["inspect_ai.approval._apply"] = apply_mod
+    monkeypatch.setitem(sys.modules, "inspect_ai.approval._apply", apply_mod)
 
 
 @agent
@@ -130,8 +130,8 @@ def _supervisor():
     )
 
 
-def test_approve_allows_original_args(approval_modules_guard):
-    _install_apply_shim()
+def test_approve_allows_original_args(approval_modules_guard, monkeypatch):
+    _install_apply_shim(monkeypatch)
     policies = approval_from_interrupt_config({"submit": {"decision": "approve"}})
     agent_obj = _supervisor()
 
@@ -139,8 +139,8 @@ def test_approve_allows_original_args(approval_modules_guard):
     assert "DONE" in (result.output.completion or "")
 
 
-def test_modify_changes_arguments_before_execution(approval_modules_guard):
-    _install_apply_shim()
+def test_modify_changes_arguments_before_execution(approval_modules_guard, monkeypatch):
+    _install_apply_shim(monkeypatch)
     policies = approval_from_interrupt_config(
         {"submit": {"decision": "modify", "modified_args": {"answer": "CHANGED"}}}
     )
@@ -150,8 +150,8 @@ def test_modify_changes_arguments_before_execution(approval_modules_guard):
     assert "CHANGED" in (result.output.completion or "")
 
 
-def test_reject_returns_not_approved_and_decision(approval_modules_guard):
-    _install_apply_shim()
+def test_reject_returns_not_approved_and_decision(approval_modules_guard, monkeypatch):
+    _install_apply_shim(monkeypatch)
     policies = approval_from_interrupt_config({"submit": {"decision": "reject"}})
     # Activate policies and call the shim directly to avoid agent loop
     apply_mod = sys.modules["inspect_ai.approval._apply"]
@@ -163,8 +163,8 @@ def test_reject_returns_not_approved_and_decision(approval_modules_guard):
     assert getattr(approval, "decision", None) == "reject"
 
 
-def test_terminate_aborts_sample(approval_modules_guard):
-    _install_apply_shim()
+def test_terminate_aborts_sample(approval_modules_guard, monkeypatch):
+    _install_apply_shim(monkeypatch)
     policies = approval_from_interrupt_config({"submit": {"decision": "terminate"}})
     agent_obj = _supervisor()
 

@@ -17,7 +17,7 @@ from tests.fixtures.helpers import (
 
 def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog):
     ensure_vendor_on_path()
-    build_apply_shim()
+    build_apply_shim(monkeypatch)
 
     # Enable kill-switch via either canonical env var
     monkeypatch.setenv("INSPECT_TOOL_PARALLELISM_DISABLE", "1")
@@ -76,7 +76,7 @@ def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog
 
 def test_kill_switch_escalates_when_handoff_present(monkeypatch, caplog):
     ensure_vendor_on_path()
-    build_apply_shim()
+    build_apply_shim(monkeypatch)
 
     # Enable kill-switch; presence of handoff should escalate to exclusivity
     monkeypatch.setenv("INSPECT_TOOL_PARALLELISM_DISABLE", "1")
