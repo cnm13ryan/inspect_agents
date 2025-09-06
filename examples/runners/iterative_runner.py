@@ -3,9 +3,9 @@
 Run the Inspect Agents Iterative Agent (no submit): small, time/step‑bounded steps.
 
 Examples
-- Minimal:  uv run python examples/research/run_iterative.py "List repo files and summarize"
+- Minimal:  uv run python examples/runners/iterative_runner.py "List repo files and summarize"
 - With exec: INSPECT_ENABLE_EXEC=1 \
-             uv run python examples/research/run_iterative.py --time-limit 300 --max-steps 20 \
+             uv run python examples/runners/iterative_runner.py --time-limit 300 --max-steps 20 \
                "Create docs/OUTLINE.md and add 3 sections"
 
 Environment

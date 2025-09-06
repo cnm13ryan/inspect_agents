@@ -2,6 +2,9 @@
 """
 Run the iterative research task with a sandboxing profile selector (Tx.Hx.Nx).
 
+Usage
+  uv run python examples/runners/profiled_runner.py --profile T1.H1.N1 "..."
+
 Profiles follow AISI guidance:
   - T: Tooling (T0 unrestricted exec, T1 restricted web, T2 no exec)
   - H: Host isolation (H0 local, H1 docker, H2 k8s, H3 proxmox)

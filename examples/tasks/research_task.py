@@ -3,11 +3,11 @@
 Inspect task wrapper for the research composition (so `inspect eval` works here).
 
 Usage
-- uv run inspect eval examples/research/task.py \
+- uv run inspect eval examples/tasks/research_task.py \
   -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025"
 
 Options
-- -T config="examples/research/inspect.yaml"  # load YAML composition
+- -T config="examples/configs/research_supervisor.yaml"  # load YAML composition
 - -T enable_web_search=true                   # enable standard web_search tool
 
 Environment
@@ -44,7 +44,7 @@ def research_task(
 ):
     """Expose the research composition as an Inspect task.
 
-    Mirrors the composition used by `examples/research/run_local.py`.
+    Mirrors the composition used by `examples/runners/research_runner.py`.
     Pass `config` to load a YAML composition; otherwise use the inline default.
     """
 
@@ -104,4 +104,3 @@ def research_task(
         dataset=[Sample(input=prompt)],
         solver=agent,
     )
-

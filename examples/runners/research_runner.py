@@ -11,7 +11,7 @@ What it does
 - Prints the final completion and writes a transcript JSONL path.
 
 Usage
-  uv run python examples/research/run_local.py "What is Inspect‑AI?"
+  uv run python examples/runners/research_runner.py "What is Inspect‑AI?"
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ if str(SRC_DIR) not in sys.path:
 
 
 def _load_env_files() -> None:
-    """Load .env files from repo root and this example if available.
+    """Load .env files from repo root and this folder if available.
 
     Respects INSPECT_ENV_FILE and does not override pre-existing env vars.
     """

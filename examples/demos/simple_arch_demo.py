@@ -10,7 +10,7 @@ Inspect Agents public surfaces:
 
 Run examples:
 
-  uv run python -m examples.inspect.simple_arch_demo.run "Research topic ..."
+  uv run python -m examples.demos.simple_arch_demo "Research topic ..."
 
 Options:
   --mode supervisor|iterative   Choose agent style (default: supervisor)
@@ -168,4 +168,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
