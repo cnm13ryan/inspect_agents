@@ -865,6 +865,15 @@ Context
 - Recommendation: A) keep alias — minimal surface, fully patchable.
 - Exit criteria: Document policy in `docs/reference/environment.md`; avoid redefining `_truthy` elsewhere.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `filters.py` delegates via an alias, not a wrapper: `_truthy = _settings_truthy`.
+**Evidence**: See `src/inspect_agents/filters.py` (compat alias set once; callers use `_truthy`).
+**Conclusion**: Option A implemented (keep alias). Docs can optionally call this out.
+
+</details>
+
 ## 2) Iterative helpers migration (`iterative_config.py`)
 
 - Current state: local `_parse_int_opt` returns `None` for non‑positive values; semantics differ slightly from `settings.int_env` with `minimum`.
@@ -876,6 +885,15 @@ Context
 - Recommendation: B) wrappers in `iterative_config.py` now; consider C) if pattern repeats elsewhere.
 - Exit criteria: wrappers in place; iterative tests green with unchanged behavior.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: `iterative_config.py` still uses local `_parse_int_opt(...)`; no delegation to `settings.int_env` wrappers.
+**Evidence**: `src/inspect_agents/iterative_config.py` defines `_parse_int_opt` and calls it for time/step/pruning/truncation.
+**Conclusion**: Proposed wrappers not added yet.
+
+</details>
+
 ## 3) `str_env` empty‑string semantics
 
 - Current state: `str_env(name, default)` returns empty string if set; only uses default when unset.
@@ -885,6 +903,15 @@ Context
   - B) Add `str_env_or_none(name)` that collapses empty/whitespace to None; use selectively.
 - Recommendation: A) keep; introduce B) only when needed by real callers.
 - Exit criteria: document rule; audit provider selection code paths.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: `str_env(name, default)` returns empty string when set; defaults only when unset.
+**Evidence**: `src/inspect_agents/settings.py` `str_env(...)` returns `default if val is None else val`.
+**Conclusion**: Option A implemented (empty ≠ unset). No additional helper present.
+
+</details>
 
 ## 4) Filesystem knobs centralization
 
@@ -896,6 +923,15 @@ Context
 - Recommendation: A) keep local; revisit B) after confirming no cycles and measuring impact.
 - Exit criteria: rationale documented; no duplicate FS parsing outside FS modules.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: FS env parsing (`INSPECT_AGENTS_FS_*`) lives in the FS layer; callers import via `inspect_agents.fs` or adapter.
+**Evidence**: `src/inspect_agents/fs.py` implements `fs_mode/fs_root/max_bytes/default_tool_timeout`; `src/inspect_agents/tools_files.py` binds to these helpers.
+**Conclusion**: Option A implemented (keep local to FS modules).
+
+</details>
+
 ## 5) Tool‑output cap (`INSPECT_MAX_TOOL_OUTPUT`) accessor
 
 - Current state: parsed in multiple places (observability, iterative) with defensive merges into Inspect `GenerateConfig`.
@@ -903,11 +939,29 @@ Context
 - Recommendation: add accessor; adopt in both call sites without changing precedence (explicit arg/active config still beat env).
 - Exit criteria: unified accessor in place; limit/truncation tests remain green.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No `settings.max_tool_output_env()` exists; env parsed ad‑hoc in `observability.py` and `iterative.py`.
+**Evidence**: `src/inspect_agents/observability.py` reads `INSPECT_MAX_TOOL_OUTPUT`; `src/inspect_agents/iterative.py` parses the same env locally.
+**Conclusion**: Central accessor not added; refactor pending.
+
+</details>
+
 ## 6) Unit tests for `settings`
 
 - Current state: behavior covered indirectly; no direct tests for helpers.
 - Action: add `tests/unit/inspect_agents/config/test_settings.py` covering `truthy`, `int_env` (min/max and invalid), `float_env` (invalid), `str_env`, `typed_results_enabled`, `default_tool_timeout`.
 - Exit criteria: tests green offline; examples documented in `tests/README.md`.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No direct unit tests for `settings.py` helpers are present.
+**Evidence**: No `tests/unit/inspect_agents/config/test_settings.py`; repo tests import `resolve_model`, tools, fs, etc., but not settings helpers explicitly.
+**Conclusion**: Add the proposed test module to pin semantics.
+
+</details>
 
 ## 7) Deprecation path for underscore helpers
 
@@ -915,11 +969,29 @@ Context
 - Recommendation: soft‑deprecate in comments; prefer `settings.*` in new code; keep aliases long‑term to avoid breaking tests.
 - Exit criteria: internal call‑sites use `settings.*`; aliases retained for back‑compat.
 
+<details>
+<summary>✅ Answer Found (Partial)</summary>
+
+**Finding**: Underscore aliases exist without warnings (soft deprecation only in comments/doc intent).
+**Evidence**: `src/inspect_agents/fs.py` exports `_truthy = truthy` and other underscore aliases; no warnings emitted.
+**Conclusion**: Current state matches the first phase (silent aliases). Formal deprecation timeline/warnings not yet implemented.
+
+</details>
+
 ## 8) Documentation touchpoints
 
 - Current state: `settings.py` exists; not yet surfaced in docs.
 - Actions: add an “Environment & Settings” section to `docs/reference/environment.md`; cross‑link from quickstart and approvals how‑to.
 - Exit criteria: docs updated; code snippets use `settings.*`.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The Environment reference is comprehensive, but it doesn’t surface `settings.py` as the canonical API for env parsing.
+**Evidence**: `docs/reference/environment.md` covers flags/behavior; no explicit “Environment & Settings API” section referencing `inspect_agents.settings`.
+**Conclusion**: Add the suggested doc section and cross‑links.
+
+</details>
 
 ## 9) Deprecation signaling (warnings) for `_truthy`
 
@@ -932,6 +1004,15 @@ Context
 - Recommendation: C → B → removal. Start with opt‑in warnings this cycle, default warnings next, then remove alias in the following release.
 - Exit criteria: deprecation policy documented; env flag recognized; downstream repos migrate to `settings.truthy` or `fs.truthy`.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No deprecation warnings or `INSPECT_SHOW_DEPRECATIONS` gating implemented for underscore aliases.
+**Evidence**: `src/inspect_agents/fs.py` and `src/inspect_agents/filters.py` provide silent aliases; repo lacks deprecation toggles.
+**Conclusion**: Decision/policy not yet encoded; implementation needed if desired.
+
+</details>
+
 ## 10) Standardize `env_templates/configure.py` truthy semantics
 
 - Current state: configurator accepts `"y"/"Y"` in addition to the canonical set (`{"1","true","yes","on"}`) used by runtime parsing. Divergence is limited to this interactive script.
@@ -942,3 +1023,12 @@ Context
   - C) Expand runtime `settings.truthy` to include `"y"` (cross‑cutting behavior change; not recommended this cycle).
 - Recommendation: B — keep the UX convenience localized to the configurator, add a short note in environment docs about the canonical runtime set.
 - Exit criteria: configurator helper renamed/commented; docs updated; no changes to runtime semantics.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: The configurator intentionally accepts `"y"` in addition to the canonical set used at runtime.
+**Evidence**: `env_templates/configure.py` `_truthy` includes `"y"`; runtime parsing in `src/inspect_agents/settings.py::truthy` uses `{ "1", "true", "yes", "on" }` only.
+**Conclusion**: Option B implemented (keep interactive convenience localized; runtime remains canonical). A short docs note can be added later.
+
+</details>
