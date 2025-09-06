@@ -17,10 +17,10 @@ Central index of testing guides for this repository. Tests default to offline, f
   - `inspect_agents/migration`: legacy→deep agent migration path.
 - integration: end-to-end and script-driven tests (`tests/integration/**`).
   - `examples/`, `research/` consolidated here.
-  - Offline-hardening fixture scope: an autouse fixture that clears approvals,
-    disables optional tools, and defaults to `NO_NETWORK=1` lives in
-    `tests/integration/inspect_agents/conftest.py`. Unit tests are unaffected
-    by this fixture unless they opt in.
+  - Offline-hardening: a root autouse fixture clears approvals, disables
+    optional tools, and defaults to `NO_NETWORK=1`. It lives in
+    `tests/conftest.py` as `_default_env_guard`. Integration tests no longer
+    carry their own copy.
 - fixtures: shared helpers and test data (`tests/fixtures/**`).
 - docs: local testing guides (this directory, `TESTING_*.md`).
 - benchmarks: opt-in perf/benchmark suites (`tests/benchmarks/**`).
@@ -46,9 +46,10 @@ Recent tidy-up:
 - Mocking (pytest-mock): `TESTING_MOCKING.md`
 
 ## Quick Commands
-- Run all tests offline: `CI=1 NO_NETWORK=1 uv run pytest -q`
+- Run all tests offline (parallel by default): `CI=1 NO_NETWORK=1 uv run pytest -q`
 - Narrow to a subset: `uv run pytest -q -k <expr>`
-- Parallel (safe suites only): `uv run pytest -q -n auto`
+- Disable parallel: `uv run pytest -q -n 0`
+- Set explicit workers: `uv run pytest -q -n 4`
 
 ### Run a Domain (Examples)
 - Unit (filesystem): `uv run pytest -q tests/unit/inspect_agents/fs -k read`
@@ -65,6 +66,7 @@ Recent tidy-up:
   ```
 
 ## Markers
+- Network control: use `@pytest.mark.network` to allow real network for a test; default is offline via root guard.
 - We tag suites with markers to improve guide suggestions in CI:
   - `approvals`, `handoff`, `filters`, `kill_switch`, `timeout`, `truncation`, `parallel`, `model_flags`.
 - List markers: `pytest --markers`.

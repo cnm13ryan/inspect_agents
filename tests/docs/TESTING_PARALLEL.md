@@ -3,7 +3,8 @@
 Use `pytest-xdist` to parallelize where safe, and avoid shared global state.
 
 ## Running
-- Auto-parallel: `pytest -q -n auto`
+- Default parallel: `pytest -q` (configured via `addopts`)
+- Disable parallel: `pytest -q -n 0`
 - Explicit workers: `pytest -q -n 4`
 
 ## Design for safety
