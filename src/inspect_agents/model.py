@@ -23,6 +23,10 @@ import os
 
 LOCAL_DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL_NAME", "qwen3:4b-thinking-2507-q4_K_M")
 
+# Module logger and one-time fallback guard
+logger = logging.getLogger(__name__)
+_OLLAMA_FALLBACK_WARNED = False
+
 # Default roles known to the repository. These do not enforce a concrete model
 # by default; in absence of env mapping they resolve to the Inspect role indirection
 # string ("inspect/<role>") so that environments with Inspect-native role routing
@@ -302,6 +306,17 @@ def resolve_model(
     # Final fallback: prefer Ollama
     path = "final_fallback_ollama"
     final_result = f"ollama/{LOCAL_DEFAULT_OLLAMA_MODEL}"
+    # Emit a one-time operator hint so local-first fallback isn't silent
+    global _OLLAMA_FALLBACK_WARNED
+    if not _OLLAMA_FALLBACK_WARNED:
+        logger.info(
+            "Model resolver: %s -> using %s because no provider/model/role mapping was set. "
+            "To avoid implicit local fallback, set INSPECT_EVAL_MODEL or configure a provider via "
+            "DEEPAGENTS_MODEL_PROVIDER and <PROVIDER>_MODEL (e.g., OPENAI_MODEL).",
+            path,
+            final_result,
+        )
+        _OLLAMA_FALLBACK_WARNED = True
     _log_model_debug(
         role=role,
         provider_arg=provider_arg,
