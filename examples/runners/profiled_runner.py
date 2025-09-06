@@ -20,6 +20,20 @@ import argparse
 import os
 import re
 
+import importlib.util as _il
+from pathlib import Path
+
+# Robustly import local examples/_utils.py even if a site-packages "examples" exists
+_UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
+_spec = _il.spec_from_file_location("_examples_utils_local", str(_UTILS_PATH))
+if _spec is None or _spec.loader is None:  # pragma: no cover - defensive
+    raise ImportError(f"Unable to load utils from {_UTILS_PATH}")
+_utils = _il.module_from_spec(_spec)
+_spec.loader.exec_module(_utils)
+
+# Prefer local repo sources over any installed wheel
+_utils.ensure_repo_src_on_path()
+
 
 def parse_profile(profile: str) -> tuple[str, str, str]:
     m = re.fullmatch(r"T([012])\.H([0123])\.N([012])", profile.strip(), flags=re.IGNORECASE)
