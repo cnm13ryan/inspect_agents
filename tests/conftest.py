@@ -220,6 +220,33 @@ def approval_modules_guard():  # pragma: no cover - test support only
             pass
 
 
+# Managed guard for tool stub modules to prevent cross-test leakage.
+# Provides automatic teardown even if a test aborts early.
+@pytest.fixture
+def tool_modules_guard(monkeypatch):  # pragma: no cover - test support only
+    import sys as _sys
+    import types as _types
+
+    targets = [
+        "inspect_ai.tool._tools._text_editor",
+        "inspect_ai.tool._tools._bash_session",
+    ]
+    saved = {t: _sys.modules.get(t) for t in targets}
+    # Ensure a clean slate before the test runs
+    for t in targets:
+        _sys.modules.pop(t, None)
+
+    try:
+        yield
+    finally:
+        # Restore prior state deterministically
+        for t, mod in saved.items():
+            if mod is None:
+                _sys.modules.pop(t, None)
+            else:
+                _sys.modules[t] = mod
+
+
 # Minimal asyncio runner shim: if pytest-asyncio isn't installed, execute
 # coroutine tests marked with @pytest.mark.asyncio using asyncio.run.
 def pytest_pyfunc_call(pyfuncitem):  # pragma: no cover - passthrough logic
@@ -242,15 +269,19 @@ def pytest_pyfunc_call(pyfuncitem):  # pragma: no cover - passthrough logic
         _asyncio.run(test_fn(**kwargs))
         return True
     return None
-# Optional dependency shims
-# Provide a lightweight fallback stub for the optional `jsonlines` dependency
-# used by Inspect‑AI trace/dataset utilities. This keeps tests offline‑friendly
-# while still allowing import of Inspect‑AI internals that reference jsonlines.
-try:  # pragma: no cover
-    import jsonlines as _jsonlines  # type: ignore  # noqa: F401
-except Exception:  # pragma: no cover
+# Optional dependency shim for `jsonlines` managed via fixture to ensure cleanup.
+@pytest.fixture(autouse=True, scope="session")
+def jsonlines_stub():  # pragma: no cover - test support only
+    try:
+        import jsonlines as _jsonlines  # type: ignore  # noqa: F401
+        yield  # Real package present; nothing to stub
+        return
+    except Exception:
+        pass
+
     import json
     import types as _types
+    import sys as _sys
 
     _jl = _types.ModuleType("jsonlines")
 
@@ -266,4 +297,12 @@ except Exception:  # pragma: no cover
                     continue
 
     _jl.Reader = _Reader  # type: ignore[attr-defined]
-    sys.modules["jsonlines"] = _jl
+    _saved = _sys.modules.get("jsonlines")
+    _sys.modules["jsonlines"] = _jl
+    try:
+        yield
+    finally:
+        if _saved is None:
+            _sys.modules.pop("jsonlines", None)
+        else:
+            _sys.modules["jsonlines"] = _saved
