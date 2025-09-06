@@ -61,6 +61,59 @@ return Task(
 )
 ```
 
+### Docker sandbox (inspect‑tool‑support + Playwright)
+
+Use the Docker sandbox with the official inspect‑tool‑support image to run the stateful web_browser tools (Playwright) in an isolated, ready‑to‑go environment.
+
+What this gives you
+- A sandbox service exposing the `inspect-tool-support` CLI on PATH (required by web_browser_*). 【F:external/inspect_ai/src/inspect_ai/tool/_tool_support_helpers.py‑ L114-L126】
+- A maintained base image `aisiuk/inspect-tool-support` that bundles Playwright and the browser runtimes. 【F:external/inspect_ai/src/inspect_ai/tool/_tool_support_helpers.py‑ L123-L131】
+- Auto‑detection of `compose.yaml` / `docker-compose.yml` or even a `Dockerfile`; if none is found, Inspect can synthesize a minimal compose that uses the same image. 【F:external/inspect_ai/src/inspect_ai/util/_sandbox/docker/config.py‑ L8-L16】【F:external/inspect_ai/src/inspect_ai/util/_sandbox/docker/config.py‑ L48-L59】【F:external/inspect_ai/src/inspect_ai/util/_sandbox/docker/config.py‑ L33-L46】
+
+Quick start (Compose)
+1) Create `compose.yaml` at your task’s run directory (project root is common):
+
+```yaml
+services:
+  default:
+    image: "aisiuk/inspect-tool-support"
+    init: true
+    # Optional: give the container network access for browsing
+    # network_mode: bridge
+```
+
+2) Enable browser tools and run your task with a Docker sandbox:
+
+```bash
+export INSPECT_ENABLE_WEB_BROWSER=1
+uv run inspect eval examples/tasks/research_task.py \
+  -T prompt="Open https://example.com and summarize the heading" \
+  -T config=examples/configs/research/supervisor.yaml \
+  --sandbox docker
+```
+
+Notes
+- You can also set the sandbox in code: `Task(..., sandbox="docker")`. Inspect will auto‑resolve the compose/Dockerfile if present in the task’s run dir. 【F:external/inspect_ai/src/inspect_ai/_eval/task/task.py‑ L62】【F:external/inspect_ai/src/inspect_ai/_eval/loader.py‑ L190-L209】
+- If no compose/Dockerfile is present, Inspect may create a temporary `.compose.yaml` that uses `aisiuk/inspect-tool-support`. 【F:external/inspect_ai/src/inspect_ai/util/_sandbox/docker/config.py‑ L60-L86】
+- The browser tools family is opt‑in via `INSPECT_ENABLE_WEB_BROWSER=1`; they’re not enabled by default. 【F:src/inspect_agents/tools.py‑ L181-L189】
+
+Alternative: custom Dockerfile
+If you maintain your own image, ensure the CLI is installed and on PATH (simplified excerpt):
+
+```Dockerfile
+ENV PATH="$PATH:/opt/inspect_tool_support/bin"
+RUN python -m venv /opt/inspect_tool_support \
+ && /opt/inspect_tool_support/bin/pip install inspect-tool-support \
+ && /opt/inspect_tool_support/bin/inspect-tool-support post-install
+```
+
+This mirrors the guidance used by Inspect’s tool support helper. 【F:external/inspect_ai/src/inspect_ai/tool/_tool_support_helpers.py‑ L131-L159】
+
+Troubleshooting
+- ProcessLookupError: “No sandbox environment has been provided …” — add `sandbox="docker"` on the Task or pass `--sandbox docker` in CLI. 【F:external/inspect_ai/src/inspect_ai/util/_sandbox/context.py‑ L132-L136】
+- PrerequisiteError about `inspect-tool-support` — confirm you’re using the `aisiuk/inspect-tool-support` image or that your Dockerfile installed the CLI and added it to PATH. 【F:external/inspect_ai/src/inspect_ai/tool/_tool_support_helpers.py‑ L114-L126】
+- No network from the browser — remove `network_mode: none` if present and ensure the container has outbound network access.
+
 ### Enabling execution tools
 
 - Add `-T enable_exec=true` to your task run or set `INSPECT_ENABLE_EXEC=1` before constructing the agent. This causes `standard_tools()` to include `bash()`/`python()` (still subject to approvals). 〖F:examples/tasks/iterative_task.py†L36-L38〗 〖F:src/inspect_agents/tools.py†L357-L363〗
