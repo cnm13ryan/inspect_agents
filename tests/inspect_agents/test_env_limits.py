@@ -5,7 +5,7 @@ import types
 import pytest
 
 
-def _install_inspect_stubs():
+def _install_inspect_stubs(monkeypatch):
     """Install minimal Inspect stubs needed by build_subagents.
 
     Returns a dict bound to the handoff stub to inspect captured args per test.
@@ -19,7 +19,8 @@ def _install_inspect_stubs():
         return {"agent": kwargs}
 
     mod_react.react = react  # type: ignore[attr-defined]
-    sys.modules["inspect_ai.agent._react"] = mod_react
+    # Ensure cleanup via pytest's monkeypatch
+    monkeypatch.setitem(sys.modules, "inspect_ai.agent._react", mod_react)
 
     # agent._as_tool.as_tool (not used in these tests but safe to stub)
     mod_as_tool = types.ModuleType("inspect_ai.agent._as_tool")
@@ -28,7 +29,7 @@ def _install_inspect_stubs():
         return {"as_tool": agent, "description": description}
 
     mod_as_tool.as_tool = as_tool  # type: ignore[attr-defined]
-    sys.modules["inspect_ai.agent._as_tool"] = mod_as_tool
+    monkeypatch.setitem(sys.modules, "inspect_ai.agent._as_tool", mod_as_tool)
 
     # agent._handoff.handoff — capture limits
     mod_handoff = types.ModuleType("inspect_ai.agent._handoff")
@@ -41,7 +42,7 @@ def _install_inspect_stubs():
         return {"handoff": tool_name, "limits": limits}
 
     mod_handoff.handoff = handoff  # type: ignore[attr-defined]
-    sys.modules["inspect_ai.agent._handoff"] = mod_handoff
+    monkeypatch.setitem(sys.modules, "inspect_ai.agent._handoff", mod_handoff)
 
     return captured
 
@@ -55,7 +56,7 @@ def _clear_env(monkeypatch):
 
 
 def test_env_limits_apply_when_yaml_missing(monkeypatch):
-    cap = _install_inspect_stubs()
+    cap = _install_inspect_stubs(monkeypatch)
     # Set per-agent env: researcher → 8 messages
     monkeypatch.setenv("INSPECT_LIMIT_MESSAGES__researcher", "8")
 
@@ -79,7 +80,7 @@ def test_env_limits_apply_when_yaml_missing(monkeypatch):
 
 
 def test_env_limits_precedence_yaml_wins_nonempty(monkeypatch):
-    cap = _install_inspect_stubs()
+    cap = _install_inspect_stubs(monkeypatch)
     monkeypatch.setenv("INSPECT_LIMIT_MESSAGES__researcher", "8")
 
     from inspect_agents.agents import build_subagents
@@ -101,7 +102,7 @@ def test_env_limits_precedence_yaml_wins_nonempty(monkeypatch):
 
 
 def test_env_suffix_normalization_variants(monkeypatch):
-    cap = _install_inspect_stubs()
+    cap = _install_inspect_stubs(monkeypatch)
     # Name normalization: "Research Assistant v2!" → "research_assistant_v2"
     monkeypatch.setenv("INSPECT_LIMIT_MESSAGES__research_assistant_v2", "7")
 
@@ -121,4 +122,3 @@ def test_env_suffix_normalization_variants(monkeypatch):
     limits = cap.get("limits")
     assert isinstance(limits, list)
     assert len(limits) == 1, "expected one message limit via normalized suffix"
-
