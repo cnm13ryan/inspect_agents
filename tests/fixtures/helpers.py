@@ -23,7 +23,7 @@ def ensure_vendor_on_path() -> None:
         sys.path.insert(0, vendor_src)
 
 
-def build_apply_shim() -> types.ModuleType:
+def build_apply_shim(monkeypatch) -> types.ModuleType:
     """Install a lightweight shim for `inspect_ai.approval._apply`.
 
     Provides `init_tool_approval(policies)` and `apply_tool_approval(...)` with
@@ -76,8 +76,8 @@ def build_apply_shim() -> types.ModuleType:
     apply_mod.init_tool_approval = init_tool_approval  # type: ignore[attr-defined]
     apply_mod.apply_tool_approval = apply_tool_approval  # type: ignore[attr-defined]
 
-    # Install/replace module
-    sys.modules[mod_name] = apply_mod
+    # Install/replace module using pytest monkeypatch when available
+    monkeypatch.setitem(sys.modules, mod_name, apply_mod)
     return apply_mod
 
 
@@ -103,4 +103,3 @@ def parse_tool_events(caplog) -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             events.append(payload)
     return events
-
