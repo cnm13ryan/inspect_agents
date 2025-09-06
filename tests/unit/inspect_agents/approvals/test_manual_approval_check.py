@@ -16,7 +16,7 @@ import sys
 import types
 
 
-def _load_module_with_stubs():
+def _load_module_with_stubs(monkeypatch):
     # ---- Minimal stubs for inspect_ai internals used by approval.py ----
     approval_mod = types.ModuleType('inspect_ai.approval._approval')
     class Approval:  # pragma: no cover - tiny shim
@@ -25,7 +25,7 @@ def _load_module_with_stubs():
             self.modified = modified
             self.explanation = explanation
     approval_mod.Approval = Approval
-    sys.modules['inspect_ai.approval._approval'] = approval_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', approval_mod)
 
     policy_mod = types.ModuleType('inspect_ai.approval._policy')
     class ApprovalPolicy:  # pragma: no cover - tiny shim
@@ -33,7 +33,7 @@ def _load_module_with_stubs():
             self.approver = approver
             self.tools = tools
     policy_mod.ApprovalPolicy = ApprovalPolicy
-    sys.modules['inspect_ai.approval._policy'] = policy_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', policy_mod)
 
     tool_mod = types.ModuleType('inspect_ai.tool._tool_call')
     class ToolCall:  # pragma: no cover - tiny shim
@@ -45,7 +45,7 @@ def _load_module_with_stubs():
             self.view = view
             self.type = type
     tool_mod.ToolCall = ToolCall
-    sys.modules['inspect_ai.tool._tool_call'] = tool_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.tool._tool_call', tool_mod)
 
     registry_mod = types.ModuleType('inspect_ai._util.registry')
     class RegistryInfo:  # pragma: no cover - tiny shim
@@ -56,7 +56,7 @@ def _load_module_with_stubs():
         return None
     registry_mod.RegistryInfo = RegistryInfo
     registry_mod.registry_tag = registry_tag
-    sys.modules['inspect_ai._util.registry'] = registry_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai._util.registry', registry_mod)
 
     # ---- Load the approval module directly to avoid package __init__ side-effects ----
     g = {}
@@ -66,9 +66,9 @@ def _load_module_with_stubs():
     return g
 
 
-def test_sensitive_patterns_and_dev_preset(approval_modules_guard):
+def test_sensitive_patterns_and_dev_preset(approval_modules_guard, monkeypatch):
     """Dev preset escalates for sensitive tool names, approves others."""
-    mod = _load_module_with_stubs()
+    mod = _load_module_with_stubs(monkeypatch)
     policies = mod['approval_preset']("dev")
     dev_gate = next(p.approver for p in policies if getattr(p.approver, "__name__", "") == "dev_gate")
     tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
@@ -91,9 +91,9 @@ def test_sensitive_patterns_and_dev_preset(approval_modules_guard):
         assert (result.decision == "escalate") == should_escalate, tool_name
 
 
-def test_prod_preset_terminates_and_redacts(approval_modules_guard):
+def test_prod_preset_terminates_and_redacts(approval_modules_guard, monkeypatch):
     """Prod preset terminates sensitive tools and redacts secrets in explanation."""
-    mod = _load_module_with_stubs()
+    mod = _load_module_with_stubs(monkeypatch)
     policies = mod['approval_preset']("prod")
     prod_gate = next(p.approver for p in policies if getattr(p.approver, "__name__", "") == "prod_gate")
     tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
@@ -106,7 +106,7 @@ def test_prod_preset_terminates_and_redacts(approval_modules_guard):
     assert "[REDACTED]" in explanation and "SECRET_KEY" not in explanation and "TOKEN" not in explanation
 
 
-def test_redaction_helper_redacts_expected_keys(approval_modules_guard):
+def test_redaction_helper_redacts_expected_keys(approval_modules_guard, monkeypatch):
     """redact_arguments replaces sensitive fields with [REDACTED]."""
     original = {
         "file_path": "/etc/passwd",
@@ -116,7 +116,7 @@ def test_redaction_helper_redacts_expected_keys(approval_modules_guard):
         "normal_param": "ok",
     }
 
-    mod = _load_module_with_stubs()
+    mod = _load_module_with_stubs(monkeypatch)
     red = mod['redact_arguments'](original)
     assert red["api_key"] == "[REDACTED]"
     assert red["content"] == "[REDACTED]"
@@ -127,4 +127,3 @@ def test_redaction_helper_redacts_expected_keys(approval_modules_guard):
 
 
 # Cleanup handled by approval_modules_guard fixture
-

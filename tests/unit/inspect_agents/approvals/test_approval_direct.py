@@ -7,7 +7,7 @@ import sys
 import types
 
 
-def _load_module_with_stubs():
+def _load_module_with_stubs(monkeypatch):
     # Mock inspect_ai modules
     approval_mod = types.ModuleType('inspect_ai.approval._approval')
     class Approval:  # pragma: no cover - tiny shim
@@ -16,7 +16,7 @@ def _load_module_with_stubs():
             self.modified = modified
             self.explanation = explanation
     approval_mod.Approval = Approval
-    sys.modules['inspect_ai.approval._approval'] = approval_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', approval_mod)
 
     policy_mod = types.ModuleType('inspect_ai.approval._policy')
     class ApprovalPolicy:  # pragma: no cover - tiny shim
@@ -24,7 +24,7 @@ def _load_module_with_stubs():
             self.approver = approver
             self.tools = tools
     policy_mod.ApprovalPolicy = ApprovalPolicy
-    sys.modules['inspect_ai.approval._policy'] = policy_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', policy_mod)
 
     tool_mod = types.ModuleType('inspect_ai.tool._tool_call')
     class ToolCall:  # pragma: no cover - tiny shim
@@ -36,7 +36,7 @@ def _load_module_with_stubs():
             self.view = view
             self.type = type
     tool_mod.ToolCall = ToolCall
-    sys.modules['inspect_ai.tool._tool_call'] = tool_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai.tool._tool_call', tool_mod)
 
     registry_mod = types.ModuleType('inspect_ai._util.registry')
     class RegistryInfo:  # pragma: no cover - tiny shim
@@ -47,7 +47,7 @@ def _load_module_with_stubs():
         pass
     registry_mod.RegistryInfo = RegistryInfo
     registry_mod.registry_tag = registry_tag
-    sys.modules['inspect_ai._util.registry'] = registry_mod
+    monkeypatch.setitem(sys.modules, 'inspect_ai._util.registry', registry_mod)
 
     # Load approval.py directly
     g = {}
@@ -78,9 +78,9 @@ def test_patterns(approval_modules_guard):
     for tool_name, expect in cases.items():
         assert bool(sensitive.match(tool_name)) == expect, f"regex mismatch for {tool_name}"
 
-def test_dev_preset_behavior(approval_modules_guard):
+def test_dev_preset_behavior(approval_modules_guard, monkeypatch):
     """Dev preset escalates sensitive tools, approves non-sensitive."""
-    mod = _load_module_with_stubs()
+    mod = _load_module_with_stubs(monkeypatch)
     policies = mod['approval_preset']("dev")
     dev_gate = next(p.approver for p in policies if getattr(p.approver, "__name__", "") == "dev_gate")
     tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
@@ -100,9 +100,9 @@ def test_dev_preset_behavior(approval_modules_guard):
     result = asyncio.run(dev_gate("", call, None, []))
     assert result.decision == "approve"
 
-def test_prod_preset_behavior(approval_modules_guard):
+def test_prod_preset_behavior(approval_modules_guard, monkeypatch):
     """Prod preset terminates sensitive tools and redacts secrets."""
-    mod = _load_module_with_stubs()
+    mod = _load_module_with_stubs(monkeypatch)
     policies = mod['approval_preset']("prod")
     prod_gate = next(p.approver for p in policies if getattr(p.approver, "__name__", "") == "prod_gate")
     tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
