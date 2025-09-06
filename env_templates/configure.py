@@ -224,20 +224,13 @@ def build_fs_section() -> list[str]:
                 "",
             ]
 
-    # Optional: log dir
-    log_dir = ask("Transcript output dir (blank = default .inspect/logs)", default="")
-    if log_dir:
-        lines += [
-            "# Transcript output directory (default .inspect/logs)",
-            f"INSPECT_LOG_DIR={log_dir}",
-            "",
-        ]
-    else:
-        lines += [
-            "# Transcript output directory (default .inspect/logs)",
-            "# INSPECT_LOG_DIR=.inspect/logs",
-            "",
-        ]
+    # Log directory (default to standardized path)
+    log_dir = ask("Transcript output dir", default=".inspect/logs/")
+    lines += [
+        "# Transcript output directory",
+        f"INSPECT_LOG_DIR={log_dir}",
+        "",
+    ]
 
     return lines
 
@@ -357,4 +350,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nAborted.")
         sys.exit(130)
-
