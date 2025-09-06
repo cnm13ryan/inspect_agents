@@ -342,8 +342,13 @@ class TestFilesToolUnified:
             patch("inspect_agents.tools_files._use_typed_results", return_value=True),
             patch("inspect_agents.tools_files.anyio.fail_after"),
         ):
-            # Mock bash session to simulate reading file content in sandbox mode
-            with patch("inspect_ai.tool._tools._bash_session.bash_session") as mock_bash_session:
+            # Mock sandbox adapter's view to deterministically return content,
+            # and bash session to satisfy any incidental calls.
+            with (
+                patch("inspect_agents.fs_adapter.SandboxFsAdapter.view", new_callable=AsyncMock) as mock_view,
+                patch("inspect_ai.tool._tools._bash_session.bash_session") as mock_bash_session,
+            ):
+                mock_view.return_value = "line 1\nline 2\nline 3"
                 mock_execute = AsyncMock()
                 mock_result = Mock()
                 mock_result.stdout = "line 1\nline 2\nline 3"
@@ -562,4 +567,3 @@ class TestByteCeilingEnforcement:
                 await self.tool(params)
             assert "exceeds maximum size limit" in str(exc_info.value)
             assert "8 bytes > 6 bytes" in str(exc_info.value)
-
