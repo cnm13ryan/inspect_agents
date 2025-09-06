@@ -210,7 +210,8 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     Limits: returns at most `limit` lines (default 2000), truncates each line to 2000
     characters, and enforces byte ceiling from INSPECT_AGENTS_FS_MAX_BYTES to prevent OOM.
-    Path traversal protection relies on sandbox isolation when in sandbox mode.
+    In sandbox mode, the adapter validates paths against the configured root and
+    denies symlinks before performing IO.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -396,7 +397,8 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
     - Store: writes to the in‑memory `Files` store for this instance.
 
     Limits: enforces byte ceiling from INSPECT_AGENTS_FS_MAX_BYTES to prevent OOM.
-    Content is not sanitized; ensure trusted input.
+    In sandbox mode, the adapter validates the path against the root and denies
+    symlinks before writing. Content is not sanitized; ensure trusted input.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -469,7 +471,8 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     - Store: edits the in‑memory `Files` store and reports replacement count.
 
     Limits: enforces byte ceiling from INSPECT_AGENTS_FS_MAX_BYTES to prevent OOM.
-    String replacement is not validated; ensure trusted input.
+    In sandbox mode, the adapter validates the path and denies symlinks before
+    applying the edit. String replacement is not validated; ensure trusted input.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -668,8 +671,8 @@ def files_tool():  # -> Tool
     Limits: reads return at most `limit` lines (default 2000) and each line is
     truncated to 2000 characters to bound output size.
 
-    Security: paths are not validated for traversal; rely on sandbox isolation
-    when handling untrusted input.
+    Security: In sandbox mode, paths are root‑confined and symlinks are denied;
+    in store mode, operations target the in‑memory store.
     """
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
     from inspect_ai.tool._tool import tool
