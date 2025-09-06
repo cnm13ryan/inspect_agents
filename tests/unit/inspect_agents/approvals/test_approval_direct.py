@@ -121,9 +121,4 @@ def test_prod_preset_behavior(approval_modules_guard):
     result = asyncio.run(prod_gate("", call, None, []))
     assert result.decision == "terminate"
 
-if __name__ == "__main__":
-    test_patterns()
-    test_dev_preset_behavior() 
-    test_prod_preset_behavior()
-    print("\n=== Direct Test Complete ===")
-
+ 
