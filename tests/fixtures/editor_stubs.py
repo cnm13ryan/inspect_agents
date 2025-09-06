@@ -12,7 +12,7 @@ import types
 from typing import Any
 
 
-def install_editor_stub(fs: dict[str, str]) -> None:
+def install_editor_stub(monkeypatch, fs: dict[str, str]) -> None:
     """Install a dict-backed `text_editor` tool stub."""
 
     mod_name = "inspect_ai.tool._tools._text_editor"
@@ -57,10 +57,10 @@ def install_editor_stub(fs: dict[str, str]) -> None:
         return execute
 
     mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
-def install_bash_stub(fs: dict[str, str]) -> None:
+def install_bash_stub(monkeypatch, fs: dict[str, str]) -> None:
     """Install a dict-backed `bash_session` tool stub that supports `ls -1`.
 
     The stub returns a minimal object with a `stdout` attribute matching the
@@ -92,10 +92,10 @@ def install_bash_stub(fs: dict[str, str]) -> None:
         return execute
 
     mod.bash_session = bash_session
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
-def install_slow_text_editor(monkeypatch: object | None = None) -> None:
+def install_slow_text_editor(monkeypatch) -> None:
     """Install a `text_editor` stub that intentionally sleeps before returning.
 
     If a pytest ``monkeypatch`` fixture is provided, the stub is registered
@@ -129,7 +129,5 @@ def install_slow_text_editor(monkeypatch: object | None = None) -> None:
         return execute
 
     mod.text_editor = text_editor
-    if monkeypatch is not None:  # use pytest auto-teardown when available
-        monkeypatch.setitem(sys.modules, mod_name, mod)
-    else:
-        sys.modules[mod_name] = mod
+    # Always managed via pytest monkeypatch for auto-teardown
+    monkeypatch.setitem(sys.modules, mod_name, mod)
