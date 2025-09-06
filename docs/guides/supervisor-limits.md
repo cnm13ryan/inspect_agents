@@ -29,6 +29,16 @@ Observability
   `agent_name`, `scope` (runner|handoff), `limit_kind` (message|tool|token|time), `threshold`, `used`, `exceeded_by` (if known).  
 - Keep completions clean: no footer by default; enable via a setting if required.
 
+Near‑limit telemetry (runner)
+- Configure the near‑limit threshold via `INSPECT_LIMIT_NEARING_THRESHOLD` (default `0.8`). See Environment Variables: ../reference/environment.md#runner-time-limit-telemetry
+- Quick filter to view near‑limit events in an eval log:
+```bash
+uv run inspect log dump logs/<run>.eval \
+  | jq 'select(.event=="logger" and (.message.message|test("^tool_event "))) \
+        | (.message.message | sub("^tool_event "; "") | fromjson) \
+        | select(.tool=="limits" and .event=="limit_nearing")'
+```
+
 Examples
 ```python
 # Runner‑level wall‑clock (global)
