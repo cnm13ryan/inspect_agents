@@ -260,6 +260,27 @@ export INSPECT_LIMIT_TOKENS__grader=6000
 ```
 
 
+## Runner Time‑Limit Telemetry
+
+Emit an early "nearing" signal for the top‑level wall‑clock budget so operators can observe and react before a hard timeout.
+
+- `INSPECT_LIMIT_NEARING_THRESHOLD` — fraction in (0,1); default `0.8`.
+  - When a runner time limit is supplied to `run_agent(..., limits=[time_limit(S)])`, the runner schedules a single timer at `threshold * S` seconds that logs an info event:
+    - `tool="limits"`, `phase="info"`, `event="limit_nearing"`, `scope="runner"`, `kind="time"`, plus `threshold` (seconds) and `used` (seconds).
+  - The timer is cancelled on early completion to avoid stray logs.
+
+Examples
+```bash
+# Fire the near‑limit event halfway to the limit
+export INSPECT_LIMIT_NEARING_THRESHOLD=0.5
+```
+
+Sample log payload (single‑line JSON following the `tool_event` prefix):
+```json
+{"tool":"limits","phase":"info","event":"limit_nearing","scope":"runner","kind":"time","threshold":2.0,"used":1.0}
+```
+
+
 ## Logging & Display
 
 - `INSPECT_LOG_DIR` — transcript directory (default `.inspect/logs`).
