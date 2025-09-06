@@ -55,8 +55,9 @@ def research_task(
     model_id = resolve_model()
 
     if config:
-        # Build from YAML (returns: agent, tools, approvals)
-        agent, _, _ = load_and_build(config, model=model_id)
+        # Build from YAML (returns: agent, tools, approvals, limits)
+        # Accept any future extensions by using starred unpacking.
+        agent, *_ = load_and_build(config, model=model_id)
     else:
         # Build base tools and sub-agents inline (same as the local runner)
         builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
