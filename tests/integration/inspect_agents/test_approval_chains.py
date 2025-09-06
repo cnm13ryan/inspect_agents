@@ -7,18 +7,10 @@ import pytest
 # Use the real Inspect‑AI ToolCall dataclass to satisfy event schema
 from inspect_ai.tool._tool_call import ToolCall
 
-# Provide minimal policy module if not present
-if 'inspect_ai.approval._policy' not in sys.modules:
-    import types
-    pol = types.ModuleType('inspect_ai.approval._policy')
-    sys.modules['inspect_ai.approval._policy'] = pol
-
-from inspect_ai.approval._policy import policy_approver  # type: ignore  # noqa: E402
-
 from inspect_agents.approval import approval_preset  # noqa: E402
 
 
-def _install_apply_shim_with_policy():
+def _install_apply_shim_with_policy(monkeypatch):
     """Ensure approval engine symbols exist without leaking stubs globally.
 
     Prefer the real vendored Inspect‑AI modules. Only install minimal fallbacks
@@ -85,7 +77,7 @@ def _install_apply_shim_with_policy():
     apply_mod.init_tool_approval = init_tool_approval
     apply_mod.apply_tool_approval = apply_tool_approval
     # Register/override fallback apply module (avoid leaking broken stubs)
-    sys.modules["inspect_ai.approval._apply"] = apply_mod
+    monkeypatch.setitem(sys.modules, "inspect_ai.approval._apply", apply_mod)
     if "inspect_ai.approval._approval" not in sys.modules:
         appr = types.ModuleType("inspect_ai.approval._approval")
         class Approval:  # minimal constructor compatibility
@@ -95,7 +87,7 @@ def _install_apply_shim_with_policy():
                 self.explanation = explanation
 
         setattr(appr, "Approval", Approval)
-        sys.modules["inspect_ai.approval._approval"] = appr
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", appr)
     if "inspect_ai.approval._policy" not in sys.modules:
         pol = types.ModuleType("inspect_ai.approval._policy")
         class ApprovalPolicy:  # minimal constructor compatibility
@@ -104,11 +96,12 @@ def _install_apply_shim_with_policy():
                 self.tools = tools
 
         setattr(pol, "ApprovalPolicy", ApprovalPolicy)
-        sys.modules["inspect_ai.approval._policy"] = pol
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._policy", pol)
 
 
-def test_ci_preset_auto_approves():
-    _install_apply_shim_with_policy()
+def test_ci_preset_auto_approves(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("ci")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="write_file", arguments={}), None, []))
@@ -116,8 +109,9 @@ def test_ci_preset_auto_approves():
     assert ok is True
 
 
-def test_dev_preset_escalates_then_rejects():
-    _install_apply_shim_with_policy()
+def test_dev_preset_escalates_then_rejects(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("dev")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="write_file", arguments={}), None, []))
@@ -126,8 +120,9 @@ def test_dev_preset_escalates_then_rejects():
     assert getattr(approval, "decision", None) == "reject"
 
 
-def test_prod_preset_terminates_sensitive_and_redacts():
-    _install_apply_shim_with_policy()
+def test_prod_preset_terminates_sensitive_and_redacts(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"file_path": "/etc/passwd", "api_key": "SECRET", "file_text": "X"}
@@ -140,8 +135,9 @@ def test_prod_preset_terminates_sensitive_and_redacts():
     assert "[REDACTED]" in text and "SECRET" not in text
 
 
-def test_dev_preset_escalates_python_then_rejects():
-    _install_apply_shim_with_policy()
+def test_dev_preset_escalates_python_then_rejects(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("dev")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="python", arguments={}), None, []))
@@ -150,8 +146,9 @@ def test_dev_preset_escalates_python_then_rejects():
     assert getattr(approval, "decision", None) == "reject"
 
 
-def test_dev_preset_escalates_web_browser_go_then_rejects():
-    _install_apply_shim_with_policy()
+def test_dev_preset_escalates_web_browser_go_then_rejects(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("dev")
     approval = asyncio.run(policy_approver(policies)("", ToolCall(id="1", function="web_browser_go", arguments={}), None, []))
     ok = getattr(approval, "decision", None) in ("approve", "modify")
@@ -159,8 +156,9 @@ def test_dev_preset_escalates_web_browser_go_then_rejects():
     assert getattr(approval, "decision", None) == "reject"
 
 
-def test_prod_preset_terminates_python_with_redacted_args():
-    _install_apply_shim_with_policy()
+def test_prod_preset_terminates_python_with_redacted_args(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"code": "import os; os.system('rm -rf /')", "api_key": "SECRET"}
@@ -172,8 +170,9 @@ def test_prod_preset_terminates_python_with_redacted_args():
     assert "[REDACTED]" in text and "SECRET" not in text
 
 
-def test_prod_preset_terminates_web_browser_go_with_redacted_args():
-    _install_apply_shim_with_policy()
+def test_prod_preset_terminates_web_browser_go_with_redacted_args(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"url": "https://malicious.example.com", "authorization": "Bearer SECRET_TOKEN"}

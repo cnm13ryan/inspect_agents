@@ -28,7 +28,7 @@ def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
     from inspect_ai.agent._handoff import handoff
 
     # Activate only the exclusivity policy to ensure it is applied first
-    build_apply_shim()
+    build_apply_shim(monkeypatch)
     from inspect_ai.approval._apply import init_tool_approval
     from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
     from inspect_ai.model._call_tools import execute_tools
