@@ -23,47 +23,21 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import sys
 from pathlib import Path
 
-# Ensure local repo sources are imported (not an installed wheel)
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SRC_DIR = REPO_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+import importlib.util as _il
+from types import ModuleType as _ModuleType  # noqa: F401
 
-"""Imports moved into functions to satisfy E402 (imports at top).
+# Robustly import local examples/_utils.py even if a site-packages "examples" exists
+_UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
+_spec = _il.spec_from_file_location("_examples_utils_local", str(_UTILS_PATH))
+if _spec is None or _spec.loader is None:  # pragma: no cover - defensive
+    raise ImportError(f"Unable to load utils from {_UTILS_PATH}")
+_utils = _il.module_from_spec(_spec)
+_spec.loader.exec_module(_utils)
 
-Ruff flagged module-level imports occurring after path mutation. To keep
-local import behavior (prefer repo `src/` over installed wheel) and satisfy
-linting, import runtime dependencies inside `_main()`.
-"""
-
-
-def _load_env_files() -> None:
-    """Load .env files from repo root and this example if available.
-
-    Respects INSPECT_ENV_FILE and does not override pre-existing env vars.
-    """
-    try:
-        from dotenv import load_dotenv  # type: ignore
-
-        # 0) Explicit file via env var wins (highest precedence among files)
-        explicit = os.getenv("INSPECT_ENV_FILE")
-        if explicit:
-            load_dotenv(explicit, override=False)
-
-        # 1) Repo root .env
-        load_dotenv(REPO_ROOT / ".env", override=False)
-
-        # 2) Per-example .env (kept for convenience)
-        load_dotenv(Path(__file__).parent / ".env", override=False)
-
-        # 3) Centralized template as fill‑in (lowest precedence)
-        load_dotenv(REPO_ROOT / "env_templates" / "inspect.env", override=False)
-        return
-    except Exception:
-        pass
+# Prefer local repo sources over any installed wheel
+_utils.ensure_repo_src_on_path()
 
 
 async def _main() -> int:
@@ -122,7 +96,7 @@ async def _main() -> int:
 
 
 def main() -> None:
-    _load_env_files()
+    _utils.load_env_files(Path(__file__).parent, include_template=True)
     raise SystemExit(asyncio.run(_main()))
 
 
