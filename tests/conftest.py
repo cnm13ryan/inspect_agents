@@ -22,6 +22,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from pathlib import Path as _Path
 
 # Ensure src/ (and optional external/inspect_ai) are importable for tests
 # This avoids requiring an editable install in local runs/CI.
@@ -269,6 +270,81 @@ def pytest_pyfunc_call(pyfuncitem):  # pragma: no cover - passthrough logic
         _asyncio.run(test_fn(**kwargs))
         return True
     return None
+
+# ----------------------------------------------------------------------
+# Default Env Guard (autouse)
+# ----------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _default_env_guard(monkeypatch, request):
+    """Harden env for all tests by default.
+
+    - Disable optional heavy tools (web_search/exec/browser/editor).
+    - Unset common provider keys to prevent auto-enabling.
+    - Default to offline (`NO_NETWORK=1`) unless opted-out.
+
+    Opt-out mechanisms:
+    - Marker `@pytest.mark.network` on a test/function/module/class.
+    - Presence of a repository file `.allow_network_in_tests` at repo root.
+
+    Individual tests can still override via their own `monkeypatch` calls.
+    """
+    # Best-effort: clear any previously-registered approvals
+    try:  # pragma: no cover - shim may not exist in all environments
+        from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+
+        init_tool_approval(None)  # type: ignore[func-returns-value]
+    except Exception:
+        pass
+
+    # Disable optional tools to keep init deterministic across the suite
+    monkeypatch.setenv("INSPECT_ENABLE_WEB_SEARCH", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_EXEC", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_WEB_BROWSER", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_TEXT_EDITOR_TOOL", "0")
+
+    # Unset provider keys that would auto-enable web_search
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_CSE_ID", raising=False)
+    monkeypatch.delenv("GOOGLE_CSE_API_KEY", raising=False)
+
+    # Offline by default; allow opt-out via marker or escape-hatch file
+    repo_root = _Path(__file__).resolve().parents[1]
+    allow_file = repo_root / ".allow_network_in_tests"
+    has_network_marker = bool(request.node.get_closest_marker("network"))
+    if allow_file.exists() or has_network_marker:
+        monkeypatch.delenv("NO_NETWORK", raising=False)
+    else:
+        monkeypatch.setenv("NO_NETWORK", "1")
+
+
+def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
+    # Ensure common markers are known regardless of optional plugins
+    try:
+        config.addinivalue_line(
+            "markers", "benchmark: present even if pytest-benchmark is unavailable"
+        )
+    except Exception:
+        pass
+    try:
+        config.addinivalue_line("markers", "network: allow real network for this test")
+    except Exception:
+        pass
+    # Register repo markers used for selection/guides to avoid unknown-mark warnings
+    for _m in [
+        "approvals",
+        "handoff",
+        "filters",
+        "kill_switch",
+        "timeout",
+        "truncation",
+        "parallel",
+        "model_flags",
+    ]:
+        try:
+            config.addinivalue_line("markers", f"{_m}: repository-defined test marker")
+        except Exception:
+            pass
 # Optional dependency shim for `jsonlines` managed via fixture to ensure cleanup.
 @pytest.fixture(autouse=True, scope="session")
 def jsonlines_stub():  # pragma: no cover - test support only
