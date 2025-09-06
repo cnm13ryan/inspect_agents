@@ -23,60 +23,20 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SRC_DIR = REPO_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+import importlib.util as _il
 
+# Robustly import local examples/_utils.py even if a site-packages "examples" exists
+_UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
+_spec = _il.spec_from_file_location("_examples_utils_local", str(_UTILS_PATH))
+if _spec is None or _spec.loader is None:  # pragma: no cover - defensive
+    raise ImportError(f"Unable to load utils from {_UTILS_PATH}")
+_utils = _il.module_from_spec(_spec)
+_spec.loader.exec_module(_utils)
 
-def _load_env_files() -> None:
-    """Load .env files from repo root and this folder if available.
-
-    Does not override pre-existing environment variables.
-    """
-    try:
-        from dotenv import load_dotenv  # type: ignore
-
-        # 0) Explicit file via env var wins (highest precedence among files)
-        explicit = os.getenv("INSPECT_ENV_FILE")
-        if explicit:
-            load_dotenv(explicit, override=False)
-
-        # 1) Repo root .env (typical project defaults)
-        load_dotenv(REPO_ROOT / ".env", override=False)
-
-        # 2) Legacy per-example .env (kept for back-compat)
-        load_dotenv(Path(__file__).parent / ".env", override=False)
-
-        # 3) Centralized templates as fill-ins (lowest precedence)
-        load_dotenv(REPO_ROOT / "env_templates" / "inspect.env", override=False)
-        return
-    except Exception:
-        pass
-
-    # Minimal fallback parser
-    def _load_one(path: Path) -> None:
-        if not path.exists():
-            return
-        try:
-            for raw in path.read_text(encoding="utf-8").splitlines():
-                line = raw.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, val = line.split("=", 1)
-                key = key.strip()
-                val = val.strip().strip('"').strip("'")
-                if key and key not in os.environ:
-                    os.environ[key] = val
-        except Exception:
-            # Best-effort only
-            return
-
-    _load_one(REPO_ROOT / ".env")
-    _load_one(Path(__file__).parent / ".env")
+# Prefer local repo sources over any installed wheel
+_utils.ensure_repo_src_on_path()
 
 
 async def _main() -> int:
@@ -168,7 +128,7 @@ def main() -> None:
     except Exception:
         pass
 
-    _load_env_files()
+    _utils.load_env_files(Path(__file__).parent, include_template=True)
     raise SystemExit(asyncio.run(_main()))
 
 
