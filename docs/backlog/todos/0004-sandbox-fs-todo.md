@@ -3,7 +3,7 @@
 Context: Follow-ups derived from ADR 0004 (docs/adr/0004-filesystem-sandbox-guardrails.md) to harden sandbox FS behavior while preserving current defaults. Each section is self-contained and actionable for implementation.
 
 Owner: Core Inspect Agents
-Last Updated: 2025-09-03 (sync checkboxes with current code/tests)
+Last Updated: 2025-09-06 (sync checkboxes with current code/tests)
 
 ---
 
@@ -79,20 +79,20 @@ Last Updated: 2025-09-03 (sync checkboxes with current code/tests)
 ## 4) Read-Only Mode Flag
 
 - Context & Motivation
-  - [ ] Provide an audit-friendly mode preventing mutations globally.
+  - [x] Provide an audit-friendly mode preventing mutations (sandbox mode).
 
 - Implementation Guidance
   - Files: `src/inspect_agents/tools_files.py`
   - Grep: `execute_write(`, `execute_edit(`, `execute_delete(`
   - Tasks
-    - [ ] Add `_readonly()` helper (env `INSPECT_AGENTS_FS_READONLY`).
-    - [ ] Short-circuit write/edit/delete with `ToolException` when enabled; include guidance to unset flag.
+    - [x] Add read-only guard using env `INSPECT_AGENTS_FS_READ_ONLY` (note final env name).
+    - [x] Short-circuit write/edit/delete in sandbox with `ToolException("SandboxReadOnly")`; include guidance in docs.
 
 - Scope Definition
-  - [ ] Applies to store and sandbox; delete remains unsupported in sandbox.
+  - [x] Applies to sandbox; store mode semantics unchanged by design. Delete remains unsupported in sandbox.
 
 - Success Criteria
-  - [ ] Tests parametrize env; writes/edits/deletes fail; reads still succeed.
+  - [x] Tests parametrize env; writes/edits/deletes fail; reads still succeed.
 
 ---
 
