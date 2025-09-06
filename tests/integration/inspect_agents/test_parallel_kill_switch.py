@@ -2,87 +2,22 @@
 
 import asyncio
 import importlib
-import json
 import logging
-import sys
-import types
 
 import pytest
 
 pytestmark = pytest.mark.kill_switch
 
-
-def _ensure_vendor_on_path():
-    vendor_src = "external/inspect_ai/src"
-    if vendor_src not in sys.path:
-        sys.path.insert(0, vendor_src)
-
-
-def _ensure_apply_shim():
-    """Lightweight shim for Inspect apply module.
-
-    Mirrors the pattern used in other integration tests to avoid coupling to
-    upstream internals while exercising our approval policies end-to-end.
-    """
-    import fnmatch
-
-    apply_mod = types.ModuleType("inspect_ai.approval._apply")
-    _compiled: list[tuple[list[str], object]] = []
-
-    def init_tool_approval(policies):  # pragma: no cover - simple wiring
-        nonlocal _compiled
-        compiled: list[tuple[list[str], object]] = []
-        if policies:
-            for p in policies:
-                tools = getattr(p, "tools", "*")
-                approver = getattr(p, "approver", None)
-                patterns = tools if isinstance(tools, list) else [tools]
-                compiled.append((patterns, approver))
-        _compiled = compiled
-
-    async def apply_tool_approval(message, call, viewer, history):
-        approver = None
-        if _compiled:
-            for patterns, ap in _compiled:
-                for pat in patterns:
-                    pat = pat if pat.endswith("*") else pat + "*"
-                    if fnmatch.fnmatch(call.function, pat):
-                        approver = ap
-                        break
-                if approver:
-                    break
-        if approver is None:
-            class _Approval:  # pragma: no cover - fallback path
-                decision = "approve"
-                modified = None
-                explanation = None
-            return True, _Approval()
-        view = viewer(call) if callable(viewer) else None
-        approval = await approver(message, call, view, history)  # type: ignore[misc]
-        return (getattr(approval, "decision", None) in ("approve", "modify")), approval
-
-    apply_mod.init_tool_approval = init_tool_approval
-    apply_mod.apply_tool_approval = apply_tool_approval
-    sys.modules["inspect_ai.approval._apply"] = apply_mod
-
-
-def _parse_tool_events(caplog: "logging.LogCaptureFixture"):
-    events = []
-    for rec in caplog.records:
-        msg = rec.getMessage()
-        if not msg.startswith("tool_event "):
-            continue
-        try:
-            payload = json.loads(msg.split("tool_event ", 1)[1])
-            events.append(payload)
-        except Exception:
-            continue
-    return events
+from tests.fixtures.helpers import (
+    build_apply_shim,
+    ensure_vendor_on_path,
+    parse_tool_events,
+)
 
 
 def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog):
-    _ensure_vendor_on_path()
-    _ensure_apply_shim()
+    ensure_vendor_on_path()
+    build_apply_shim()
 
     # Enable kill-switch via either canonical env var
     monkeypatch.setenv("INSPECT_TOOL_PARALLELISM_DISABLE", "1")
@@ -130,7 +65,7 @@ def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog
     assert tev.metadata.get("skipped_function") == "echo_b"
 
     # Repo-local logger emits a skipped event for kill switch
-    events = _parse_tool_events(caplog)
+    events = parse_tool_events(caplog)
     skipped = [e for e in events if e.get("tool") == "parallel_kill_switch" and e.get("phase") == "skipped"]
     # Exactly one subsequent call in this test, so exactly one skipped event
     assert len(skipped) == 1, "Expected a single parallel_kill_switch skipped event"
@@ -140,8 +75,8 @@ def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog
 
 
 def test_kill_switch_escalates_when_handoff_present(monkeypatch, caplog):
-    _ensure_vendor_on_path()
-    _ensure_apply_shim()
+    ensure_vendor_on_path()
+    build_apply_shim()
 
     # Enable kill-switch; presence of handoff should escalate to exclusivity
     monkeypatch.setenv("INSPECT_TOOL_PARALLELISM_DISABLE", "1")
@@ -176,7 +111,7 @@ def test_kill_switch_escalates_when_handoff_present(monkeypatch, caplog):
     assert "handoff exclusivity" in (getattr(ao, "explanation", "") or "").lower()
 
     # Logs should show handoff_exclusive skipped, and not parallel_kill_switch
-    events = _parse_tool_events(caplog)
+    events = parse_tool_events(caplog)
     assert any(e.get("tool") == "handoff_exclusive" and e.get("phase") == "skipped" for e in events)
     assert not any(e.get("tool") == "parallel_kill_switch" for e in events), "Kill-switch should escalate; no skip logged"
 
