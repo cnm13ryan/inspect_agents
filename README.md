@@ -1,7 +1,8 @@
 # inspect_agents
-> Inspect-AI-native, CLI-first agents with typed state, tools, and rich traces.
+> Inspect‑AI–native, CLI‑first agents with typed state, tools, and rich traces. Ship agents in minutes, not days.
 
-![TODO: Project Logo or 10s Demo GIF – capture a terminal session running the one-line CLI quickstart below; crop to 1280×720; show the command, a short model completion, and the printed transcript path](TODO: add link)
+<!-- Optional: replace with a 10s demo GIF of the Quickstart below -->
+<!-- ![Quick Demo](docs/assets/demo.gif) -->
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/ci.yml?branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
 [![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/tests.yml?label=tests&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
