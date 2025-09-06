@@ -192,6 +192,29 @@ def standard_tools() -> list[object]:
         except Exception:
             pass
 
+    # Defensive policy: never surface any stateful shell session tool here.
+    # In this repo, `bash_session` is reserved for internal FS sandbox plumbing
+    # (see fs_adapter) and must not be exposed via the public `standard_tools()`
+    # helper regardless of upstream defaults or env toggles.
+    try:
+        filtered: list[object] = []
+        for t in tools:
+            try:
+                name = getattr(t, "name", None) or getattr(t, "__name__", None)
+                if isinstance(name, str) and name.strip().lower() == "bash_session":
+                    logging.getLogger(__name__).warning(
+                        "Filtered out stateful tool 'bash_session' from standard_tools (internal-only)."
+                    )
+                    continue
+            except Exception:
+                # If we cannot introspect, keep the tool (fail-open) — tests enforce the policy.
+                pass
+            filtered.append(t)
+        tools = filtered
+    except Exception:
+        # Never fail construction due to filtering; tests will catch regressions.
+        pass
+
     return tools
 
 
