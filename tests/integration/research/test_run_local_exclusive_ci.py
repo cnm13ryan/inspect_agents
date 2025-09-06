@@ -1,6 +1,7 @@
 import asyncio
 import importlib.util
 from pathlib import Path
+from tests.fixtures.patching import patch_use_site
 
 
 def _load_run_local_module():
@@ -16,7 +17,6 @@ def _load_run_local_module():
 def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
     # Arrange: ensure offline-friendly env
     monkeypatch.setenv("CI", "1")
-    monkeypatch.setenv("NO_NETWORK", "1")
     monkeypatch.setenv("INSPECT_LOG_DIR", str(tmp_path))
 
     # Capture approvals passed to run_agent
@@ -34,38 +34,34 @@ def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
         return _Res()
 
     # Patch inspect_agents hooks used by the runner
-    import inspect_agents.approval as approval_mod
+    # Patch modules at their use-site import paths with autospec enforcement
+    with patch_use_site(
+        "inspect_agents.approval.handoff_exclusive_policy",
+        new=lambda: ["EXCLUSIVE_SENTINEL"],
+    ), patch_use_site(
+        "inspect_agents.approval.approval_preset",
+        new=lambda preset: [],
+    ), patch_use_site(
+        "inspect_agents.run.run_agent",
+        new=fake_run_agent,
+    ):
+        # Load the runner module and invoke _main with --approval ci
+        run_local = _load_run_local_module()
 
-    monkeypatch.setattr(
-        approval_mod,
-        "handoff_exclusive_policy",
-        lambda: ["EXCLUSIVE_SENTINEL"],
-        raising=True,
-    )
+        argv = [
+            "research_runner.py",
+            "Quick check",
+            "--approval",
+            "ci",
+        ]
 
-    # Keep approval_preset light to avoid unrelated policies in the assertion
-    monkeypatch.setattr(approval_mod, "approval_preset", lambda preset: [], raising=True)
+        monkeypatch.setattr("sys.argv", argv, raising=False)
 
-    import inspect_agents.run as run_mod
-    monkeypatch.setattr(run_mod, "run_agent", fake_run_agent, raising=True)
+        # Act
+        rc = asyncio.run(run_local._main())
 
-    # Load the runner module and invoke _main with --approval ci
-    run_local = _load_run_local_module()
-
-    argv = [
-        "research_runner.py",
-        "Quick check",
-        "--approval",
-        "ci",
-    ]
-
-    monkeypatch.setattr("sys.argv", argv, raising=False)
-
-    # Act
-    rc = asyncio.run(run_local._main())
-
-    # Assert
-    assert rc == 0
-    approval = captured.get("approval")
-    assert isinstance(approval, list)
-    assert "EXCLUSIVE_SENTINEL" in approval, "handoff_exclusive_policy() not applied for ci"
+        # Assert
+        assert rc == 0
+        approval = captured.get("approval")
+        assert isinstance(approval, list)
+        assert "EXCLUSIVE_SENTINEL" in approval, "handoff_exclusive_policy() not applied for ci"
