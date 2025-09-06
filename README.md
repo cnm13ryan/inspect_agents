@@ -19,7 +19,7 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 ## Key Features
 - ✅ **CLI-first**: One command to run an agent or eval with Inspect
 - ✅ **Inspect-native tools**: Todos + virtual filesystem (store or sandbox)
-- ✅ **Optional standard tools**: Think, web_search, bash/python, web_browser, text_editor
+- ✅ **Optional standard tools**: Think, web_search, bash/python, web_browser, text_editor (policy: `bash_session` is internal‑only; used by the FS sandbox and not exposed)
 - ✅ **Typed state**: Simple, explicit models backed by Inspect Store
 - ✅ **Sub-agents**: Choose "handoff" (iterative control-flow) or "tool" (single-shot)
 - ✅ **Traces & transcripts**: Rich logs and JSONL artifacts out of the box
@@ -110,6 +110,8 @@ INSPECT_ENABLE_THINK=1 inspect eval examples/inspect/prompt_task.py -T prompt=".
 # Enable web search (requires API key)
 INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... inspect eval examples/inspect/prompt_task.py -T prompt="..."
 ```
+
+Policy note: Enabling `INSPECT_ENABLE_EXEC=1` exposes only single‑shot `bash()` and `python()` tools. The stateful `bash_session` tool is never surfaced by this repo’s `standard_tools()`; it is reserved for internal filesystem‑sandbox operations (e.g., `sed`, `ls`, `wc -c`).
 
 For prompts with special characters, use single quotes:
 ```bash
