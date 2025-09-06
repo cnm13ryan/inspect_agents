@@ -5,7 +5,7 @@ from pathlib import Path
 
 def _load_run_local_module():
     # tests/integration/research/ → parents[3] is repo root
-    path = Path(__file__).resolve().parents[3] / "examples" / "research" / "run_local.py"
+    path = Path(__file__).resolve().parents[3] / "examples" / "runners" / "research_runner.py"
     spec = importlib.util.spec_from_file_location("run_local_ci", str(path))
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
@@ -53,7 +53,7 @@ def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
     run_local = _load_run_local_module()
 
     argv = [
-        "run_local.py",
+        "research_runner.py",
         "Quick check",
         "--approval",
         "ci",
