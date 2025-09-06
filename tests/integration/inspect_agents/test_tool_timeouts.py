@@ -80,8 +80,8 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     monkeypatch.setenv("INSPECT_AGENTS_TOOL_TIMEOUT", "0.1")  # 100ms timeout
     
-    # Install slow text_editor stub that raises TimeoutError
-    install_slow_text_editor()
+    # Install slow text_editor stub that raises TimeoutError (auto-cleanup)
+    install_slow_text_editor(monkeypatch)
     
     from inspect_agents.tools import ToolException, read_file
     
@@ -99,7 +99,7 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
     asyncio.run(run_tool())
 
 
-def test_sandbox_text_editor_timeout_integration():
+def test_sandbox_text_editor_timeout_integration(monkeypatch):
     """Integration test to verify timeout behavior works correctly.
 
     Use a sandbox-safe path by setting INSPECT_AGENTS_FS_ROOT to a temporary
@@ -123,8 +123,8 @@ def test_sandbox_text_editor_timeout_integration():
     file_path = os.path.join(tmp_dir, "test.txt")
 
     try:
-        # Install a text_editor that will timeout
-        install_slow_text_editor()
+        # Install a text_editor that will timeout (auto-cleanup)
+        install_slow_text_editor(monkeypatch)
         
         from inspect_agents.tools import edit_file, read_file, write_file
         
