@@ -86,19 +86,29 @@ python scripts/quickstart_toy.py
 # Expected: Completion: DONE
 ```
 
-### CLI Usage
+## Usage
+### CLI (Inspect)
 Basic evaluation with built-in tools:
 ```bash
-uv run inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph"
+inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph"
 ```
 
-With optional tools enabled:
+Provider quick switch (pick one):
+```bash
+# LM Studio (OpenAI-compatible local server)
+export DEEPAGENTS_MODEL_PROVIDER=lm-studio
+export LM_STUDIO_BASE_URL="http://127.0.0.1:1234/v1"
+export LM_STUDIO_MODEL_NAME="local-model"
+inspect eval examples/inspect/prompt_task.py -T prompt="..."
+```
+
+With optional tools:
 ```bash
 # Enable structured thinking
-INSPECT_ENABLE_THINK=1 uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
+INSPECT_ENABLE_THINK=1 inspect eval examples/inspect/prompt_task.py -T prompt="..."
 
 # Enable web search (requires API key)
-INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
+INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... inspect eval examples/inspect/prompt_task.py -T prompt="..."
 ```
 
 For prompts with special characters, use single quotes:
