@@ -246,6 +246,62 @@ Precedence
 - Explicit limits passed to the handoff (programmatic or YAML) win when non‑empty.
 - If the sub‑agent config omits `limits` or sets an empty list, env budgets apply.
 
+#### Precedence & Empty List — Examples
+
+Note: non‑empty YAML `limits` > per‑agent env. An explicit empty list `limits: []` means “no explicit limits”, so env‑derived limits (if set) will apply.
+
+Examples (YAML + Env)
+
+1) YAML without `limits` + env → env applies
+
+```yaml
+subagents:
+  - name: researcher
+    mode: handoff
+    tools: [web_search]
+    # no `limits` key
+```
+
+```bash
+export INSPECT_LIMIT_MESSAGES__researcher=8
+```
+
+Effect: researcher handoff is capped at 8 messages via env.
+
+2) YAML with `limits: []` + env → env applies
+
+```yaml
+subagents:
+  - name: researcher
+    mode: handoff
+    tools: [web_search]
+    limits: []  # explicit empty list
+```
+
+```bash
+export INSPECT_LIMIT_TIME__researcher=60
+```
+
+Effect: researcher handoff is capped at 60 seconds via env.
+
+3) YAML with non‑empty `limits` + env → YAML wins
+
+```yaml
+subagents:
+  - name: researcher
+    mode: handoff
+    tools: [web_search]
+    limits:
+      - type: messages
+        max: 3
+```
+
+```bash
+export INSPECT_LIMIT_MESSAGES__researcher=8
+```
+
+Effect: researcher handoff is capped at 3 messages (YAML overrides env).
+
 Examples
 ```bash
 # Cap the Researcher handoff at 60s and 8 messages
