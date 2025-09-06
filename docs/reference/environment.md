@@ -93,6 +93,31 @@ One‑time fallback hint (local‑first)
   - To disable a previously set global override without clearing env, use the sentinel: `INSPECT_EVAL_MODEL=none/none` (ignored by the resolver)
 
 
+## Model Retries & Backoff
+
+- `INSPECT_RETRY_MAX_ATTEMPTS` — max attempts including the first (default `6`).
+- `INSPECT_RETRY_INITIAL_SECONDS` — initial backoff (default `1.0`).
+- `INSPECT_RETRY_MAX_SECONDS` — cap on backoff (default `60.0`).
+- `INSPECT_RETRY_JITTER` — if `> 0`, adds jitter to waits in seconds (default `0`).
+- `INSPECT_RETRY_DISABLE_TENACITY` — truthy values (`1/true/yes/on`) bypass the Tenacity‑based path and force the fallback retry loop even when Tenacity is installed (default off).
+
+Precedence
+- Function args passed to `generate_with_retry_time(...)` take precedence over env; if an arg is `None`, the env var is consulted; otherwise the built‑in default applies.
+- Tenacity selection precedence for the wrapper: `force_fallback` kwarg > `INSPECT_RETRY_DISABLE_TENACITY` > auto‑detect of Tenacity availability.
+
+Developer note
+- The retry wrapper `inspect_agents._model_retry.generate_with_retry_time(...)` accepts an optional kwarg `force_fallback: bool | None = None`. Set `True` to bypass Tenacity regardless of env; leave as `None` to defer to `INSPECT_RETRY_DISABLE_TENACITY`.
+
+Examples
+```bash
+# Force fallback loop and set a tight, deterministic retry budget
+export INSPECT_RETRY_DISABLE_TENACITY=1
+export INSPECT_RETRY_MAX_ATTEMPTS=3
+export INSPECT_RETRY_INITIAL_SECONDS=0.01
+export INSPECT_RETRY_MAX_SECONDS=0.02
+export INSPECT_RETRY_JITTER=0
+```
+
 ## Approvals & Presets
 
 - `INSPECT_APPROVAL_PRESET` — `ci | dev | prod`. When set, and when callers do not pass an explicit `approval=[...]` to the runner, `run_agent(...)` auto‑initializes approvals using the chosen preset before starting the Inspect run.
