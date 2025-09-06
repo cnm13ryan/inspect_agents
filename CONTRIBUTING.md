@@ -26,6 +26,7 @@ We welcome contributions of all kinds — bug fixes, docs, tests, and new exampl
   ```bash
   CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai/src pytest -q tests/unit/inspect_agents
   ```
+- Parallel default: tests run in parallel by default (xdist). Disable with `-n 0`; pin workers with `-n <N>`.
 - Optional coverage:
   ```bash
   pytest --cov=src --cov-report=term-missing -q tests/unit/inspect_agents
