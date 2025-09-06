@@ -45,23 +45,26 @@ def _truthy(v: str | None) -> bool:
 
 
 ROOT = Path(__file__).resolve().parent
-GUIDE_INDEX = ROOT / "README.md"
+# Docs live under tests/docs
+DOCS_DIR = ROOT / "docs"
+
+GUIDE_INDEX = DOCS_DIR / "README.md"
 
 GUIDES = {
-    "approvals": ROOT / "TESTING_APPROVALS_POLICIES.md",
-    "handoff": ROOT / "TESTING_SUBAGENTS_HANDOFFS.md",
-    "subagent": ROOT / "TESTING_SUBAGENTS_HANDOFFS.md",
-    "filters": ROOT / "TESTING_SUBAGENTS_HANDOFFS.md",
-    "kill_switch": ROOT / "TESTING_APPROVALS_POLICIES.md",
-    "timeout": ROOT / "TESTING_TOOL_TIMEOUTS.md",
-    "tool_timeouts": ROOT / "TESTING_TOOL_TIMEOUTS.md",
-    "truncation": ROOT / "TESTING_LIMITS_TRUNCATION.md",
-    "parallel": ROOT / "TESTING_PARALLEL.md",
-    "runner_model": ROOT / "TESTING_MODEL_RESOLUTION.md",
-    "model_flags": ROOT / "TESTING_MODEL_RESOLUTION.md",
-    "mock": ROOT / "TESTING_MOCKING.md",
-    "benchmark": ROOT / "TESTING_BENCHMARKS.md",
-    "async": ROOT / "TESTING_ASYNC.md",
+    "approvals": DOCS_DIR / "TESTING_APPROVALS_POLICIES.md",
+    "handoff": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
+    "subagent": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
+    "filters": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
+    "kill_switch": DOCS_DIR / "TESTING_APPROVALS_POLICIES.md",
+    "timeout": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
+    "tool_timeouts": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
+    "truncation": DOCS_DIR / "TESTING_LIMITS_TRUNCATION.md",
+    "parallel": DOCS_DIR / "TESTING_PARALLEL.md",
+    "runner_model": DOCS_DIR / "TESTING_MODEL_RESOLUTION.md",
+    "model_flags": DOCS_DIR / "TESTING_MODEL_RESOLUTION.md",
+    "mock": DOCS_DIR / "TESTING_MOCKING.md",
+    "benchmark": DOCS_DIR / "TESTING_BENCHMARKS.md",
+    "async": DOCS_DIR / "TESTING_ASYNC.md",
 }
 
 
