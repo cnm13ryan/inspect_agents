@@ -110,3 +110,4 @@ def test_prune_with_debug_overflow_logs(caplog: pytest.LogCaptureFixture):
     assert contents == ["m0", "m3", "m4"]
     expect = "Prune: reason=overflow pre=5 post=3 keep_last=2"
     assert any(expect in rec.getMessage() for rec in caplog.records)
+
