@@ -2,7 +2,7 @@
 Inspect task: Iterative Agent (no submit) — runs via `inspect eval`.
 
 Usage
-- uv run inspect eval examples/research/iterative_task.py \
+- uv run inspect eval examples/tasks/iterative_task.py \
     -T prompt="List files and propose a small refactor plan" \
     -T time_limit=300 -T max_steps=30 -T enable_exec=true -T enable_web_search=true
 

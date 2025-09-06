@@ -3,13 +3,13 @@
 Run the Inspect‑AI path (inspect_agents) from the repo.
 
 Features
-- Loads .env from repo root and examples/inspect (if present)
+- Loads .env from repo root and this folder (if present)
 - Resolves model via inspect_agents (defaults to LM‑Studio or env)
 - Runs a minimal supervisor and prints the final completion
 - Writes a transcript JSONL and prints its path
 
 Usage
-  uv run python examples/inspect/run.py "Write a short overview of LangGraph"
+  uv run python examples/runners/supervisor_runner.py "Write a short overview of LangGraph"
 
 Environment
 - DEEPAGENTS_MODEL_PROVIDER=ollama|lm-studio|openai|...
@@ -33,7 +33,7 @@ if str(SRC_DIR) not in sys.path:
 
 
 def _load_env_files() -> None:
-    """Load .env files from repo root and examples/inspect if available.
+    """Load .env files from repo root and this folder if available.
 
     Does not override pre-existing environment variables.
     """

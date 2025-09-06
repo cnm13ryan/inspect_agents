@@ -1,3 +1,4 @@
+# moved from examples/research/inspect.yaml
 supervisor:
   prompt: "You are the orchestrator."
   attempts: 1

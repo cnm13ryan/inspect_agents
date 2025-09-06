@@ -1,6 +1,6 @@
 # Iterative Research Task (Inspect‑AI)
 
-This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/research/iterative_task.py`. For termination, truncation, and configuration details, see the Iterative Agent reference: [Iterative Agent — Termination and Truncation](../../docs/reference/iterative-agent-behavior.md).
+This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/tasks/iterative_task.py`. For termination, truncation, and configuration details, see the Iterative Agent reference: [Iterative Agent — Termination and Truncation](../../docs/reference/iterative-agent-behavior.md).
 
 ## Inspiration
 
@@ -12,7 +12,7 @@ The iterative approach used here (and referenced across `docs/reference` and `sr
 - Approvals: preset `ci` — permissive, approves all tools (good for local iteration). Switch to `dev` or `prod` for stricter gates.
 - Exec tools: gated by `-T enable_exec=true` (sets `INSPECT_ENABLE_EXEC=1`) so the model can call `bash()`/`python()`.
 
-Source: see the Task at the bottom of `examples/research/iterative_task.py` (imports `approval_preset`, sets `sandbox="local"`, and `approval=approval_preset("ci")`).
+Source: see the Task at the bottom of `examples/tasks/iterative_task.py` (imports `approval_preset`, sets `sandbox="local"`, and `approval=approval_preset("ci")`).
 
 ## Quick Start
 
@@ -35,7 +35,7 @@ mkdir -p logs
 # 4) Run the eval with exec tools enabled (bash/python available in sandbox)
 INSPECT_LOG_DIR=./logs \
 INSPECT_TRACE_FILE=./logs/trace.log \
-inspect eval examples/research/iterative_task.py \
+inspect eval examples/tasks/iterative_task.py \
   -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025" \
   -T time_limit=120 -T max_steps=20 -T enable_exec=true
 ```
@@ -47,7 +47,7 @@ Use the profile runner to set Tooling (T), Host isolation (H), and Network isola
 ```bash
 # T1.H1.N1 = web-only, Docker, allow-listed (configure allowDomains on K8s if using H2)
 INSPECT_LOG_DIR=./logs INSPECT_TRACE_FILE=./logs/trace.log \
-python examples/research/run_profiled.py \
+python examples/runners/profiled_runner.py \
   --profile T1.H1.N1 \
   --approval dev \
   --time-limit 120 --max-steps 20 \
@@ -67,13 +67,13 @@ The following two runs are useful for quick experiments with tighter time/step b
 
 ```bash
 # Shorter budget (may truncate exploration)
-uv run inspect eval examples/research/iterative_task.py \
+uv run inspect eval examples/tasks/iterative_task.py \
   -T prompt="Curate a list of arXiv papers that Quantinuum
   published in 2025" \
   -T time_limit=60 -T max_steps=4 -T enable_exec=true
 
 # Moderate budget (more headroom for tool use and verification)
-uv run inspect eval examples/research/iterative_task.py \
+uv run inspect eval examples/tasks/iterative_task.py \
   -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025" \
   -T time_limit=120 -T max_steps=8 -T enable_exec=true
 ```

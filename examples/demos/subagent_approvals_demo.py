@@ -11,7 +11,7 @@ It runs offline using a tiny in-process “model” for both the supervisor and
 the sub-agent, so no API keys or network calls are required.
 
 Usage
-  uv run python examples/inspect/subagent_approvals_demo.py --preset dev
+  uv run python examples/demos/subagent_approvals_demo.py --preset dev
 
 Presets
 - ci: approve all tools
