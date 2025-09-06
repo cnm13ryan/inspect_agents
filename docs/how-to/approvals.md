@@ -33,6 +33,8 @@ Example:
 export INSPECT_APPROVAL_PRESET=dev   # or ci | prod
 ```
 
+See also: ../reference/environment.md#approvals-presets for the full env reference.
+
 Behavior:
 - Applied only when the `approval` argument is `None` (explicit `approval=[...]` wins).
 - Preset policies are activated before the Inspect agent run.
