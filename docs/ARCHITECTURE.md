@@ -77,4 +77,4 @@ flowchart LR
 ## Notes
 - Keep this as the single source for the detailed diagram. Link here from `README.md` to avoid duplication.
 - If your docs site doesn’t render Mermaid, export a PNG/SVG from this source and store under `docs/diagrams/` alongside the `.mmd` source.
-- The “Simple Architecture” is a conceptual scaffolding only. A runnable demo that composes public APIs (agent builders, approvals, tools) is available in `examples/demos/`.
+- The “Simple Architecture” is a conceptual scaffolding only. A runnable demo that composes public APIs (agent builders, approvals, tools) is available at `examples/demos/simple_architecture.py`.
