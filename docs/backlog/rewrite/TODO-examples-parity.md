@@ -8,7 +8,7 @@ Implementation Guidance
   Grep: `create_deep_agent`
 
 - Scope — Do
-- [x] Add `examples/inspect/` with:
+- [x] Add `examples/` with:
   - [x] Example 1: minimal run utility (`run.py`); integrates tools and writes transcript
   - [x] Example 2: sub-agent delegation + approval policy demo (show `transfer_to_*` boundary and approval outcomes)
 - [x] Update `README.md` with run instructions and submodule note

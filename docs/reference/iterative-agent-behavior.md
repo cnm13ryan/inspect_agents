@@ -46,47 +46,47 @@ Per‑call timeouts: To avoid overruns, each model `generate(...)` call receives
 
 You can configure time/step limits and optional tools either via example CLIs in this repo or through the Inspect CLI task parameters.
 
-### Python runner (`examples/research/run_iterative.py`)
+### Python runner (`examples/runners/iterative_runner.py`)
 
 Flags:
-- `--time-limit <sec>`: wall‑clock budget forwarded to `real_time_limit_sec`. 〖F:examples/research/run_iterative.py†L76〗
-- `--max-steps <n>`: hard cap on loop steps. 〖F:examples/research/run_iterative.py†L77〗
-- `--enable-exec`: set `INSPECT_ENABLE_EXEC=1` so `bash()`/`python()` are available. 〖F:examples/research/run_iterative.py†L78-L93〗
-- `--provider`/`--model`: choose model provider and model id (overrides env). 〖F:examples/research/run_iterative.py†L79-L84〗
+- `--time-limit <sec>`: wall‑clock budget forwarded to `real_time_limit_sec`. 〖F:examples/runners/iterative_runner.py†L76〗
+- `--max-steps <n>`: hard cap on loop steps. 〖F:examples/runners/iterative_runner.py†L77〗
+- `--enable-exec`: set `INSPECT_ENABLE_EXEC=1` so `bash()`/`python()` are available. 〖F:examples/runners/iterative_runner.py†L78-L93〗
+- `--provider`/`--model`: choose model provider and model id (overrides env). 〖F:examples/runners/iterative_runner.py†L79-L84〗
 
 Example:
 ```bash
-uv run python examples/research/run_iterative.py \
+uv run python examples/runners/iterative_runner.py \
   --time-limit 300 --max-steps 20 \
   "Create docs/OUTLINE.md and add 3 sections"
 ```
 
-### Profiled runner (`examples/research/run_profiled.py`)
+### Profiled runner (`examples/runners/profiled_runner.py`)
 
 Use a single profile (Tx.Hx.Nx) and fine‑tune with flags:
-- `--profile T{0|1|2}.H{0|1|2|3}.N{0|1|2}`: tooling/host/network profile. 〖F:examples/research/run_profiled.py†L69-L77〗
-- `--time-limit <sec>` / `--max-steps <n>`: pass through to the agent. 〖F:examples/research/run_profiled.py†L76-L77〗 〖F:examples/research/run_profiled.py†L111-L114〗
-- `--enable-browser`, `--enable-web-search`: opt‑in heavy tools as needed. 〖F:examples/research/run_profiled.py†L78-L84〗 〖F:examples/research/run_profiled.py†L96-L103〗
-- `--approval {ci,dev,prod}`: select an approvals preset. 〖F:examples/research/run_profiled.py†L75〗 〖F:examples/research/run_profiled.py†L116-L123〗
+- `--profile T{0|1|2}.H{0|1|2|3}.N{0|1|2}`: tooling/host/network profile. 〖F:examples/runners/profiled_runner.py†L69-L77〗
+- `--time-limit <sec>` / `--max-steps <n>`: pass through to the agent. 〖F:examples/runners/profiled_runner.py†L76-L77〗 〖F:examples/runners/profiled_runner.py†L111-L114〗
+- `--enable-browser`, `--enable-web-search`: opt‑in heavy tools as needed. 〖F:examples/runners/profiled_runner.py†L78-L84〗 〖F:examples/runners/profiled_runner.py†L96-L103〗
+- `--approval {ci,dev,prod}`: select an approvals preset. 〖F:examples/runners/profiled_runner.py†L75〗 〖F:examples/runners/profiled_runner.py†L116-L123〗
 
 Example:
 ```bash
-python examples/research/run_profiled.py \
+python examples/runners/profiled_runner.py \
   --profile T1.H1.N1 --approval dev \
   --time-limit 120 --max-steps 20 \
   "Curate a list of arXiv papers that Quantinuum published in 2025"
 ```
 
-### Inspect CLI task (`examples/research/iterative_task.py`)
+### Inspect CLI task (`examples/tasks/iterative_task.py`)
 
 Set task parameters with `-T key=value`:
-- `-T time_limit=<sec>` → `real_time_limit_sec`. 〖F:examples/research/iterative_task.py†L31-L33〗 〖F:examples/research/iterative_task.py†L46-L48〗
-- `-T max_steps=<n>` → `max_steps`. 〖F:examples/research/iterative_task.py†L31-L33〗 〖F:examples/research/iterative_task.py†L46-L48〗
-- `-T enable_exec=true` → sets `INSPECT_ENABLE_EXEC=1` before building tools. 〖F:examples/research/iterative_task.py†L37-L38〗
+- `-T time_limit=<sec>` → `real_time_limit_sec`. 〖F:examples/tasks/iterative_task.py†L31-L33〗 〖F:examples/tasks/iterative_task.py†L46-L48〗
+- `-T max_steps=<n>` → `max_steps`. 〖F:examples/tasks/iterative_task.py†L31-L33〗 〖F:examples/tasks/iterative_task.py†L46-L48〗
+- `-T enable_exec=true` → sets `INSPECT_ENABLE_EXEC=1` before building tools. 〖F:examples/tasks/iterative_task.py†L37-L38〗
 
 Example:
 ```bash
-uv run inspect eval examples/research/iterative_task.py \
+uv run inspect eval examples/tasks/iterative_task.py \
   -T prompt="List files and propose a small refactor plan" \
   -T time_limit=300 -T max_steps=30 -T enable_exec=true
 ```

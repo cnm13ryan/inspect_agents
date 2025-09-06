@@ -12,7 +12,7 @@ Status: DONE (2025-09-04)
 - Constraints: keep `ci` preset permissive unless explicitly extended; no API breaking changes.
 
 ## Implementation Guidance
-- Examine: `src/inspect_agents/approval.py` (preset logic and `handoff_exclusive_policy()`), `docs/how-to/approvals.md`, `examples/research/run_local.py` (shows current manual append).
+- Examine: `src/inspect_agents/approval.py` (preset logic and `handoff_exclusive_policy()`), `docs/how-to/approvals.md`, `examples/runners/research_runner.py` (shows current manual append).
 - Grep tokens: `approval_preset(`, `case "dev"`, `case "prod"`, `handoff_exclusive_policy(`.
 - Pattern (current):
   ```py

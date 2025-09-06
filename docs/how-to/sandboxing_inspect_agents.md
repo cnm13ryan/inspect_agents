@@ -17,7 +17,7 @@ This guide explains how sandboxing is implemented and used by the Inspect‑AI�
 
 - The standard execution tools in Inspect (`bash()`, `python()`) invoke the active sandbox with `sandbox_env(...).exec(...)`. These tools are added to `inspect_agents` via `standard_tools()` when `INSPECT_ENABLE_EXEC=1` is set. 〖F:external/inspect_ai/src/inspect_ai/tool/_tools/_execute.py†L22-L57〗 〖F:external/inspect_ai/src/inspect_ai/tool/_tools/_execute.py†L62-L109〗 〖F:src/inspect_agents/tools.py†L357-L363〗
 - If a sandbox is not provided for the current sample/task, calling these tools raises `ProcessLookupError("No sandbox environment has been provided …")`. This is the error observed in `eval.json`. 〖F:eval.json†L83-L85〗
-- Fix pattern in this repo: set `sandbox="local"` on the Task (or another provider) so exec tools have an environment. Example implemented in `examples/research/iterative_task.py`. 〖F:examples/research/iterative_task.py†L50-L57〗
+- Fix pattern in this repo: set `sandbox="local"` on the Task (or another provider) so exec tools have an environment. Example implemented in `examples/tasks/iterative_task.py`. 〖F:examples/tasks/iterative_task.py†L50-L57〗
 
 ### Filesystem tools
 
@@ -63,7 +63,7 @@ return Task(
 
 ### Enabling execution tools
 
-- Add `-T enable_exec=true` to your task run or set `INSPECT_ENABLE_EXEC=1` before constructing the agent. This causes `standard_tools()` to include `bash()`/`python()` (still subject to approvals). 〖F:examples/research/iterative_task.py†L36-L38〗 〖F:src/inspect_agents/tools.py†L357-L363〗
+- Add `-T enable_exec=true` to your task run or set `INSPECT_ENABLE_EXEC=1` before constructing the agent. This causes `standard_tools()` to include `bash()`/`python()` (still subject to approvals). 〖F:examples/tasks/iterative_task.py†L36-L38〗 〖F:src/inspect_agents/tools.py†L357-L363〗
 
 ### Filesystem mode and preflight
 
@@ -96,7 +96,7 @@ See the FS guide for behavior, limits, and delete policy. 〖F:docs/how-to/files
 ## Troubleshooting
 
 - `ProcessLookupError: No sandbox environment has been provided ...`
-  - Set `sandbox="local"` (or a valid provider) on the Task; confirm no CLI override replaced it. 〖F:eval.json†L83-L85〗 〖F:examples/research/iterative_task.py†L50-L57〗
+  - Set `sandbox="local"` (or a valid provider) on the Task; confirm no CLI override replaced it. 〖F:eval.json†L83-L85〗 〖F:examples/tasks/iterative_task.py†L50-L57〗
 - macOS user‑data permissions (e.g., writes under `~/Library/Application Support/inspect_ai/`):
   - Redirect logs/traces with `INSPECT_LOG_DIR=./logs` and `INSPECT_TRACE_FILE=./logs/trace.log`, or run outside a restricted OS sandbox. Inspect’s sample buffers use the OS user data directory by default.
 - Missing packages in `python` tool runs:

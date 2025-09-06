@@ -30,7 +30,7 @@ owner: docs
 ### CLI
 ```bash
 # Example invocation
-inspect eval examples/inspect/prompt_task.py -T prompt="..." \
+inspect eval examples/tasks/prompt_task.py -T prompt="..." \
   -T tool_call='{"tool": "<tool_name>", "args": {...}}'
 ```
 
@@ -55,4 +55,3 @@ Use the <tool_name> tool with args {...} to <goal>.
 ## Source of Truth
 - Code: src/inspect_agents/<file>.py
 - Related guides: ../guides/tool-umbrellas.md
-

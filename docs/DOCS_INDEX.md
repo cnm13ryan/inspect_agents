@@ -25,7 +25,7 @@ This is the entry point for the Inspect Agents documentation. It organizes all e
 
 ## Examples
 - Simple Architecture Demo (conceptual scaffold wired via public APIs):
-  - Path: `examples/inspect/simple_arch_demo/run.py`
+  - Path: `examples/demos/simple_arch_demo.py`
   - Usage:
     ```bash
     uv run python -m examples.inspect.simple_arch_demo.run "Your task here"

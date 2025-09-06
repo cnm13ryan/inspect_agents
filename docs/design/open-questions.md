@@ -478,10 +478,10 @@ Acceptance Criteria
 ### Q1 — Supervisor Flags Coverage
 
 Question
-- Should we document `examples/inspect/run.py` flags alongside the Iterative Agent reference, or keep supervisor content separate?
+- Should we document `examples/runners/supervisor_runner.py` flags alongside the Iterative Agent reference, or keep supervisor content separate?
 
 Background
-- The Iterative Agent reference now includes CLI usage for `examples/research/run_iterative.py`, `run_profiled.py`, and the Inspect task. The supervisor demo (`examples/inspect/run.py`) exposes provider/model and standard tool toggles but is not covered in that page.
+- The Iterative Agent reference now includes CLI usage for `examples/runners/iterative_runner.py`, `profiled_runner.py`, and the Inspect task. The supervisor demo (`examples/runners/supervisor_runner.py`) exposes provider/model and standard tool toggles but is not covered in that page.
 
 Options
 - A) Add a short “Supervisor Runner” subsection under the Iterative Agent reference’s CLI section.
@@ -561,7 +561,7 @@ Decision Needed
 <summary>⚠️ Still Open — Requires Decision</summary>
 
 **Finding**: Script defaults remain at 600s/40 steps for the basic runner and 120s/20 steps for the profiled runner; docs do not uniformly standardize examples at 300/20.
-**Evidence**: `examples/research/run_iterative.py` defaults `--time-limit=600`, `--max-steps=40`; `examples/research/run_profiled.py` defaults `--time-limit=120`, `--max-steps=20`. Reference page lacks a blanket 300/20 standard.
+**Evidence**: `examples/runners/iterative_runner.py` defaults `--time-limit=600`, `--max-steps=40`; `examples/runners/profiled_runner.py` defaults `--time-limit=120`, `--max-steps=20`. Reference page lacks a blanket 300/20 standard.
 **Conclusion**: Proposed documentation standardization not applied; decision pending.
 
 </details>

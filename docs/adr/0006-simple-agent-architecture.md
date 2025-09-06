@@ -20,7 +20,7 @@ Design
 - Approvals & Policies: Prefer repo presets that enforce first‑handoff exclusivity and an optional parallel kill‑switch; adopt Inspect approval plumbing (`init_tool_approval`) when activations are requested by the caller.
 
 Implementation (paths)
-- Example only: `examples/inspect/simple_arch_demo/` (demo tools + runner)
+- Example only: `examples/demos/` (demo tools + runner)
 - Library code lives under `src/inspect_agents/` and should be used directly
   (e.g., `build_supervisor`, `build_iterative_agent`, approvals presets, tools).
 - Tests: unchanged; demo is opt‑in and not imported by the test suite.

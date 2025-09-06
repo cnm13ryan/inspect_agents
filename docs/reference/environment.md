@@ -279,6 +279,6 @@ export PYTEST_ADDOPTS="--maxfail=1 -q"
 
 Examples
 ```bash
-uv run python examples/inspect/run.py --env-file env_templates/inspect.env "..."
+uv run python examples/runners/supervisor_runner.py --env-file env_templates/inspect.env "..."
 export INSPECT_ENV_FILE=env_templates/inspect.env
 ```
