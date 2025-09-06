@@ -6,7 +6,7 @@ This repo uses pytest as the primary test runner. Tests live under `tests/` and 
 - Structure: keep tests close to features (e.g., `tests/integration/inspect_agents/`).
 - Naming: `test_*.py`, functions `test_*` with clear, behavior-based names.
 - Imports: prefer local module imports inside tests to minimize import cost and cross-test state.
-- Offline by default: set `NO_NETWORK=1` for all tests unless a test explicitly proves online behavior.
+- Offline by default: enforced via a root autouse fixture that sets `NO_NETWORK=1` and disables optional tools. Opt out for specific tests with `@pytest.mark.network` or by creating a `.allow_network_in_tests` file at repo root.
 - Determinism: avoid time- and randomness-dependent assertions; seed or pin where needed.
 
 ## Running
