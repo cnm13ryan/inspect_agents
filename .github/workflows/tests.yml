@@ -8,6 +8,11 @@ on:
 
 jobs:
   unit-tests:
+    # Matrix allows opting into constrained runs with `-n 0` when needed.
+    strategy:
+      fail-fast: false
+      matrix:
+        pytest_n: [""]  # default parallel (from addopts). Set to "-n 0" for constrained jobs.
     runs-on: ubuntu-latest
     env:
       CI: '1'
@@ -31,10 +36,10 @@ jobs:
           pip install -e '.[dev,testing,utilities]'
 
       - name: Run tests (quiet)
-        run: pytest -q tests/unit/inspect_agents --maxfail=1
+        run: pytest -q ${{ matrix.pytest_n }} tests/unit/inspect_agents --maxfail=1
 
       - name: Coverage (xml)
-        run: pytest -q --cov=src --cov-report=xml:coverage.xml tests/unit/inspect_agents || true
+        run: pytest -q ${{ matrix.pytest_n }} --cov=src --cov-report=xml:coverage.xml tests/unit/inspect_agents || true
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -42,4 +47,3 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: ignore
-
