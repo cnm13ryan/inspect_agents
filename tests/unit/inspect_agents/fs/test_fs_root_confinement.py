@@ -98,11 +98,10 @@ class TestFsRootConfinement:
             assert _validate_sandbox_path("/repo/subdir/../file.txt") == "/repo/file.txt"
 
 
-def _install_editor_stub_with_validation(fs: dict[str, str]):
+def _install_editor_stub_with_validation(monkeypatch, fs: dict[str, str]):
     """Install editor stub that respects path validation."""
     mod_name = "inspect_ai.tool._tools._text_editor"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
+    sys.modules.pop(mod_name, None)
 
     mod = types.ModuleType(mod_name)
 
@@ -143,14 +142,13 @@ def _install_editor_stub_with_validation(fs: dict[str, str]):
         return execute
 
     mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
-def _install_bash_stub_with_root(fs: dict[str, str]):
+def _install_bash_stub_with_root(monkeypatch, fs: dict[str, str]):
     """Install bash stub that accepts root parameter for ls."""
     mod_name = "inspect_ai.tool._tools._bash_session"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
+    sys.modules.pop(mod_name, None)
 
     mod = types.ModuleType(mod_name)
 
@@ -178,7 +176,7 @@ def _install_bash_stub_with_root(fs: dict[str, str]):
         return execute
 
     mod.bash_session = bash_session
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
 class TestSandboxPathValidationIntegration:
@@ -194,7 +192,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {"/repo/allowed.txt": "content"}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=ReadParams(command="read", file_path="/repo/allowed.txt"))
@@ -210,7 +208,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=ReadParams(command="read", file_path="/etc/passwd"))
@@ -228,7 +226,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=WriteParams(
@@ -248,7 +246,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=WriteParams(
@@ -269,7 +267,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {"/repo/edit.txt": "hello world"}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=EditParams(
@@ -290,7 +288,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=EditParams(
@@ -312,8 +310,8 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {"file1.txt": "content1", "file2.txt": "content2"}
-        _install_editor_stub_with_validation(fs)
-        _install_bash_stub_with_root(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
+        _install_bash_stub_with_root(monkeypatch, fs)
 
         async def test():
             params = FilesParams(root=LsParams(command="ls"))
@@ -330,7 +328,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         # Test various path traversal attempts
         traversal_paths = [
@@ -355,7 +353,7 @@ class TestSandboxPathValidationIntegration:
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
         
         fs: dict[str, str] = {"/repo/relative.txt": "relative content"}
-        _install_editor_stub_with_validation(fs)
+        _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
             # Relative path should be joined with root
@@ -388,4 +386,3 @@ class TestSandboxPathValidationIntegration:
 
         result = asyncio.run(test())
         assert "store content" in result
-

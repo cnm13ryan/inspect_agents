@@ -65,7 +65,7 @@ def test_preflight_ttl_expiry_and_reset(monkeypatch):
         return "v1"
 
     mod.tool_support_sandbox = tool_support_sandbox  # type: ignore[attr-defined]
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
     # Ensure no editor/bash stubs short-circuit
     sys.modules.pop("inspect_ai.tool._tools._text_editor", None)
@@ -109,7 +109,7 @@ def test_preflight_logs_context_when_enabled(monkeypatch, caplog):
         raise RuntimeError("service missing")
 
     mod.tool_support_sandbox = tool_support_sandbox  # type: ignore[attr-defined]
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
     # Ensure no editor/bash stubs short-circuit
     sys.modules.pop("inspect_ai.tool._tools._text_editor", None)
@@ -140,4 +140,3 @@ def test_preflight_logs_context_when_enabled(monkeypatch, caplog):
     assert "\"ok\": false" in joined or "\"ok\": False" in joined
     assert "\"fs_root\": \"/repo\"" in joined
     assert "\"sandbox_tool\": \"editor\"" in joined  # context field
-

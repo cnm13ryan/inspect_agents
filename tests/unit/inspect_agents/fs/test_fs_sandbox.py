@@ -9,8 +9,8 @@ from tests.fixtures.editor_stubs import install_bash_stub, install_editor_stub
 def test_sandbox_mode_uses_editor_stub(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     fs: dict[str, str] = {}
-    install_editor_stub(fs)
-    install_bash_stub(fs)
+    install_editor_stub(monkeypatch, fs)
+    install_bash_stub(monkeypatch, fs)
 
     r = read_file()
     w = write_file()
@@ -52,8 +52,8 @@ def test_sandbox_mode_graceful_fallback_without_editor(monkeypatch):
 def test_sandbox_ls_command(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     fs: dict[str, str] = {"file1.txt": "content1", "file2.py": "print('hello')", "README.md": "# Project"}
-    install_editor_stub(fs)
-    install_bash_stub(fs)
+    install_editor_stub(monkeypatch, fs)
+    install_bash_stub(monkeypatch, fs)
 
     ls_tool = ls()
 

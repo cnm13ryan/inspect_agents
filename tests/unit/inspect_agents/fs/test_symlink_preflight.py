@@ -7,7 +7,7 @@ import pytest
 from inspect_agents.tools import edit_file, read_file, write_file
 
 
-def _install_editor_stub():
+def _install_editor_stub(monkeypatch):
     """Install a minimal in-process text_editor stub.
 
     We only need the module to exist so sandbox paths activate; the symlink
@@ -28,10 +28,10 @@ def _install_editor_stub():
         return execute
 
     mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
-def _install_bash_stub(symlink_paths: set[str]):
+def _install_bash_stub(monkeypatch, symlink_paths: set[str]):
     """Install a bash_session stub that flags certain paths as symlinks.
 
     - `test -L <path>` → "SYMLINK" if path in `symlink_paths`, else "OK".
@@ -66,7 +66,7 @@ def _install_bash_stub(symlink_paths: set[str]):
         return execute
 
     mod.bash_session = bash_session
-    sys.modules[mod_name] = mod
+    monkeypatch.setitem(sys.modules, mod_name, mod)
 
 
 @pytest.mark.parametrize("op", ["read", "write", "edit"])  # type: ignore[misc]
@@ -74,9 +74,9 @@ def test_sandbox_symlink_denied(monkeypatch, op: str):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
 
     # Install stubs for sandbox preflight
-    _install_editor_stub()
+    _install_editor_stub(monkeypatch)
     bad = "/repo/bad_link"
-    _install_bash_stub({bad})
+    _install_bash_stub(monkeypatch, {bad})
 
     r = read_file()
     w = write_file()
@@ -93,4 +93,3 @@ def test_sandbox_symlink_denied(monkeypatch, op: str):
     with pytest.raises(Exception) as exc:
         asyncio.run(run_case())
     assert "symbolic link" in str(exc.value)
-
