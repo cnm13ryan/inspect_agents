@@ -36,13 +36,11 @@ def test_research_example_offline_smoke(monkeypatch, tmp_path):
     file is written. No network or real LLMs involved.
     """
 
-    # Ensure no accidental network and write logs to a temp dir
-    monkeypatch.setenv("NO_NETWORK", "1")
+    # Write logs to a temp dir (offline is enforced by the root env guard)
     monkeypatch.setenv("INSPECT_LOG_DIR", str(tmp_path))
 
-    # Integration autouse fixture handles environment hardening (approvals cleared,
-    # optional tools disabled, provider keys unset). Keep only log-dir override and
-    # optional NO_NETWORK for clarity.
+    # Root autouse fixture handles environment hardening (approvals cleared,
+    # optional tools disabled, provider keys unset, and NO_NETWORK=1).
 
     # Build a minimal base toolset (no web_search providers required)
     builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
