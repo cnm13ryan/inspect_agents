@@ -1,6 +1,5 @@
 # test(retry): arg overrides for deterministic control
 
-import importlib
 import types
 
 import pytest
@@ -19,9 +18,8 @@ class _FlakyModel:
 
 @pytest.mark.asyncio
 async def test_args_override_env_accumulates_sleep(monkeypatch):
-    # Force fallback path to avoid dependency on tenacity internals
-    mod = importlib.import_module("inspect_agents._model_retry")
-    monkeypatch.setattr(mod, "_TENACITY_AVAILABLE", False, raising=True)
+    # Force fallback path without patching private module state
+    monkeypatch.setenv("INSPECT_RETRY_DISABLE_TENACITY", "1")
 
     # Set conflicting env that should be ignored when args are provided
     monkeypatch.setenv("INSPECT_RETRY_MAX_ATTEMPTS", "2")
@@ -51,9 +49,8 @@ async def test_args_override_env_accumulates_sleep(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_args_max_attempts_limits_retries(monkeypatch):
-    # Force fallback path
-    mod = importlib.import_module("inspect_agents._model_retry")
-    monkeypatch.setattr(mod, "_TENACITY_AVAILABLE", False, raising=True)
+    # Force fallback path without patching private module state
+    monkeypatch.setenv("INSPECT_RETRY_DISABLE_TENACITY", "1")
 
     from inspect_agents._model_retry import generate_with_retry_time
 
@@ -71,4 +68,3 @@ async def test_args_max_attempts_limits_retries(monkeypatch):
             max_backoff_s=0.001,
             jitter_s=0.0,
         )
-
