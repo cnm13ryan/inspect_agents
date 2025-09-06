@@ -97,6 +97,7 @@ def _prune_with_debug(
     debug: bool,
     reason: str = "threshold",
     threshold: int | None = None,
+    tokenizer: Any | None = None,
 ) -> list[object]:
     """Apply token-aware truncation (optional) then prune tail, with debug logs.
 
@@ -119,6 +120,7 @@ def _prune_with_debug(
                 messages,
                 max_tokens_per_msg=int(token_cap),
                 last_k=int(last_k),
+                tokenizer=tokenizer,
             )
             if debug:
                 logger.info(
@@ -224,6 +226,8 @@ def build_iterative_agent(
     # Token-aware overflow control (per-message cap; default off)
     per_msg_token_cap: int | None = None,
     truncate_last_k: int = 200,
+    # Optional tokenizer for per-message truncation (public injection)
+    tokenizer: Any | None = None,
     # Optional injections for deterministic testing (kw-only, default real time)
     clock: Callable[[], float] = time.time,
     timeout_factory: Callable[[int], Any] = asyncio.timeout,
@@ -592,6 +596,7 @@ def build_iterative_agent(
                             debug=_prune_debug,
                             reason="threshold",
                             threshold=_eff_prune_after,
+                            tokenizer=tokenizer,
                         )
                 except Exception:
                     pass
@@ -650,6 +655,7 @@ def build_iterative_agent(
                             last_k=_eff_truncate_last_k,
                             debug=_prune_debug,
                             reason="overflow",
+                            tokenizer=tokenizer,
                         )
                     except Exception:
                         pass
