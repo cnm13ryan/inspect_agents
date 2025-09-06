@@ -30,11 +30,8 @@ def _run(agent, state):
 
 
 @pytest.mark.truncation
-def test_iterative_per_message_truncate_threshold(monkeypatch):
-    # Ensure tokenization is available and deterministic even without tiktoken
-    import inspect_agents._conversation as conv
-
-    monkeypatch.setattr(conv, "_get_tokenizer", lambda: FakeTokenizer())
+def test_iterative_per_message_truncate_threshold():
+    # Ensure tokenization is available and deterministic even without tiktoken via public injection
 
     # Build an agent with per-message token cap enabled via param
     agent = build_iterative_agent(
@@ -45,6 +42,7 @@ def test_iterative_per_message_truncate_threshold(monkeypatch):
         prune_keep_last=3,
         per_msg_token_cap=50,
         truncate_last_k=2,
+        tokenizer=FakeTokenizer(),
     )
 
     # Seed conversation to exceed threshold: system + two long user/assistant
@@ -61,4 +59,3 @@ def test_iterative_per_message_truncate_threshold(monkeypatch):
     # After one step, verify that at least the last message was truncated
     last_user = next(m for m in reversed(new_state.messages) if isinstance(m, ChatMessageUser))
     assert "tokens trimmed" in (last_user.text or last_user.content or "")
-
