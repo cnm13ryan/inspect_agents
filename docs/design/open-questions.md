@@ -672,6 +672,15 @@ Recommendation
 Acceptance Criteria
 - Add the enriched keys; update reference docs; add unit tests asserting values and `*_source` labels across explicit, role-map, INSPECT_EVAL_MODEL, and provider branches.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No `resolve_model_explain(...)` function exists; only `resolve_model(...)` and debug logging via `_log_model_debug(...)` are implemented.
+**Evidence**: `src/inspect_agents/model.py` defines `resolve_model(...)` and `_log_model_debug(...)`; no `resolve_model_explain` or explain dict plumbing is present. Tests refer only to `resolve_model` (e.g., `tests/unit/inspect_agents/model/test_model.py`).
+**Conclusion**: Explain dict not implemented; field set and semantics remain undecided.
+
+</details>
+
 ### 2) Error explainability — how to surface context on failures?
 
 Current
@@ -686,6 +695,15 @@ Recommendation
 
 Acceptance Criteria
 - Replace `RuntimeError` raises with `ModelResolutionError(reason=..., explain=...)`; add tests for missing API key (openai), missing model (openai), and `openai-api/<vendor>` missing vendor key.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Errors use plain `RuntimeError` with human-readable messages; no typed `ModelResolutionError` or `.explain` payload.
+**Evidence**: `src/inspect_agents/model.py` raises `RuntimeError(...)` for missing API keys/models (see provider branches around env validation). No custom exception type present; no tests assert `.explain`.
+**Conclusion**: Typed error with structured context not implemented.
+
+</details>
 
 ### 3) Path label stability — public contract or best-effort?
 
@@ -702,6 +720,15 @@ Recommendation
 Acceptance Criteria
 - Document label list; add a smoke test asserting label membership for common scenarios.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Labels like `provider_ollama`, `role_inspect_indirection`, etc., are emitted only via debug logs; no public constants or documented guarantee.
+**Evidence**: `src/inspect_agents/model.py` builds a `path` string passed to `_log_model_debug(...)`; there is no exported label enum or tests pinning label stability.
+**Conclusion**: Label set is informal today; decision needed to freeze as public or keep internal.
+
+</details>
+
 ### 4) Source granularity — record where each decision came from?
 
 Current
@@ -716,6 +743,15 @@ Recommendation
 Acceptance Criteria
 - Tests assert `*_source` values for arg/env/default/role-map branches.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No `*_source` keys are produced; only raw inputs and final path are logged when `INSPECT_MODEL_DEBUG` is set.
+**Evidence**: `src/inspect_agents/model.py` `_log_model_debug(...)` signature/usage lacks `provider_source`/`model_source` fields; tests do not assert them.
+**Conclusion**: Source-granularity fields not implemented.
+
+</details>
+
 ### 5) Sentinel handling for `INSPECT_EVAL_MODEL=none/none`
 
 Current
@@ -729,6 +765,15 @@ Recommendation
 
 Acceptance Criteria
 - Test that with `none/none`, `inspect_eval_disabled is True`, `env_inspect_eval_model is None`, and `*_raw == "none/none"`.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: `resolve_model(...)` ignores `INSPECT_EVAL_MODEL` when set to `"none/none"`, but no explicit `inspect_eval_disabled` or `*_raw` is surfaced (no explain dict implemented).
+**Evidence**: `src/inspect_agents/model.py` checks for `env_inspect_model.strip().lower() != "none/none"` and skips the env override; no structured signals are returned.
+**Conclusion**: Sentinel handling remains implicit; decision needed on explicit flags/keys.
+
+</details>
 
 ### 6) Type shape — dict vs typed object
 
@@ -745,6 +790,15 @@ Recommendation
 Acceptance Criteria
 - Type stubs + mypy annotations; docs list keys and meanings.
 
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: No explain API exists; therefore no `TypedDict` or dataclass surface to type.
+**Evidence**: `src/inspect_agents/model.py` exports only string-returning `resolve_model(...)`.
+**Conclusion**: Type shape undecided pending explain API.
+
+</details>
+
 ### 7) Test coverage — offline-safe additions
 
 Gaps
@@ -755,6 +809,15 @@ Plan
 
 Acceptance Criteria
 - Deterministic pass with no network; failures report specific `path` and `*_source`.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Unit tests cover `resolve_model(...)` (roles, provider/env validation) but no explain-surface tests exist.
+**Evidence**: Tests under `tests/unit/inspect_agents/model/` import and assert `resolve_model`; no `test_model_explain.py` present.
+**Conclusion**: Coverage for explain/debug semantics is absent; needs implementation first.
+
+</details>
 
 ### 8) Docs placement — where to teach debugging
 
@@ -770,6 +833,15 @@ Recommendation
 
 Acceptance Criteria
 - New how-to exists; examples updated; cross-links present from the reference page.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: Only a brief note exists in the Environment reference; no dedicated how-to or example for model-resolution debugging.
+**Evidence**: `docs/reference/environment.md` mentions providers/models; no `docs/how-to/*model*resolution*` page exists; examples lack a debug-focused snippet.
+**Conclusion**: Documentation additions pending.
+
+</details>
 
 Related files
 - Implementation: `src/inspect_agents/model.py` (resolver + explain helper).  
