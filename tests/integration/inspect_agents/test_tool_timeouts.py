@@ -1,7 +1,5 @@
 import asyncio
 import os
-import sys
-import types
 
 import anyio
 import pytest
@@ -73,35 +71,7 @@ def test_timeout_surfaces_tool_error_and_transcript():
     ev = transcript().find_last_event(ToolEvent)
     assert ev is not None
 
-
-def _install_slow_text_editor():
-    """Install a text_editor stub that delays before responding."""
-    mod_name = "inspect_ai.tool._tools._text_editor"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
-
-    mod = types.ModuleType(mod_name)
-
-    from inspect_ai.tool._tool import Tool
-
-    @tool()
-    def text_editor() -> Tool:  # type: ignore[return-type]
-        async def execute(
-            command: str,
-            path: str,
-            file_text: str | None = None,
-            view_range: list[int] | None = None,
-            old_str: str | None = None,
-            new_str: str | None = None,
-        ) -> str:
-            # Simulate a slow operation that exceeds timeout
-            await anyio.sleep(1.0)  # Sleep for 1 second
-            return "Should not reach here due to timeout"
-
-        return execute
-
-    mod.text_editor = text_editor
-    sys.modules[mod_name] = mod
+from tests.fixtures.editor_stubs import install_slow_text_editor
 
 
 def test_sandbox_text_editor_timeout_read_file(monkeypatch):
@@ -111,7 +81,7 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_TOOL_TIMEOUT", "0.1")  # 100ms timeout
     
     # Install slow text_editor stub that raises TimeoutError
-    _install_slow_text_editor()
+    install_slow_text_editor()
     
     from inspect_agents.tools import ToolException, read_file
     
@@ -154,7 +124,7 @@ def test_sandbox_text_editor_timeout_integration():
 
     try:
         # Install a text_editor that will timeout
-        _install_slow_text_editor()
+        install_slow_text_editor()
         
         from inspect_agents.tools import edit_file, read_file, write_file
         
