@@ -13,9 +13,9 @@ Welcome to the unified documentation site for Inspect Agents. This site collects
 - Architecture: [Overview](ARCHITECTURE.md)
 - ADRs: [Index](adr/README.md)
 - Open Questions: [Discussion Topics](design/open-questions.md)
-- Examples: Simple Architecture Demo — `examples/demos/simple_arch_demo.py`
+- Examples: Simple Architecture Demo — `examples/demos/simple_architecture.py`
 
-For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md). The Simple Architecture shown in the diagram is conceptual; see the example under `examples/demos/` for a runnable demo that composes only public APIs (agent builders, approvals, tools).
+For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md). The Simple Architecture shown in the diagram is conceptual; see `examples/demos/simple_architecture.py` for a runnable demo that composes only public APIs (agent builders, approvals, tools).
 
 ## Acknowledgments
 
