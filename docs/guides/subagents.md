@@ -83,6 +83,23 @@ export INSPECT_LIMIT_MESSAGES__writer=8        # message budget for writer
 export INSPECT_LIMIT_TOKENS__grader=6000       # token budget for grader
 ```
 
+Important: Precedence & Empty List
+- Non‑empty YAML `limits` override per‑agent env budgets.
+- An explicit empty list `limits: []` means “no explicit limits”, so env‑derived limits (if set) will apply.
+
+Compact example
+
+```yaml
+subagents:
+  - name: researcher
+    mode: handoff
+    limits: []   # env applies when empty
+```
+
+```bash
+export INSPECT_LIMIT_MESSAGES__researcher=8  # → effective cap: 8 messages
+```
+
 See also: ../reference/environment.md (Quarantine & Limits → Per‑Agent Handoff Limits) for precedence and normalization rules.
 
 Notes
