@@ -29,6 +29,37 @@ import time
 from collections.abc import Callable, Sequence
 from typing import Any
 
+# Bind transcript and error types at import time to avoid order-dependent
+# re-import issues in test environments that stub inspect_ai submodules.
+try:  # pragma: no cover - import-time binding
+    from inspect_ai.log._transcript import ToolEvent as _ToolEvent  # type: ignore
+    from inspect_ai.log._transcript import transcript as _transcript
+except Exception:  # pragma: no cover - extremely defensive
+    _ToolEvent = None  # type: ignore
+
+    def _transcript():  # type: ignore
+        class _Dummy:
+            events: list[object] = []
+
+            def _event(self, _ev: object) -> None:
+                pass
+
+        return _Dummy()
+
+
+try:  # pragma: no cover - import-time binding
+    from inspect_ai.tool._tool_call import ToolCallError as _ToolCallError  # type: ignore
+except Exception:  # pragma: no cover - fallback shim for tests
+    try:
+        from dataclasses import dataclass
+
+        @dataclass
+        class _ToolCallError:  # type: ignore
+            type: str
+            message: str
+    except Exception:  # pragma: no cover - last resort
+        _ToolCallError = None  # type: ignore
+
 from inspect_ai.agent._agent import AgentState
 
 logger = logging.getLogger(__name__)
@@ -702,9 +733,6 @@ def build_iterative_agent(
 
                                 # Emit standardized transcript events for each skipped call
                                 try:
-                                    from inspect_ai.log._transcript import ToolEvent, transcript  # type: ignore
-                                    from inspect_ai.tool._tool_call import ToolCallError  # type: ignore
-
                                     sel_id = (
                                         selected.get("id")
                                         if isinstance(selected, dict)
@@ -723,37 +751,51 @@ def build_iterative_agent(
                                                 if isinstance(sc, dict)
                                                 else getattr(sc, "arguments", None)
                                             )
-                                            ev = ToolEvent(
+                                            if _ToolEvent is None:
+                                                continue
+                                            err = (
+                                                _ToolCallError("approval", "Skipped due to handoff")
+                                                if _ToolCallError is not None
+                                                else None
+                                            )
+                                            ev = _ToolEvent(
                                                 id=str(sc_id),
                                                 function=str(sc_fn),
                                                 arguments=dict(sc_args or {}),
                                                 pending=False,
                                                 # Use approval type for parity with policy-level skips
-                                                error=ToolCallError("approval", "Skipped due to handoff"),
+                                                error=err,
                                                 metadata={
                                                     "source": "executor/prescan",
                                                     "selected_handoff_id": sel_id,
                                                     "skipped_function": sc_fn,
                                                 },
                                             )
-                                            transcript()._event(ev)
+                                            _transcript()._event(ev)
 
                                             # Optional: also mirror the approval policy event to preserve
                                             # operator parity when both layers are active. Gated by env.
                                             if _truth(os.getenv("INSPECT_EXECUTOR_PRESCAN_MIRROR_POLICY")):
-                                                ev2 = ToolEvent(
+                                                if _ToolEvent is None:
+                                                    continue
+                                                err2 = (
+                                                    _ToolCallError("approval", "Skipped due to handoff")
+                                                    if _ToolCallError is not None
+                                                    else None
+                                                )
+                                                ev2 = _ToolEvent(
                                                     id=str(sc_id),
                                                     function=str(sc_fn),
                                                     arguments=dict(sc_args or {}),
                                                     pending=False,
-                                                    error=ToolCallError("approval", "Skipped due to handoff"),
+                                                    error=err2,
                                                     metadata={
                                                         "source": "policy/handoff_exclusive",
                                                         "selected_handoff_id": sel_id,
                                                         "skipped_function": sc_fn,
                                                     },
                                                 )
-                                                transcript()._event(ev2)
+                                                _transcript()._event(ev2)
                                         except Exception:
                                             continue
                                 except Exception:
