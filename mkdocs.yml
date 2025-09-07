@@ -7,43 +7,19 @@ edit_uri: edit/main/docs/
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - Inspect Agents Quickstart: getting-started/inspect_agents_quickstart.md
-      - Inspect Console Cheat Sheet: getting-started/inspect_console_cheatsheet.md
-      - Research Example (Inspect‑AI): getting-started/research_example.md
-  - CLI:
-      - Index: cli/README.md
-      - View: cli/inspect_view.md
-      - Log: cli/inspect_log.md
-      - Eval: cli/inspect_eval.md
-      - Eval Retry: cli/inspect_eval_retry.md
-      - Eval Set: cli/inspect_eval_set.md
-      - Score: cli/inspect_score.md
-      - Cache: cli/inspect_cache.md
-      - Info: cli/inspect_info.md
-      - List: cli/inspect_list.md
-      - Sandbox: cli/inspect_sandbox.md
-      - Trace: cli/inspect_trace.md
-      - Model Resolver Explain: cli/model_explain.md
-  - How-To:
-      - Approvals & Policies: how-to/approvals.md
-      - Filesystem Tools: how-to/filesystem.md
-      - "Operations: Logging & Tracing": how-to/operations_logging_tracing.md
-      - Exploration Examples (Plan & Runner): how-to/exploration_examples.md
-      - Model Resolver Explain API: how-to/model_resolver_explain.md
-  - Guides:
-      - Stateless vs Stateful Tools — Harmonized: guides/stateless-vs-stateful-tools-harmonized.md
-      - Canonical and Standard Tools — Umbrellas: guides/tool-umbrellas.md
-      - Sub‑agent Recipes: guides/subagents.md
-      - Supervisor Limits & Observability: guides/supervisor-limits.md
-      - Retries & Cache: guides/retries_cache.md
-      - Sandboxing Profiles (AISI‑aligned): guides/sandbox_profiles.md
-      - Archive:
-          - Stateless vs Stateful Tools (Inspect Tool Support): guides/archive/stateless-vs-stateful-tools.md
-          - Stateless vs Stateful Tools — Q&A: guides/archive/stateless-vs-stateful-tools-1.md
+  - Tutorials:
+      - Getting started: getting-started/inspect_agents_quickstart.md
+      - Cheat sheet: getting-started/inspect_console_cheatsheet.md
+      - Research example (Inspect‑AI): getting-started/research_example.md
+  - How‑to Guides:
+      - Approvals & policies: how-to/approvals.md
+      - Filesystem tools: how-to/filesystem.md
+      - "Operations: Logging & tracing": how-to/operations_logging_tracing.md
+      - Exploration examples (Plan & Runner): how-to/exploration_examples.md
+      - Model resolver explain API: how-to/model_resolver_explain.md
   - Reference:
-      - Environment Variables: reference/environment.md
-      - API Reference:
+      - Environment variables: reference/environment.md
+      - API:
           - Approval: api/approval.md
           - Tools: api/tools.md
           - Iterative: api/iterative.md
@@ -55,33 +31,57 @@ nav:
           - Index: tools/README.md
           - Bash: tools/bash.md
           - Files: tools/files.md
-          - Deprecations & Migrations: tools/deprecations.md
-          - Read File: tools/read_file.md
-          - Write File: tools/write_file.md
-          - Web Browser: tools/web_browser.md
-          - Web Search: tools/web_search.md
+          - Deprecations & migrations: tools/deprecations.md
+          - Read file: tools/read_file.md
+          - Write file: tools/write_file.md
+          - Web browser: tools/web_browser.md
+          - Web search: tools/web_search.md
           - Python: tools/python.md
-          - Edit File: tools/edit_file.md
-          - Text Editor: tools/text_editor.md
+          - Edit file: tools/edit_file.md
+          - Text editor: tools/text_editor.md
           - Think: tools/think.md
-          - Typed Results: tools/typed_results.md
+          - Typed results: tools/typed_results.md
           - ls: tools/ls.md
-          - Delete File: tools/delete_file.md
-          - Write Todos: tools/write_todos.md
-          - Update Todo Status: tools/update_todo_status.md
-  - Design:
-      - Architecture: ARCHITECTURE.md
-      - DeepAgents Implementation Prompts: design/deepagents_implementation_prompts.md
-      - Exploration Examples — Implementation Prompts: design/exploration_examples_prompts.md
-      - Open Questions: design/open-questions.md
-  - Decisions:
-      - Overview: adr/README.md
-      - D0002 — Model Roles Map: adr/0002-model-roles-map.md
-      - D0003 — Supervisor Limits & Observability: adr/0003-supervisor-limits-and-observability.md
-      - D0004 — Filesystem Sandbox Guardrails: adr/0004-filesystem-sandbox-guardrails.md
-      - D0004 — Tool Output Truncation Defaults: adr/0004-tool-output-truncation.md
-      - D0005 — Tool Parallelism Policy: adr/0005-tool-parallelism-policy.md
-  - Docs Index: DOCS_INDEX.md
+          - Delete file: tools/delete_file.md
+          - Write todos: tools/write_todos.md
+          - Update todo status: tools/update_todo_status.md
+      - CLI:
+          - Index: cli/README.md
+          - View: cli/inspect_view.md
+          - Log: cli/inspect_log.md
+          - Eval: cli/inspect_eval.md
+          - Eval retry: cli/inspect_eval_retry.md
+          - Eval set: cli/inspect_eval_set.md
+          - Score: cli/inspect_score.md
+          - Cache: cli/inspect_cache.md
+          - Info: cli/inspect_info.md
+          - List: cli/inspect_list.md
+          - Sandbox: cli/inspect_sandbox.md
+          - Trace: cli/inspect_trace.md
+          - Model resolver explain: cli/model_explain.md
+      - Docs index: DOCS_INDEX.md
+  - Explanation:
+      - Concepts & architecture: ARCHITECTURE.md
+      - DeepAgents implementation prompts: design/deepagents_implementation_prompts.md
+      - Exploration examples — implementation prompts: design/exploration_examples_prompts.md
+      - Open questions: design/open-questions.md
+      - Guides:
+          - Stateless vs Stateful Tools — Harmonized: guides/stateless-vs-stateful-tools-harmonized.md
+          - Canonical and Standard Tools — Umbrellas: guides/tool-umbrellas.md
+          - Sub‑agent recipes: guides/subagents.md
+          - Supervisor limits & observability: guides/supervisor-limits.md
+          - Retries & cache: guides/retries_cache.md
+          - Sandboxing profiles (AISI‑aligned): guides/sandbox_profiles.md
+          - Archive:
+              - Stateless vs Stateful Tools (Inspect Tool Support): guides/archive/stateless-vs-stateful-tools.md
+              - Stateless vs Stateful Tools — Q&A: guides/archive/stateless-vs-stateful-tools-1.md
+      - ADRs:
+          - Overview: adr/README.md
+          - D0002 — Model Roles Map: adr/0002-model-roles-map.md
+          - D0003 — Supervisor Limits & Observability: adr/0003-supervisor-limits-and-observability.md
+          - D0004 — Filesystem Sandbox Guardrails: adr/0004-filesystem-sandbox-guardrails.md
+          - D0004 — Tool Output Truncation Defaults: adr/0004-tool-output-truncation.md
+          - D0005 — Tool Parallelism Policy: adr/0005-tool-parallelism-policy.md
   # Backlog removed from primary nav to reduce noise; pages remain addressable via direct URL.
 
 theme:
