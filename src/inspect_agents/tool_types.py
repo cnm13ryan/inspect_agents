@@ -24,6 +24,16 @@ class FilesToolParams(BaseModel):
     old_string: str | None = Field(None, description="String to replace (required for edit)")
     new_string: str | None = Field(None, description="Replacement string (required for edit)")
     replace_all: bool = Field(False, description="Replace all occurrences for edit")
+    expected_count: int | None = Field(
+        default=None,
+        description=(
+            "Optional expected number of replacements for edit; when set, mismatches raise an error."
+        ),
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="When true, validate/count but do not modify the file (edit)",
+    )
     instance: str | None = Field(None, description="Optional Files instance for isolation")
 
 
