@@ -30,7 +30,7 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Tuple, Optional
 
 from inspect_agents.agents import build_subagents, build_supervisor
 from inspect_agents.approval import approval_preset
@@ -50,38 +50,58 @@ from inspect_agents.tools import (
 from .planner_tool import planner_tool
 
 
-def _load_planner_config(path: str | None) -> dict[str, Any] | None:
-    """Load optional planner config YAML and return the `policy` dict if present.
+def _load_exploration_config(path: str | None) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Load optional exploration YAML.
 
-    The planner tool accepts a JSON‑serializable dict via its `config` param.
-    When None or invalid, the planner tool will fall back to its internal
-    defaults.
+    Returns a tuple: (policy, scoring, supervisor) where each element is a
+    plain dict or None if missing/invalid.
     """
     if not path:
-        return None
+        return None, None, None
     p = Path(path)
     if not p.exists():
-        return None
+        return None, None, None
     try:
         import yaml  # type: ignore
 
         data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-        if isinstance(data, dict):
-            pol = data.get("policy")
-            return dict(pol) if isinstance(pol, dict) else dict(data)
-        return None
+        if not isinstance(data, dict):
+            return None, None, None
+
+        # Support both nested sections and flat policy-only docs
+        policy = data.get("policy") if isinstance(data.get("policy"), dict) else None
+        scoring = data.get("scoring") if isinstance(data.get("scoring"), dict) else None
+        supervisor = data.get("supervisor") if isinstance(data.get("supervisor"), dict) else None
+
+        if policy is None:
+            # If the file is a flat dict of planner fields, treat it as policy
+            # (legacy behavior)
+            non_nested = {k: v for k, v in data.items() if k not in {"scoring", "supervisor"}}
+            policy = non_nested or None
+
+        return (dict(policy) if policy else None,
+                dict(scoring) if scoring else None,
+                dict(supervisor) if supervisor else None)
     except Exception:
-        return None
+        return None, None, None
 
 
-def _supervisor_prompt(planner_cfg: dict[str, Any] | None) -> str:
+def _load_planner_config(path: str | None) -> dict[str, Any] | None:
+    """Legacy helper retained for compatibility (returns policy only)."""
+    pol, _, _ = _load_exploration_config(path)
+    return pol
+
+
+def _supervisor_prompt(planner_cfg: dict[str, Any] | None, *, override_text: str | None = None) -> str:
     cfg_text = (
         "\nPlanner config (JSON):\n" + json.dumps(planner_cfg, ensure_ascii=False)
         if planner_cfg
         else ""
     )
+    preface = (override_text + "\n\n") if override_text else ""
     return (
-        "You are the orchestrator of a small research workflow.\n\n"
+        preface
+        + "You are the orchestrator of a small research workflow.\n\n"
         "Goal\n"
         "- Generate a plan via planner_tool, write it to plan.json.\n"
         "- Write the user's question verbatim to question.txt.\n"
@@ -99,8 +119,9 @@ def _supervisor_prompt(planner_cfg: dict[str, Any] | None) -> str:
         + cfg_text
     )
 
-
-def _research_prompt() -> str:
+def _research_prompt(override_text: str | None = None) -> str:
+    if override_text:
+        return override_text
     return (
         "You are the research-agent.\n\n"
         "- Read plan.json and question.txt.\n"
@@ -114,7 +135,9 @@ def _research_prompt() -> str:
     )
 
 
-def _critique_prompt() -> str:
+def _critique_prompt(override_text: str | None = None) -> str:
+    if override_text:
+        return override_text
     return (
         "You are the critique-agent.\n\n"
         "- Read final_report.md and question.txt.\n"
@@ -129,6 +152,8 @@ def build_runner_agent(
     planner_cfg: dict[str, Any] | None,
     attempts: int,
     model: Any | None,
+    supervisor_prompts: Optional[Dict[str, str]] = None,
+    scoring_cfg: Optional[Dict[str, Any]] = None,
 ):
     """Construct supervisor + sub-agents and return an Inspect agent.
 
@@ -147,14 +172,14 @@ def build_runner_agent(
             "description": (
                 "Used to research more in-depth questions. Only give this researcher one topic at a time."
             ),
-            "prompt": _research_prompt(),
+            "prompt": _research_prompt((supervisor_prompts or {}).get("research")),
             "tools": ["web_search", "read_file", "write_file", "ls"],
             "mode": "handoff",
         },
         {
             "name": "critique-agent",
             "description": "Used to critique the final report.",
-            "prompt": _critique_prompt(),
+            "prompt": _critique_prompt((supervisor_prompts or {}).get("critique")),
             "tools": ["read_file", "write_file", "ls"],
             "mode": "handoff",
         },
@@ -164,7 +189,7 @@ def build_runner_agent(
 
     # Supervisor with planner tool + subagent handoffs
     sup = build_supervisor(
-        prompt=_supervisor_prompt(planner_cfg),
+        prompt=_supervisor_prompt(planner_cfg, override_text=(supervisor_prompts or {}).get("supervisor")),
         tools=[planner_tool()] + subagent_tools,
         attempts=attempts,
         model=model,
@@ -176,10 +201,28 @@ async def _amain(args: argparse.Namespace) -> None:
     # Resolve model once for the run
     model_id = resolve_model()
 
-    # Load optional planner config (YAML → dict)
-    planner_cfg = _load_planner_config(args.config)
+    # Load optional exploration YAML (policy/scoring/supervisor)
+    planner_cfg, scoring_cfg, supervisor_cfg = _load_exploration_config(args.config)
 
-    agent = build_runner_agent(planner_cfg=planner_cfg, attempts=args.attempts, model=model_id)
+    # Supervisor attempts: YAML override takes precedence over CLI flag if present
+    yaml_attempts = None
+    if supervisor_cfg and isinstance(supervisor_cfg.get("attempts"), int):
+        yaml_attempts = int(supervisor_cfg["attempts"])
+    effective_attempts = yaml_attempts if yaml_attempts is not None else args.attempts
+
+    prompts = None
+    if supervisor_cfg and isinstance(supervisor_cfg.get("prompts"), dict):
+        # Coerce keys to str->str
+        raw = supervisor_cfg["prompts"]
+        prompts = {str(k): str(v) for k, v in raw.items()}
+
+    agent = build_runner_agent(
+        planner_cfg=planner_cfg,
+        attempts=effective_attempts,
+        model=model_id,
+        supervisor_prompts=prompts,
+        scoring_cfg=scoring_cfg,
+    )
 
     # Approvals: permissive CI preset (no exclusivity/kill-switch by default)
     approvals = approval_preset("ci")
