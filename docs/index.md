@@ -6,7 +6,7 @@ Welcome to the unified documentation site for Inspect Agents. This site collects
 
 - Getting Started: [Inspect Agents Quickstart](getting-started/inspect_agents_quickstart.md)
 - Cheat Sheet: [Inspect Console](getting-started/inspect_console_cheatsheet.md)
-- How-To Guides: [Approvals](how-to/approvals.md), [Filesystem](how-to/filesystem.md)
+- How-To Guides: [Approvals](how-to/approvals.md), [Filesystem](how-to/filesystem.md), [Sandbox & Exec Tools Troubleshooting](how-to/inspect_sandbox.md)
 - Guides: [Sub‑agents](guides/subagents.md), [Retries & Cache](guides/retries_cache.md), [Supervisor Limits](guides/supervisor-limits.md)
 - Tools Reference: [Index](tools/README.md)
 - Reference: [Environment Variables](reference/environment.md)

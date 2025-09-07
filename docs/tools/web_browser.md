@@ -38,6 +38,7 @@ Open a page, click a link, capture content.
 - Avoid navigating to untrusted pages; respect robots and auth requirements.
 
 ## Troubleshooting
+If you enable browser tools but see a sandbox-related error (e.g., “No sandbox environment has been provided …”), configure a sandbox for your task/CLI run. See: ../how-to/inspect_sandbox.md
 - Stale session — Retry with a new session_id or use restart action if available.
 
 ## Source of Truth
