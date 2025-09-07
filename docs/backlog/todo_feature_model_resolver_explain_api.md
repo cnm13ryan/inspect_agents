@@ -15,3 +15,13 @@
 ## Success Criteria
 - Deterministic tests pass offline; explain dict stable and documented.
 
+## Status
+- DONE (2025-09-07)
+- Implemented as a typed API returning `(str, ModelResolutionTrace)` with `ModelResolutionStep` entries and `ResolveModelError` for failures.
+- References:
+  - Code: `src/inspect_agents/model.py`
+  - Tests: `tests/inspect_agents/test_model_resolver.py`
+  - Docs: `docs/how-to/model_resolver_explain.md`
+
+Notes
+- The original plan proposed a plain `dict`; the final design uses typed dataclasses for stronger guarantees and IDE support.
