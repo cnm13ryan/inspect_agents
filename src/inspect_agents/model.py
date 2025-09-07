@@ -13,7 +13,7 @@ Rules (summary):
 - Prefer local (Ollama) by default: use `OLLAMA_MODEL_NAME` or a sensible default.
 - If a remote provider is selected, fail fast when required API keys are absent.
 
-Environment compatibility aligns with the legacy DeepAgents behavior for the
+Environment handling maintains legacy compatibility (deepagents-style) for the
 two common local paths (Ollama, LM Studio) while returning Inspect-style model
 strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 """
@@ -21,7 +21,6 @@ strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
 
 LOCAL_DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL_NAME", "qwen3:4b-thinking-2507-q4_K_M")
 
@@ -83,6 +82,7 @@ def _resolve_role_mapping(role: str) -> tuple[str | None, str | None]:
 
 # ---------- Explain API: typed trace & error ----------
 
+
 @dataclass(slots=True)
 class ModelResolutionStep:
     """One step in model resolution with key inputs and an optional candidate.
@@ -91,20 +91,20 @@ class ModelResolutionStep:
     """
 
     path: str
-    provider_arg: Optional[str]
-    model_arg: Optional[str]
-    role: Optional[str]
-    role_env_model: Optional[str]
-    role_env_provider: Optional[str]
-    env_inspect_eval_model: Optional[str]
-    final_candidate: Optional[str] = None
+    provider_arg: str | None
+    model_arg: str | None
+    role: str | None
+    role_env_model: str | None
+    role_env_provider: str | None
+    env_inspect_eval_model: str | None
+    final_candidate: str | None = None
 
 
 @dataclass(slots=True)
 class ModelResolutionTrace:
     """Full trace of resolution steps and the final string."""
 
-    steps: List[ModelResolutionStep] = field(default_factory=list)
+    steps: list[ModelResolutionStep] = field(default_factory=list)
     final: str | None = None
 
 
@@ -120,13 +120,13 @@ class ResolveModelError(RuntimeError):
 def _step(
     *,
     path: str,
-    provider_arg: Optional[str],
-    model_arg: Optional[str],
-    role: Optional[str],
-    role_env_model: Optional[str],
-    role_env_provider: Optional[str],
-    env_inspect_eval_model: Optional[str],
-    final_candidate: Optional[str] = None,
+    provider_arg: str | None,
+    model_arg: str | None,
+    role: str | None,
+    role_env_model: str | None,
+    role_env_provider: str | None,
+    env_inspect_eval_model: str | None,
+    final_candidate: str | None = None,
 ) -> ModelResolutionStep:
     return ModelResolutionStep(
         path=path,
@@ -154,8 +154,8 @@ def resolve_model_explain(
     trace = ModelResolutionTrace()
     provider_arg = provider
     model_arg = model
-    role_env_model: Optional[str] = None
-    role_env_provider: Optional[str] = None
+    role_env_model: str | None = None
+    role_env_provider: str | None = None
 
     # 1) Explicit model with provider prefix wins
     if model and "/" in model:
