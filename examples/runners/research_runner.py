@@ -21,6 +21,9 @@ import os
 from pathlib import Path
 
 import importlib.util as _il
+from importlib.util import module_from_spec, spec_from_file_location
+from types import ModuleType
+from typing import Optional
 
 # Robustly import local examples/_utils.py even if a site-packages "examples" exists
 _UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
@@ -32,6 +35,26 @@ _spec.loader.exec_module(_utils)
 
 # Prefer local repo sources over any installed wheel
 _utils.ensure_repo_src_on_path()
+
+
+def _load_planner_tool() -> Optional[object]:
+    """Load the examples planner tool as a Tool object, if present.
+
+    Uses path-based import to avoid collisions with any site-packages module
+    named "examples".
+    """
+    try:
+        mod_path = Path(__file__).resolve().parents[1] / "inspect" / "exploration" / "planner_tool.py"
+        if not mod_path.exists():
+            return None
+        spec = spec_from_file_location("_examples_planner_tool", str(mod_path))
+        if spec is None or spec.loader is None:
+            return None
+        mod: ModuleType = module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[arg-type]
+        return getattr(mod, "planner_tool")()
+    except Exception:
+        return None
 
 
 async def _main() -> int:
@@ -142,9 +165,13 @@ async def _main() -> int:
 
         subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools)
 
+        # Expose planner tool to the supervisor (not to sub-agents)
+        planner = _load_planner_tool()
+        extra_tools = [planner] if planner is not None else []
+
         agent = build_supervisor(
             prompt="You are a helpful researcher.",
-            tools=subagent_tools,
+            tools=subagent_tools + extra_tools,
             attempts=1,
             model=model_id,
         )
