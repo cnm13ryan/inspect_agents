@@ -26,6 +26,7 @@ from pathlib import Path
 # Utilities
 # --------------------------
 
+
 def get_repo_root() -> Path:
     """Find the repository root directory."""
     current = Path(__file__).resolve().parent
@@ -83,13 +84,14 @@ def choose(prompt: str, options: list[str], *, default_idx: int = 0) -> str:
 # Builders (return lines)
 # --------------------------
 
+
 def build_header() -> list[str]:
     return [
         "###############################################",
         "# Inspect Agents — Centralized Environment",
         "#",
         "# Copy this file or point to it with:",
-        "#   uv run python examples/inspect/run.py --env-file env_templates/inspect.env \"...\"",
+        '#   uv run python examples/inspect/run.py --env-file env_templates/inspect.env "..."',
         "# or export:",
         "#   export INSPECT_ENV_FILE=env_templates/inspect.env",
         "#",
@@ -131,6 +133,7 @@ def build_providers_section() -> list[str]:
         # List models if ollama exists (non-fatal)
         try:  # pragma: no cover - best-effort UX only
             import subprocess
+
             res = subprocess.run(["ollama", "list"], capture_output=True, text=True)
             if res.returncode == 0 and res.stdout.strip():
                 print("\nAvailable Ollama models:")
@@ -251,7 +254,7 @@ def build_fs_section() -> list[str]:
         if ro:
             lines += [
                 "# Sandbox read-only mode: when FS_MODE=sandbox and this flag is truthy (1/true),",
-                "# write/edit/delete are blocked (tools raise ToolException \"SandboxReadOnly\" and",
+                '# write/edit/delete are blocked (tools raise ToolException "SandboxReadOnly" and',
                 "# log a tool_event error). Listing/reading remain allowed. No effect in store mode.",
                 "INSPECT_AGENTS_FS_READ_ONLY=1",
                 "",
@@ -332,7 +335,7 @@ def build_quarantine_section() -> list[str]:
         "# normalized to lower-case; non-alphanumeric → underscore; multiple underscores",
         "# collapsed; trimmed at ends. Examples:",
         "#   INSPECT_QUARANTINE_MODE__researcher=scoped",
-        "#   INSPECT_QUARANTINE_MODE__research_assistant_v2=strict  # from \"Research Assistant v2\"",
+        '#   INSPECT_QUARANTINE_MODE__research_assistant_v2=strict  # from "Research Assistant v2"',
         "#",
         "# Scoped summary size guards (only when mode=scoped):",
         "# INSPECT_SCOPED_MAX_BYTES=2048",
@@ -373,7 +376,7 @@ def build_fs_advanced_section() -> list[str]:
     lines += [
         f"# INSPECT_SANDBOX_PREFLIGHT={mode}",
         f"# INSPECT_SANDBOX_PREFLIGHT_TTL_SEC={ttl}",
-        f"# INSPECT_SANDBOX_LOG_PATHS=0",
+        "# INSPECT_SANDBOX_LOG_PATHS=0",
         f"# INSPECT_AGENTS_FS_ROOT={root}",
         f"# INSPECT_AGENTS_FS_MAX_BYTES={max_bytes}",
         f"# INSPECT_AGENTS_TOOL_TIMEOUT={timeout}",
@@ -447,7 +450,37 @@ def build_observability_section() -> list[str]:
 
     # Runner near-limit telemetry
     near = ask("Runner near-limit threshold (0<val<1)", default="0.8")
-    lines += [f"# INSPECT_LIMIT_NEARING_THRESHOLD={near}", ""]
+    lines += [f"# INSPECT_LIMIT_NEARING_THRESHOLD={near}"]
+
+    # Debug toggles
+    model_dbg = ask_bool("Enable model resolver debug logs?", default=False)
+    lines += ["INSPECT_MODEL_DEBUG=1" if model_dbg else "# INSPECT_MODEL_DEBUG=1"]
+    prune_dbg = ask_bool("Enable prune/truncation debug logs?", default=False)
+    lines += ["INSPECT_PRUNE_DEBUG=1" if prune_dbg else "# INSPECT_PRUNE_DEBUG=1"]
+
+    # Suppress legacy wrapper warnings (CI noise reduction)
+    suppress = ask_bool("Suppress legacy file wrapper DeprecationWarnings?", default=False)
+    lines += [
+        ("INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1" if suppress else "# INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1")
+    ]
+
+    lines.append("")
+    return lines
+
+
+def build_executor_prescan_section() -> list[str]:
+    print("\nExecutor Pre‑Scan (optional)")
+    lines: list[str] = ["## Handoff Pre‑Scan (optional)"]
+    prescan = ask_bool("Enable executor pre-scan (first handoff wins)?", default=False)
+    lines += ["INSPECT_EXECUTOR_PRESCAN_HANDOFF=1" if prescan else "# INSPECT_EXECUTOR_PRESCAN_HANDOFF=1"]
+    mirror = ask_bool(
+        "Also mirror policy event for skipped calls?",
+        default=False,
+    )
+    lines += [
+        ("INSPECT_EXECUTOR_PRESCAN_MIRROR_POLICY=1" if mirror else "# INSPECT_EXECUTOR_PRESCAN_MIRROR_POLICY=1"),
+        "",
+    ]
     return lines
 
 
@@ -461,8 +494,10 @@ def assemble_lines(sections: Iterable[list[str]]) -> str:
 def main() -> None:
     print("🧠🤖 Inspect Agents Environment Configurator")
     print("===========================================")
-    print("This will generate .env files mirroring env_templates/inspect.env with\n"
-          "inline explanations from docs/reference/environment.md.\n")
+    print(
+        "This will generate .env files mirroring env_templates/inspect.env with\n"
+        "inline explanations from docs/reference/environment.md.\n"
+    )
 
     # Sections
     header = build_header()
@@ -470,24 +505,28 @@ def main() -> None:
     web_search = build_web_search_section()
     tools = build_tools_section()
     approvals = build_approvals_section()
+    executor_prescan = build_executor_prescan_section()
     fs = build_fs_section()
     fs_adv = build_fs_advanced_section()
     iterative = build_iterative_section()
     observability = build_observability_section()
     quarantine = build_quarantine_section()
 
-    content = assemble_lines([
-        header,
-        providers,
-        web_search,
-        tools,
-        approvals,
-        fs,
-        fs_adv,
-        iterative,
-        observability,
-        quarantine,
-    ])
+    content = assemble_lines(
+        [
+            header,
+            providers,
+            web_search,
+            tools,
+            approvals,
+            executor_prescan,
+            fs,
+            fs_adv,
+            iterative,
+            observability,
+            quarantine,
+        ]
+    )
 
     repo_root = get_repo_root()
     root_env = repo_root / ".env"
@@ -501,7 +540,7 @@ def main() -> None:
     print("Next steps:")
     print("- Install deps: uv sync")
     print("- Run Inspect example:")
-    print("  uv run python examples/inspect/run.py \"Write a short overview of Inspect‑AI\"")
+    print('  uv run python examples/inspect/run.py "Write a short overview of Inspect‑AI"')
     print("  # Or point to this env file with --env-file or INSPECT_ENV_FILE")
 
 
