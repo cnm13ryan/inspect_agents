@@ -8,8 +8,16 @@ import pytest
 yaml = pytest.importorskip("yaml")  # ensure PyYAML is available for this test
 
 
+def _repo_root() -> Path:
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if (parent / "examples").exists() and (parent / "pyproject.toml").exists():
+            return parent
+    return p.parents[-1]
+
+
 def _load_planner_module() -> object:
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = _repo_root()
     mod_path = repo_root / "examples" / "inspect" / "exploration" / "planner_tool.py"
     assert mod_path.exists(), f"Missing module at {mod_path}"
     spec = spec_from_file_location("planner_tool_yaml_defaults", str(mod_path))
@@ -22,7 +30,7 @@ def _load_planner_module() -> object:
 @pytest.mark.asyncio
 async def test_planner_uses_yaml_defaults_when_config_none() -> None:
     # Ensure the example YAML exists
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = _repo_root()
     yaml_path = repo_root / "examples" / "configs" / "research" / "exploration.yaml"
     assert yaml_path.exists(), f"expected defaults YAML at {yaml_path}"
 

@@ -6,10 +6,18 @@ from pathlib import Path
 import pytest
 
 
+def _repo_root() -> Path:
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if (parent / "examples").exists() and (parent / "pyproject.toml").exists():
+            return parent
+    return p.parents[-1]
+
+
 def _load_local_module() -> object:
     # Load the planner tool module by absolute path to avoid any site-packages
     # conflicts with a top-level "examples" package name.
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = _repo_root()
     mod_path = repo_root / "examples" / "inspect" / "exploration" / "planner_tool.py"
     assert mod_path.exists(), f"Missing module at {mod_path}"
 
