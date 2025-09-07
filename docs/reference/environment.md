@@ -210,6 +210,18 @@ The blocks below are generated from a single machine‑readable spec to avoid dr
   - OpenAI‑compatible vendors via `openai-api/<vendor>` also use
     `<VENDOR>_API_KEY` and `<VENDOR>_MODEL` (e.g., `LM_STUDIO_*`).
 
+!!! note "Upstream Inspect‑AI environment variables"
+    Some environment variables are defined and consumed by the upstream Inspect‑AI CLI/runtime rather than this repository. Common examples include:
+
+    - `INSPECT_EVAL_MODEL_ARGS`
+    - `INSPECT_EVAL_MODEL_CONFIG`
+    - `INSPECT_EVAL_MODEL_ROLE`
+
+    For the complete list and semantics, see the upstream options reference in this repo checkout: external/inspect_ai/docs/options.qmd.
+
+    - Direct path (local checkout): [external/inspect_ai/docs/options.qmd](../../external/inspect_ai/docs/options.qmd)
+    - When using the Inspect CLI, also see its built‑in `inspect eval --help`.
+
 Resolution order (highest wins)
 1) Explicit `model` with provider prefix (contains `/`).
 2) Role mapping via `INSPECT_ROLE_<ROLE>_*`; otherwise use `inspect/<role>`.
