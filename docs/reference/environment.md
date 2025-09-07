@@ -375,6 +375,16 @@ Sample log payload (single‑line JSON following the `tool_event` prefix):
 ```
 
 
+## Iterative Agent
+
+- `INSPECT_PRUNE_DEBUG` — boolean (truthy values like `1/true/yes/on`; default off). When enabled, emits info‑level logs about pruning and per‑message truncation decisions inside the iterative loop to aid threshold tuning (also enabled when `INSPECT_MODEL_DEBUG` is truthy).
+
+Examples
+```bash
+export INSPECT_PRUNE_DEBUG=1
+```
+
+
 ## Logging & Display
 
 - `INSPECT_LOG_DIR` — transcript directory (default `.inspect/logs`).
