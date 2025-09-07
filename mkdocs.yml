@@ -61,6 +61,7 @@ nav:
           - Model resolver explain: cli/model_explain.md
       - Docs index: DOCS_INDEX.md
   - Explanation:
+      - Overview: explanation/index.md
       - Concepts & architecture: ARCHITECTURE.md
       - DeepAgents implementation prompts: design/deepagents_implementation_prompts.md
       - Exploration examples — implementation prompts: design/exploration_examples_prompts.md
