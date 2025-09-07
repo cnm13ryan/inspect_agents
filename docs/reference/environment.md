@@ -24,6 +24,11 @@ Tip
 - Point the runner to a file: `--env-file env_templates/inspect.env`
 - Or export: `export INSPECT_ENV_FILE=env_templates/inspect.env`
 
+### When Settings Take Effect
+
+- Most environment flags are read at process start and/or when the relevant component is constructed. For example, standard tool toggles are applied when tools are built for an agent, and runner options are read when the runner starts.
+- There is no global hot reload. Changing environment variables after startup does not retroactively update already-constructed agents/configs/tools. Restart the process (or rebuild the agent/config and re-run the command) to apply changes.
+
 
 ## Conventions
 
