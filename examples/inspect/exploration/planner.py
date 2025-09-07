@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, List, Sequence
 
 try:
@@ -194,7 +194,8 @@ def _operator_variants(prompt: str) -> list[str]:
 
 
 def _recency_variants(prompt: str) -> list[str]:
-    this_year = datetime.utcnow().year
+    # Use timezone-aware UTC now to avoid deprecation warnings
+    this_year = datetime.now(timezone.utc).year
     last_year = this_year - 1
     rng = f"{last_year}..{this_year}"
     return [
