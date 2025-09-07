@@ -185,8 +185,16 @@ def mode_commit_msg_file(msg_file: str) -> int:
 
 
 def mode_range(range_expr: str) -> int:
-    # Expand to a list of SHAs newest-first
-    revs = run(["git", "rev-list", range_expr]).splitlines()
+    try:
+        # Expand to a list of SHAs newest-first
+        revs = run(["git", "rev-list", range_expr]).splitlines()
+    except RuntimeError as e:
+        # Handle zero SHA (initial push) gracefully
+        if "Invalid revision range" in str(e) and "0000000000000000000000000000000000000000" in range_expr:
+            sys.stderr.write("Commit-Guard: Initial push detected, skipping validation\n")
+            return 0
+        raise
+
     rc = 0
     for sha in reversed(revs):  # oldest -> newest for readable output
         subject = commit_subject(sha)
