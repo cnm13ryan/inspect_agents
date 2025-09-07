@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util as _il
 import os
 from pathlib import Path
-
-import importlib.util as _il
 
 # Robustly import local examples/_utils.py even if a site-packages "examples" exists
 _UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
@@ -62,37 +61,26 @@ async def _main() -> int:
     parser.add_argument(
         "--enable-web-search",
         action="store_true",
-        help=(
-            "Enable web_search() tool (requires Tavily or Google CSE keys)"
-        ),
+        help="Enable web_search() tool (requires Tavily or Google CSE keys)",
     )
     parser.add_argument(
         "--enable-exec",
         action="store_true",
-        help=(
-            "Enable bash() and python() tools (requires sandbox)"
-        ),
+        help="Enable bash() and python() tools (requires sandbox)",
     )
     parser.add_argument(
         "--enable-web-browser",
         action="store_true",
-        help=(
-            "Enable web_browser() tools (requires sandbox + Playwright)"
-        ),
+        help="Enable web_browser() tools (requires sandbox + Playwright)",
     )
     parser.add_argument(
         "--enable-text-editor-tool",
         action="store_true",
-        help=(
-            "Expose text_editor() directly (optional; FS tools already "
-            "route to it in sandbox mode)"
-        ),
+        help="Expose text_editor() directly (optional; FS tools already route to it in sandbox mode)",
     )
     args = parser.parse_args()
 
-    user_input = " ".join(args.prompt).strip() or os.getenv(
-        "PROMPT", "Write a short overview of LangGraph"
-    )
+    user_input = " ".join(args.prompt).strip() or os.getenv("PROMPT", "Write a short overview of LangGraph")
 
     # Reflect flags into env before building agent
     if args.enable_think:

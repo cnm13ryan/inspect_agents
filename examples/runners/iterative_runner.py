@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util as _il
 import os
 from pathlib import Path
-
-import importlib.util as _il
 from types import ModuleType as _ModuleType  # noqa: F401
 
 # Robustly import local examples/_utils.py even if a site-packages "examples" exists
@@ -45,12 +44,17 @@ async def _main() -> int:
     from inspect_agents.agents import build_iterative_agent
     from inspect_agents.model import resolve_model
     from inspect_agents.run import run_agent
+
     parser = argparse.ArgumentParser(description="Run the Iterative Agent (no submit).")
     parser.add_argument("prompt", nargs="*", help="User prompt text (default from $PROMPT)")
     parser.add_argument("--time-limit", type=int, default=600, help="Real-time limit in seconds (default 600)")
     parser.add_argument("--max-steps", type=int, default=40, help="Max loop steps (default 40)")
     parser.add_argument("--enable-exec", action="store_true", help="Enable bash/python tools via env flag")
-    parser.add_argument("--provider", default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"), help="Model provider (ollama, lm-studio, openai, ...)")
+    parser.add_argument(
+        "--provider",
+        default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"),
+        help="Model provider (ollama, lm-studio, openai, ...)",
+    )
     parser.add_argument(
         "--model",
         default=os.getenv("INSPECT_EVAL_MODEL"),

@@ -17,10 +17,9 @@ an approval preset, and runs the `iterative_task` using Inspect's programmatic e
 from __future__ import annotations
 
 import argparse
+import importlib.util as _il
 import os
 import re
-
-import importlib.util as _il
 from pathlib import Path
 
 # Robustly import local examples/_utils.py even if a site-packages "examples" exists
