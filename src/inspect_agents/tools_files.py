@@ -52,7 +52,12 @@ class FileWriteResult(BaseModel):
 
 
 class FileEditResult(BaseModel):
-    """Typed result for edit operations."""
+    """Typed result for edit operations.
+
+    When `dry_run=True`, no mutation is performed; `replaced` reflects the
+    number of replacements that would have been applied given current file
+    contents and the `replace_all` flag.
+    """
 
     path: str
     replaced: int
@@ -113,6 +118,20 @@ class EditParams(BaseFileParams):
     old_string: str = Field(description="String to replace")
     new_string: str = Field(description="Replacement string")
     replace_all: bool = Field(False, description="Replace all occurrences if true")
+    expected_count: int | None = Field(
+        None,
+        description=(
+            "Optional expected number of replacements to perform. When set, the edit "
+            "will validate that exactly this many replacements would occur and raise "
+            "an error on mismatch."
+        ),
+    )
+    dry_run: bool = Field(
+        False,
+        description=(
+            "When true, compute counts and validate but do not modify the file."
+        ),
+    )
 
 
 class DeleteParams(BaseFileParams):
@@ -560,6 +579,8 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             "old_len": len(params.old_string),
             "new_len": len(params.new_string),
             "replace_all": params.replace_all,
+            "expected_count": params.expected_count,
+            "dry_run": params.dry_run,
             "instance": params.instance,
         },
     )
@@ -578,17 +599,96 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             await adapter.deny_symlink(validated_path)
 
             try:
-                # Preflight: estimate new size via wc -c when available
+                # Preflight: actual byte size via wc -c when available
                 current_bytes = await adapter.wc_bytes(validated_path)
+                max_bytes = _max_bytes()
+                if current_bytes is not None and current_bytes > max_bytes:
+                    _log_tool_event(
+                        name="files:edit",
+                        phase="error",
+                        extra={
+                            "ok": False,
+                            "error": "FileSizeExceeded",
+                            "actual_bytes": current_bytes,
+                            "max_bytes": max_bytes,
+                        },
+                        t0=_t0,
+                    )
+                    raise ToolException(
+                        f"File exceeds maximum size limit: {current_bytes:,} bytes > {max_bytes:,} bytes. "
+                        f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
+                    )
+
+                # Optional pre-read for counting/mismatch checks
+                counted_occurrences: int | None = None
+                if params.expected_count is not None or params.dry_run:
+                    try:
+                        raw = await adapter.view(validated_path, 1, -1)
+                        text = "" if raw is None else str(raw)
+                    except Exception:
+                        text = ""
+                    if params.old_string not in text:
+                        _log_tool_event(
+                            name="files:edit",
+                            phase="error",
+                            extra={"ok": False, "error": "StringNotFound"},
+                            t0=_t0,
+                        )
+                        raise ToolException(
+                            f"String '{params.old_string}' not found in file '{params.file_path}'. "
+                            f"Please check the exact text to replace."
+                        )
+                    counted_occurrences = text.count(params.old_string)
+
+                    if params.expected_count is not None:
+                        would_replace = counted_occurrences if params.replace_all else 1
+                        if int(params.expected_count) != int(would_replace):
+                            _log_tool_event(
+                                name="files:edit",
+                                phase="error",
+                                extra={
+                                    "ok": False,
+                                    "error": "ExpectedCountMismatch",
+                                    "expected": params.expected_count,
+                                    "actual": would_replace,
+                                },
+                                t0=_t0,
+                            )
+                            raise ToolException(
+                                f"ExpectedCountMismatch: expected {params.expected_count}, got {would_replace}"
+                            )
+
+                # Dry run: no write
+                if params.dry_run:
+                    replaced = (counted_occurrences if params.replace_all else 1) if counted_occurrences is not None else 1
+                    summary = f"(dry_run) Would update file {params.file_path} replacing {replaced} occurrence(s)"
+                    if _use_typed_results():
+                        _log_tool_event(
+                            name="files:edit",
+                            phase="end",
+                            extra={"ok": True, "replaced": replaced, "dry_run": True},
+                            t0=_t0,
+                        )
+                        return FileEditResult(path=params.file_path, replaced=replaced, summary=summary)
+                    _log_tool_event(
+                        name="files:edit",
+                        phase="end",
+                        extra={"ok": True, "replaced": replaced, "dry_run": True},
+                        t0=_t0,
+                    )
+                    return summary
+
+                # Estimate new size using counted occurrences when available
+                replace_multiplier = (
+                    (counted_occurrences if params.replace_all else 1)
+                    if counted_occurrences is not None
+                    else (1 if not params.replace_all else 1)
+                )
                 if current_bytes is not None:
-                    # Estimate new size based on string replacement (approximate)
                     old_bytes = len(params.old_string.encode("utf-8"))
                     new_bytes = len(params.new_string.encode("utf-8"))
-                    estimated_new_bytes = current_bytes + (new_bytes - old_bytes)
-
-                    max_bytes = _max_bytes()
+                    estimated_new_bytes = current_bytes + (new_bytes - old_bytes) * replace_multiplier
                     if estimated_new_bytes > max_bytes:
-                        # Use centralized ToolException
                         _log_tool_event(
                             name="files:edit",
                             phase="error",
@@ -607,12 +707,22 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
                 await adapter.str_replace(validated_path, params.old_string, params.new_string)
 
+                replaced = (counted_occurrences if params.replace_all else 1) if counted_occurrences is not None else 1
                 summary = f"Updated file {params.file_path} (sandbox mode)"
                 if _use_typed_results():
-                    # In sandbox mode, we don't know exact replacement count
-                    _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": 1}, t0=_t0)
-                    return FileEditResult(path=params.file_path, replaced=1, summary=summary)
-                _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": 1}, t0=_t0)
+                    _log_tool_event(
+                        name="files:edit",
+                        phase="end",
+                        extra={"ok": True, "replaced": replaced},
+                        t0=_t0,
+                    )
+                    return FileEditResult(path=params.file_path, replaced=replaced, summary=summary)
+                _log_tool_event(
+                    name="files:edit",
+                    phase="end",
+                    extra={"ok": True, "replaced": replaced},
+                    t0=_t0,
+                )
                 return summary
             except Exception:
                 pass
@@ -652,6 +762,19 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         replacement_count = 1
         updated = content.replace(params.old_string, params.new_string, 1)
 
+    # Validate expected_count when provided
+    if params.expected_count is not None:
+        expected = int(params.expected_count)
+        actual = replacement_count if params.replace_all else 1
+        if expected != actual:
+            _log_tool_event(
+                name="files:edit",
+                phase="error",
+                extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
+                t0=_t0,
+            )
+            raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
+
     # Enforce byte ceiling on the updated content
     updated_bytes = len(updated.encode("utf-8"))
     max_bytes = _max_bytes()
@@ -667,13 +790,44 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
         )
 
+    # If dry_run, do not persist changes
+    if params.dry_run:
+        to_report = replacement_count if params.replace_all else 1
+        summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
+        if _use_typed_results():
+            _log_tool_event(
+                name="files:edit",
+                phase="end",
+                extra={"ok": True, "replaced": to_report, "dry_run": True},
+                t0=_t0,
+            )
+            return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
+        _log_tool_event(
+            name="files:edit",
+            phase="end",
+            extra={"ok": True, "replaced": to_report, "dry_run": True},
+            t0=_t0,
+        )
+        return summary
+
     files.put_file(params.file_path, updated)
 
     summary = f"Updated file {params.file_path}"
+    to_report = replacement_count if params.replace_all else 1
     if _use_typed_results():
-        _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": replacement_count}, t0=_t0)
-        return FileEditResult(path=params.file_path, replaced=replacement_count, summary=summary)
-    _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": replacement_count}, t0=_t0)
+        _log_tool_event(
+            name="files:edit",
+            phase="end",
+            extra={"ok": True, "replaced": to_report},
+            t0=_t0,
+        )
+        return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
+    _log_tool_event(
+        name="files:edit",
+        phase="end",
+        extra={"ok": True, "replaced": to_report},
+        t0=_t0,
+    )
     return summary
 
 
