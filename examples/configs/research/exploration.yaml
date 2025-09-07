@@ -19,13 +19,17 @@ description: Default exploration planner policy for examples
 
 policy:
   # Upper bound for generated queries (the tool may return fewer)
-  max_queries: 6
+  max_queries: 12
 
   # Breadth groups (0 => broad seeds, >0 => more focused templates)
-  breadth: 3
+  # Increased breadth to improve coverage for site-specific queries (arXiv/DOI)
+  breadth: 4
 
-  # Depth hint to pass along with each query
+  # Depth hint to pass along with each query (sufficient for targeted curation)
   depth: 2
+
+  # Prefer authoritative sources for the Quantinuum/arXiv curation task
+  site_hints: ["arxiv.org", "doi.org"]
 
   # Default tags added to each query (the tool also appends broad/deep)
   tags:
