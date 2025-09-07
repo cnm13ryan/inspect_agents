@@ -1,6 +1,6 @@
 # Backlog Index
 
-Last updated: 2025-09-06
+Last updated: 2025-09-07
 
 Curated index of all items under `docs/backlog/`, grouped for quick navigation. This index is non‑destructive: it does not move or rename files to avoid breaking links. Use it to find the right TODO quickly.
 
@@ -20,11 +20,20 @@ Note on status:
 - [Iterative Agent — Unified Global Tool‑Output Cap (explicit param + early config)](./todo_feature_iterative_tool_output_cap.md) — DONE.
 - [Iterative Agent — In‑Loop Sample Limits Enforcement (message/token soft stop)](./todo_feature_iterative_limits_enforcement.md) — DONE.
 
+### Docs Alignment — Iterative Agent & CLI
+- [Iterative Reference — Add Supervisor Runner Subsection](./todo_docs_iterative_supervisor_subsection.md)
+- [Getting Started — Add Iterative Quick‑Start Card](./todo_docs_getting_started_iterative_card.md)
+- [Iterative Examples — Standardize at 300s/20 Steps](./todo_docs_iterative_budgets_300_20_standard.md)
+- [Iterative Reference — Add CLI Quick‑Reference Table](./todo_docs_iterative_quick_reference_table.md)
+- [Iterative Reference — Add “See Also” Backlinks](./todo_docs_iterative_see_also_links.md)
+- [Iterative Reference — Add `INSPECT_MAX_TOOL_OUTPUT` Example Invocation](./todo_docs_iterative_output_cap_example.md)
+
 ### Approvals & Handoffs (ADR‑0005) — sorted by name
 - [Apply Exclusivity in CI for the Research Runner](./todo_ci_exclusivity_research_runner.md) — DONE.
 - [Approvals Presets — Add Handoff Exclusivity by Default (dev/prod)](./todo_feature_approvals_handoff_exclusivity_default.md) — DONE.
 - [Research Runner — Apply Handoff Exclusivity in CI](./todo_feature_runner_ci_exclusive.md) — DONE.
 - [Transcripts — Standardized “Skipped Due to Handoff” ToolEvent](./todo_feature_transcript_skipped_tool_event.md) — DONE.
+- [Side‑Effect Helper — Approval‑Aware Fallback Policy](./todo_policy_migration_approvals_fallback.md)
 
 ### Config & YAML — sorted by name
 - [Model Roles Map — Implementation Checklists](./TODO-model-roles-map.md)
@@ -34,6 +43,7 @@ Note on status:
 ### Filesystem Sandbox (ADR‑0004) — sorted by name
 - [Filesystem Sandbox — Enforce Read‑Only Mode Flag](./todo_feature_fs_readonly_flag.md) — DONE.
 - [Docs Adjustments — Supervisor Tool Exposure & ADR 0004 Baseline](./todo_feature_readme_docs_updates.md)
+- [Docs — Add FS Design Note Backlink](./todo_docs_fs_design_note_backlink.md)
 
 ### Iterative Agent & Pruning — sorted by name
 - [Iterative Agent — `code_only` Flag](./todo_feature_iterative_code_only.md)
@@ -58,6 +68,32 @@ Note on status:
 - [Rewrite Epic](./rewrite/README.md)
 - [General Todos](./todos/README.md)
 
+### Refactors — Code Health
+- [tools.py — Migrate FS Helpers to `inspect_agents.fs`](./todo_feature_tools_py_migrate_fs_helpers.md)
+
+### Migration Helper — Side‑Effects
+- [Add Debug Logs + Tests](./todo_feature_migration_helper_debug_logging.md)
+- [Approval‑Aware Fallback Policy](./todo_policy_migration_approvals_fallback.md)
+- [Skip Fallback on Success (Idempotency)](./todo_feature_migration_idempotency_check.md)
+- [Instance Scoping for Store Models](./todo_feature_migration_instance_scoping.md)
+- [Enforce Size Caps on Fallback Writes](./todo_limits_migration_fallback_size_caps.md)
+- [Tests — Edge Cases Coverage](./todo_tests_side_effect_helper_extensions.md)
+
+### Providers & Models — Resolver Diagnostics
+- [Implement `resolve_model_explain(...)`](./todo_feature_model_resolver_explain_api.md)
+- [Typed Error with `.explain`](./todo_feature_model_resolver_error_type.md)
+- [Stabilize `path` Labels Contract](./todo_api_model_resolver_path_labels_contract.md)
+- [Explicit Sentinel Handling for `INSPECT_EVAL_MODEL=none/none`](./todo_feature_model_resolver_env_sentinel_none_none.md)
+- [Tests — Explain/Precedence Coverage](./todo_tests_model_explain_coverage.md)
+- [Docs — Debugging Model Resolution How‑To](./todo_docs_model_resolution_debugging_howto.md)
+
+### Settings & Env Centralization
+- [Iterative Helpers — Wrap `settings.int_env`](./todo_settings_iterative_wrappers.md)
+- [Add `settings.max_tool_output_env()` Accessor](./todo_settings_max_tool_output_accessor.md)
+- [Tests — Unit Coverage for settings.py](./todo_tests_settings_unit.md)
+- [Docs — Add “Environment & Settings API” Section](./todo_docs_environment_settings_api_section.md)
+- [Deprecations — Gate Alias Warnings Behind `INSPECT_SHOW_DEPRECATIONS`](./todo_deprecations_alias_warnings_flag.md)
+
 ### Bugs & Fixes — new
 - [run_agent: mutable default for limits](./todo_bug_run_mutable_limits_default.md) — DONE.
 - [delete (sandbox): unify error code/message with docs](./todo_docs_delete_sandbox_error_alignment.md) — DONE.
@@ -68,6 +104,11 @@ Note on status:
 - [Model resolver: precedence + sentinel env cases](./todo_tests_model_resolver_precedence.md)
 - [Filters: default_input_filter cascade/inherit + scoped summary caps](./todo_tests_filters_quarantine_inherit.md)
 - [Iterative: pruning/truncation behaviors (overflow hint, keep_first/last, token cap)](./todo_tests_iterative_prune_truncate.md)
+- [Settings: direct unit tests for helpers](./todo_tests_settings_unit.md)
+- [Migration helper: edge cases/approvals/idempotency](./todo_tests_side_effect_helper_extensions.md)
+
+### CI — Docs Only
+- [Add docs‑only workflow job (unit subset + link checker)](./todo_ci_docs_only_job.md)
 
 ### Docs Alignment — new
 - [YAML limits schema and examples: align docs with current parser](./todo_feature_yaml_limits_parser.md)
