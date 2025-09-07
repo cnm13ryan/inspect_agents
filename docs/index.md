@@ -1,22 +1,61 @@
-# Inspect Agents Documentation
+# Inspect Agents
 
-Welcome to the unified documentation site for Inspect Agents. This site collects all project docs under `docs/` and presents them with MkDocs.
+Build, run, and evaluate reliable multi‑step LLM agents on top of Inspect‑AI — with safe defaults, rich tools, and a fast path from “hello world” to production.
 
-## Quick Links
+- Fast to first success: install and run in minutes.
+- Safe by default: approvals, sandboxing, and observability baked in.
+- Batteries included: CLI, tools, and clear docs for every track.
 
-- Getting Started: [Inspect Agents Quickstart](getting-started/inspect_agents_quickstart.md)
-- Cheat Sheet: [Inspect Console](getting-started/inspect_console_cheatsheet.md)
-- How-To Guides: [Approvals](how-to/approvals.md), [Filesystem](how-to/filesystem.md), [Sandbox & Exec Tools Troubleshooting](how-to/inspect_sandbox.md)
-- Guides: [Sub‑agents](guides/subagents.md), [Retries & Cache](guides/retries_cache.md), [Supervisor Limits](guides/supervisor-limits.md)
-- Tools Reference: [Index](tools/README.md)
-- Reference: [Environment Variables](reference/environment.md)
-- Architecture: [Overview](ARCHITECTURE.md)
-- ADRs: [Index](adr/README.md)
-- Open Questions: [Discussion Topics](design/open-questions.md)
-- Examples: Simple Architecture Demo — `examples/demos/simple_architecture.py`
+## Quickstart
 
-For a fuller section-by-section map of all docs, see the in-repo index at [docs/DOCS_INDEX.md](DOCS_INDEX.md). The Simple Architecture shown in the diagram is conceptual; see `examples/demos/simple_architecture.py` for a runnable demo that composes only public APIs (agent builders, approvals, tools).
+Copy/paste the three commands below to install, configure env files, and launch the docs locally.
 
-## Acknowledgments
+```bash
+uv sync
+uv run python env_templates/configure.py
+uv run mkdocs serve
+```
 
-The iterative agent approach described in examples (`examples/tasks/` and `examples/runners/`), reference guides, and the `src/inspect_agents/` implementation draws inspiration from the PaperBench project on iterative multi‑step agent evaluation. See: PaperBench — https://arxiv.org/abs/2504.01848.
+Then open http://127.0.0.1:8000. Project docs live under `docs/` and the site is configured via `mkdocs.yml`.
+
+## Choose Your Track
+
+<div class="grid cards" markdown>
+
+- **Tutorials** — Start here for an end‑to‑end, guided path from install to first working agent.
+
+  [Get started](getting-started/inspect_agents_quickstart.md)
+
+- **How‑to Guides** — Task‑oriented recipes (approvals, filesystem tools, sandboxing, operations).
+
+  [Browse how‑to](how-to/index.md)
+
+- **Reference** — API surfaces, environment flags, CLI commands, and built‑in tools.
+
+  [Open reference](reference/index.md)
+
+- **Explanation** — Concepts, architecture, and ADRs for deeper understanding and design decisions.
+
+  [Read concepts](explanation/index.md)
+
+- **CLI** — Run tasks, inspect logs, score runs, and more with the `inspect` command.
+
+  [Use the CLI](cli/README.md)
+
+- **Tools** — Catalog of built‑in tools (bash, files, web, python, think, typed results, etc.).
+
+  [Explore tools](tools/README.md)
+
+</div>
+
+## Next Steps
+
+- Run your first task: `uv run inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of Inspect‑AI"`
+- Try the Python runner: `uv run python examples/inspect/run.py "Write a short overview of Inspect‑AI"`
+- Configure environment flags as needed: [Environment variables](reference/environment.md)
+- Full map of the documentation: [Docs index](DOCS_INDEX.md)
+
+## Community
+
+- Project repo and issues: https://github.com/cnm13ryan/inspect_agents
+- Contributing guide and examples: see [README](../README.md)
