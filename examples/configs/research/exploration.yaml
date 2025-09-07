@@ -1,9 +1,10 @@
 # Exploration planner config (example)
 #
-# This file provides defaults for the examples/inspect/exploration/planner_tool.py
-# wrapper. When the tool is invoked with no `config` argument, it attempts to load
-# this YAML and will use the values under `policy:`. If the file is missing or
-# YAML parsing fails, the tool falls back to safe in-code defaults.
+# This file provides defaults for the examples exploration flow.
+# - planner_tool.py: if called with no `config`, it attempts to load this YAML
+#   and will use the values under `policy:` (falling back to in-code defaults).
+# - runner.py: reads `policy` for planner config, and also (optionally) reads
+#   `supervisor` to override attempts/prompts and `scoring` for future use.
 #
 # Only the following keys under `policy` are used by the current tool wrapper:
 #   - max_queries (int): hard cap on number of queries to return (1..32)
@@ -44,3 +45,25 @@ policy:
       - "measurement/benchmarks for {topic}"
       - "risks and controversies around {topic}"
 
+# Optional scoring configuration (not yet consumed by planner_tool; runner reads it for future wiring)
+scoring:
+  # Component weights
+  w_authority: 0.35
+  w_recency: 0.25
+  w_topic: 0.30
+  w_citation: 0.10
+  # Domain priors
+  domain_whitelist: ["arxiv.org", "*.gov", "*.edu"]
+  domain_blacklist: []
+
+# Optional supervisor configuration applied by the examples runner
+supervisor:
+  # Attempts (submit-terminated ReAct loop). If omitted, runner CLI --attempts is used.
+  attempts: 3
+  # Optional prompt overrides; when provided, the runner uses these in place
+  # of its defaults for role setup. Supervisor override is prepended to the
+  # runner's fixed instructions.
+  prompts:
+    supervisor: "You are the orchestrator for exploration; plan, persist, and handoff."
+    research: "You are a dedicated researcher; execute the plan and write a cited report."
+    critique: "You are a detailed editor; improve structure and citations in the report."
