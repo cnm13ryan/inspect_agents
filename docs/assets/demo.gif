@@ -1,0 +1,9 @@
+Placeholder GIF for README hero. Replace with a short (≤10s) demo
+capturing the 60-second offline Quickstart flow.
+
+Guidelines:
+- Keep file size small (<2–4 MB).
+- Preferred dimensions: 1200×675 (16:9) or similar.
+- Show: `uv sync` -> `configure.py` -> `python scripts/quickstart_toy.py`.
+
+This is not a valid GIF; it exists to reserve the path used by README.
