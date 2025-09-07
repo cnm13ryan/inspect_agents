@@ -9,7 +9,7 @@ from inspect_agents.settings import truthy as _truthy  # centralized truthy
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
-    """Convert legacy deepagents-style interrupt config to Inspect policies.
+    """Convert legacy compatibility (deepagents-style) interrupt config to Inspect policies.
 
     Mapping rules:
     - Keys = tool name or glob pattern.
@@ -22,13 +22,16 @@ def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
     - allow_ignore=True is unsupported and raises ValueError (parity with legacy behavior).
     """
     from inspect_ai.approval._approval import Approval  # type: ignore
+
     try:
         from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
     except Exception:
+
         class ApprovalPolicy:  # type: ignore
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
+
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
@@ -113,6 +116,7 @@ def activate_approval_policies(policies: list[Any] | None) -> None:
         # Tests may stub out apply without init_tool_approval; ignore.
         pass
 
+
 REDACT_KEYS = {"api_key", "authorization", "token", "password", "file_text", "content"}
 
 
@@ -134,13 +138,16 @@ def approval_preset(preset: str) -> list[Any]:
     - prod: terminate sensitive tools; approve others
     """
     from inspect_ai.approval._approval import Approval  # type: ignore
+
     try:
         from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
     except Exception:
+
         class ApprovalPolicy:  # type: ignore
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
+
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
@@ -214,13 +221,16 @@ def handoff_exclusive_policy() -> list[Any]:
       {tool:"handoff_exclusive", phase:"skipped", selected_handoff_id, skipped_function}.
     """
     from inspect_ai.approval._approval import Approval  # type: ignore
+
     try:
         from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
     except Exception:
+
         class ApprovalPolicy:  # type: ignore
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
+
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
@@ -335,13 +345,16 @@ def parallel_kill_switch_policy() -> list[Any]:
     - Truthy values: {"1", "true", "yes", "on"} (case-insensitive).
     """
     from inspect_ai.approval._approval import Approval  # type: ignore
+
     try:
         from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
     except Exception:
+
         class ApprovalPolicy:  # type: ignore
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
+
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
@@ -382,7 +395,10 @@ def parallel_kill_switch_policy() -> list[Any]:
 
     async def approver(message, call: ToolCall, view, history):  # type: ignore[no-redef]
         # Short-circuit unless kill-switch is enabled
-        if not (_truthy(os.getenv("INSPECT_TOOL_PARALLELISM_DISABLE")) or _truthy(os.getenv("INSPECT_DISABLE_TOOL_PARALLEL"))):
+        if not (
+            _truthy(os.getenv("INSPECT_TOOL_PARALLELISM_DISABLE"))
+            or _truthy(os.getenv("INSPECT_DISABLE_TOOL_PARALLEL"))
+        ):
             return Approval(decision="escalate")
 
         source = _last_assistant_with_calls(message, history)
