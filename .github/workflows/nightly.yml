@@ -1,0 +1,47 @@
+name: Nightly (Full Tests)
+
+on:
+  schedule:
+    - cron: '15 6 * * *' # 06:15 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "1"
+      NO_NETWORK: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONWARNINGS: "default"
+      PYTHONHASHSEED: "0"
+      PYTHONPATH: "src:external/inspect_ai"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv (with cache)
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            **/pyproject.toml
+            **/uv.lock
+
+      - name: Sync full test deps
+        run: uv sync --extra testing --extra dev --extra utilities
+
+      - name: Pytest (full)
+        run: uv run pytest -q
+
