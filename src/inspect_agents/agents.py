@@ -11,10 +11,9 @@ via the default `submit()` tool provided by Inspect.
 from collections.abc import Sequence
 from typing import Any, NotRequired, TypedDict
 
-# Base prompt modeled after the legacy deepagents.base_prompt
-BASE_PROMPT_HEADER = (
-    "You have access to a number of tools.\n\n"
-)
+# Base prompt modeled for legacy compatibility (deepagents-style base_prompt);
+# see migration.py and docs/design/deepagents_implementation_prompts.md.
+BASE_PROMPT_HEADER = "You have access to a number of tools.\n\n"
 
 BASE_PROMPT_TODOS = (
     "## Todo & Filesystem Tools\n\n"
@@ -26,6 +25,7 @@ BASE_PROMPT_TODOS = (
 
 # Backcompat constant for migration shim
 BASE_PROMPT = BASE_PROMPT_HEADER + BASE_PROMPT_TODOS
+
 
 def _format_standard_tools_section(all_tools: list[object]) -> str:
     """Return a short section enumerating available Inspect standard tools.
@@ -235,6 +235,7 @@ def build_subagents(
     tool_by_name: dict[str, object] = {}
     try:
         from inspect_ai.tool._tool_def import ToolDef
+
         for t in base_tools:
             tdef = ToolDef(t) if not isinstance(t, ToolDef) else t
             tool_by_name[tdef.name] = t
@@ -274,17 +275,14 @@ def build_subagents(
             # Resolve filters: per-config wins; otherwise use context-aware defaults
             # Input filter cascades the parent filter by default, unless per-agent
             # env override is present. Pass the sub-agent name to support scoped envs.
-            input_filter = (
-                cfg.get("input_filter")
-                if "input_filter" in cfg
-                else default_input_filter(name)
-            )
+            input_filter = cfg.get("input_filter") if "input_filter" in cfg else default_input_filter(name)
             output_filter = cfg.get("output_filter") if "output_filter" in cfg else default_output_filter()
 
             # Per-agent env overrides for handoff limits (time/messages/tokens)
             # Precedence: explicit config (non-empty) > env
             try:
                 from inspect_agents.config import env_limits_for_agent  # local import to avoid cycle
+
                 env_limits = env_limits_for_agent(name)
             except Exception:
                 env_limits = []
