@@ -1,6 +1,6 @@
-# ================================================================== 
+# ==================================================================
 # Project Metadata
-# ================================================================== 
+# ==================================================================
 
 [project]
 name = "inspect-agents"
@@ -23,9 +23,9 @@ Documentation = "https://cnm13ryan.github.io/inspect_agents"
 Repository = "https://github.com/cnm13ryan/inspect_agents.git"
 Issues = "https://github.com/cnm13ryan/inspect_agents/issues"
 
-# ================================================================== 
+# ==================================================================
 # Optional Dependencies
-# ================================================================== 
+# ==================================================================
 
 [project.optional-dependencies]
 
@@ -75,15 +75,19 @@ docs = [
     # MkDocs plugins
     "mkdocs-mermaid2-plugin",
     "mkdocs-autorefs>=1.0",
+    "mkdocs-redirects>=1.2.1",
+    "mkdocs-exclude-search>=0.6.5",
+    # Optional link checker for CI (not wired here yet)
+    "mkdocs-htmlproofer-plugin>=1.2.0",
     # API documentation
     "mkdocstrings[python]>=0.21",
     # Docstring coverage
     "interrogate",
 ]
 
-# ================================================================== 
+# ==================================================================
 # Tool Configuration
-# ================================================================== 
+# ==================================================================
 
 # --- Code Formatting & Linting ---
 [tool.ruff]
@@ -153,9 +157,9 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-# ================================================================== 
+# ==================================================================
 # Package Configuration
-# ================================================================== 
+# ==================================================================
 
 [tool.pdm]
 distribution = true
