@@ -33,13 +33,20 @@ def _load_tools() -> object:
     return tools
 
 
+@pytest.mark.parametrize("fs_mode", ["store", "sandbox"])  # run in both modes
 @pytest.mark.asyncio
-async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fs_mode: str) -> None:
     # Enforce offline and avoid web_search enablement
     monkeypatch.setenv("NO_NETWORK", "1")
     monkeypatch.delenv("INSPECT_ENABLE_WEB_SEARCH", raising=False)
-    # Keep default in-memory Store mode (no sandbox writes to host FS)
-    monkeypatch.delenv("INSPECT_AGENTS_FS_MODE", raising=False)
+    # Filesystem mode per Param
+    if fs_mode == "sandbox":
+        monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
+        # Ensure we don't require a live sandbox; exercise fallback-to-store path
+        monkeypatch.setenv("INSPECT_SANDBOX_PREFLIGHT", "skip")
+    else:
+        # Keep default in-memory Store mode (no sandbox writes to host FS)
+        monkeypatch.delenv("INSPECT_AGENTS_FS_MODE", raising=False)
 
     tools_mod = _load_tools()
     planner_mod = _load_planner_tool()
