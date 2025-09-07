@@ -386,7 +386,7 @@ export INSPECT_TRACE_FILE=logs/inspect_ai/trace.log
   `max_output` and no per-run `GenerateConfig.max_tool_output` are set. If
   provided, the first tool event logs a one-time structured line:
   `tool_event {"tool":"observability","phase":"info","effective_tool_output_limit":N,"source":"env|default"}`.
-  Default (when unset and no config override): `16384` bytes.
+Default (when unset and no config override): `16384` bytes.
 
 Examples
 ```bash
@@ -396,6 +396,34 @@ export INSPECT_MAX_TOOL_OUTPUT=8192
 # Disable truncation (be careful: prompts can grow quickly)
 export INSPECT_MAX_TOOL_OUTPUT=0
 ```
+
+### Environment & Limits — Effective Tool‑Output Cap
+
+What is actually enforced at runtime follows this precedence:
+
+- Per‑call argument `max_output` (highest; passed by the tool invocation)
+- Active `GenerateConfig.max_tool_output` ("config")
+- `INSPECT_MAX_TOOL_OUTPUT` ("env")
+- Built‑in default of 16 KiB ("default")
+
+Query the currently effective cap (side‑effect free):
+
+```python
+from inspect_agents.observability import get_effective_tool_output_limit
+limit, source = get_effective_tool_output_limit()  # (bytes, 'config'|'env'|'default')
+print(limit, source)
+```
+
+CLI one‑liner (prints a single line):
+
+```bash
+uv run python examples/debug/show_limits.py
+# -> Tool-output cap: 16384 bytes (default)
+```
+
+Notes
+- The helper does not inspect per‑call `max_output` (that is dynamic per tool call).
+- Example runners print the effective cap line at startup for quick visibility.
 
 
 ## Cache & Retries
