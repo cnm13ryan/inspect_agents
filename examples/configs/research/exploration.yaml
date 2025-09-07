@@ -1,0 +1,24 @@
+policy:
+  name: exploration_v0
+  breadth: 3
+  depth: 2
+  max_queries: 12
+  convergence_delta: 0.05
+  synonym_expansion: true
+  site_hints: ["arxiv.org", "doi.org", "*.gov", "*.edu"]
+
+scoring:
+  w_authority: 0.35
+  w_recency: 0.25
+  w_topic: 0.30
+  w_citation: 0.10
+  domain_whitelist: ["arxiv.org", "*.gov", "*.edu"]
+  domain_blacklist: []
+
+supervisor:
+  attempts: 3
+  prompts:
+    supervisor: "You are the orchestrator — plan with the planner tool, then execute."
+    research:   "You are a dedicated researcher — follow plan.json, cite sources."
+    critique:   "You are a detailed editor — improve clarity, coverage, citations."
+
