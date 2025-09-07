@@ -87,6 +87,8 @@ exec, prefer running with a sandbox and approvals:
 See Reference → Iterative Agent — Termination and Truncation for loop limits and
 pruning behavior.
 
+Troubleshooting: If you encounter “ProcessLookupError: No sandbox environment has been provided…”, add a sandbox to your command (Inspect CLI: `--sandbox local`) or use the profiled runner. Details: `docs/how-to/inspect_sandbox.md`.
+
 ## Troubleshooting
 
 - No model available: start a local provider (e.g., Ollama) or set `INSPECT_EVAL_MODEL` / `DEEPAGENTS_MODEL_PROVIDER` to a reachable backend.
