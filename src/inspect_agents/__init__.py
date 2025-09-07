@@ -6,7 +6,13 @@ agent builders (react supervisor and iterative supervisor).
 
 # Re-export builders from the unified agents surface for discoverability
 from .agents import build_basic_submit_agent, build_iterative_agent, build_supervisor
-from .model import resolve_model
+from .model import (
+    resolve_model,
+    resolve_model_explain,
+    ResolveModelError,
+    ModelResolutionTrace,
+    ModelResolutionStep,
+)
 from .state import Files, Todo, Todos
 
 __all__ = [
@@ -14,6 +20,10 @@ __all__ = [
     "Todos",
     "Files",
     "resolve_model",
+    "resolve_model_explain",
+    "ResolveModelError",
+    "ModelResolutionTrace",
+    "ModelResolutionStep",
     "build_supervisor",
     "build_basic_submit_agent",
     "build_iterative_agent",
