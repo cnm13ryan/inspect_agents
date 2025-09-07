@@ -58,4 +58,4 @@ Then open http://127.0.0.1:8000. Project docs live under `docs/` and the site is
 ## Community
 
 - Project repo and issues: https://github.com/cnm13ryan/inspect_agents
-- Contributing guide and examples: see [README](../README.md)
+- Contributing guide and examples: https://github.com/cnm13ryan/inspect_agents#readme
