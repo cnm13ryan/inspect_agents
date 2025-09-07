@@ -24,6 +24,7 @@ import json
 import logging
 
 from .exceptions import ToolException
+from . import fs as _fs
 from .settings import (
     truthy as _truthy,
 )
@@ -70,18 +71,9 @@ def _log_tool_event(
 # ToolException is provided centrally via inspect_agents.exceptions
 
 
-def _fs_mode() -> str:
-    """Return filesystem mode: 'store' (default) or 'sandbox'.
-
-    Controlled by env var `INSPECT_AGENTS_FS_MODE`. Any value other than
-    'sandbox' uses the default in-memory Store. Sandbox mode writes to the
-    host fs via Inspect's text_editor tool; ensure a safe sandbox.
-    """
-    return os.getenv("INSPECT_AGENTS_FS_MODE", "store").strip().lower()
-
-
-def _use_sandbox_fs() -> bool:
-    return _fs_mode() == "sandbox"
+# Delegate FS mode helpers to consolidated fs module for consistency
+_fs_mode = _fs.fs_mode  # backward-compatible alias for tests/patch points
+_use_sandbox_fs = _fs.use_sandbox_fs  # backward-compatible alias
 
 
 ## Delegated env helpers (centralized in settings.py)
