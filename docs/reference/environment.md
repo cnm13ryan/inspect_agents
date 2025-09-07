@@ -67,6 +67,19 @@ Resolution order (highest wins)
 4) Provider: function arg → `DEEPAGENTS_MODEL_PROVIDER` → `ollama`.
 5) Provider‑specific defaults/validation.
 
+Debugging
+- `INSPECT_MODEL_DEBUG` — boolean (truthy values like `1/true/yes/on`; default off).
+  - When set, the resolver emits INFO logs detailing model resolution and role
+    mapping, including `role`, `provider_arg`, `model_arg`, `role_env_model`,
+    `role_env_provider`, `env_inspect_eval_model`, the computed `final`, and the
+    decision `path`. Use this to troubleshoot why a particular model/provider
+    was selected.
+
+Example
+```bash
+export INSPECT_MODEL_DEBUG=1
+```
+
 Examples
 ```bash
 # Force OpenAI across the board
