@@ -8,6 +8,7 @@ Currently includes:
 """
 
 import os
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -23,8 +24,8 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
 import json
 import logging
 
-from .exceptions import ToolException
 from . import fs as _fs
+from .exceptions import ToolException
 from .settings import (
     truthy as _truthy,
 )
@@ -66,6 +67,33 @@ def _log_tool_event(
     from .observability import log_tool_event as _impl
 
     return _impl(name=name, phase=phase, args=args, extra=extra, t0=t0)
+
+
+# Deprecation helper for legacy file tool wrappers
+def _warn_wrapper(name: str) -> None:
+    """Emit a deprecation warning for legacy wrapper tools.
+
+    Suppressed when INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1 to keep CI quiet.
+    """
+    try:
+        if os.getenv("INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN") in {"1", "true", "True", "YES", "yes"}:
+            return
+        warnings.warn(
+            (
+                f"{name} is deprecated and will be removed in a future release. "
+                "Use files_tool() instead (e.g., files_tool()(params=FilesParams(root=...)))."
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # Optional notice log for observability
+        try:
+            _log_tool_event(name=name, phase="notice", extra={"deprecated_wrapper": True})
+        except Exception:
+            pass
+    except Exception:
+        # Never fail a tool call due to warning machinery
+        pass
 
 
 # ToolException is provided centrally via inspect_agents.exceptions
@@ -471,6 +499,7 @@ def read_file():  # -> Tool
             limit: int = 2000,
             instance: str | None = None,
         ) -> str | FileReadResult:
+            _warn_wrapper("read_file")
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = ReadParams(command="read", file_path=file_path, offset=offset, limit=limit, instance=instance)
             try:
@@ -524,6 +553,7 @@ def write_file():  # -> Tool
             content: str,
             instance: str | None = None,
         ) -> str | FileWriteResult:
+            _warn_wrapper("write_file")
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = WriteParams(command="write", file_path=file_path, content=content, instance=instance)
             files = files_tool()
@@ -570,6 +600,7 @@ def edit_file():  # -> Tool
             dry_run: bool = False,
             instance: str | None = None,
         ) -> str | FileEditResult:
+            _warn_wrapper("edit_file")
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = EditParams(
                 command="edit",
@@ -602,9 +633,9 @@ def edit_file():  # -> Tool
         params.properties["replace_all"].description = "Replace all occurrences if true"
         params.properties["replace_all"].default = False
         params.properties["expected_count"] = json_schema(int)
-        params.properties["expected_count"].description = (
-            "Optional expected number of replacements; mismatches raise an error"
-        )
+        params.properties[
+            "expected_count"
+        ].description = "Optional expected number of replacements; mismatches raise an error"
         params.properties["dry_run"] = json_schema(bool)
         params.properties["dry_run"].description = "When true, validate/count but do not modify the file"
         params.properties["dry_run"].default = False
@@ -639,6 +670,7 @@ def delete_file():  # -> Tool
             file_path: str,
             instance: str | None = None,
         ) -> str | FileDeleteResult:
+            _warn_wrapper("delete_file")
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = DeleteParams(command="delete", file_path=file_path, instance=instance)
             try:
