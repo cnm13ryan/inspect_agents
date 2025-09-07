@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 """Examples tool wrapper: deterministic exploration planner.
 
 Surfaces QuerySpec items from the examples planner as a simple, JSON-friendly
 structure for downstream web search tools. Offline and deterministic.
 """
-
-from typing import Any, Dict, List
 
 
 def _load_planner():
@@ -16,13 +16,12 @@ def _load_planner():
     """
     try:
         # Normal relative imports when package layout is intact
-        from .planner import ExplorationConfig, plan  # type: ignore
         from .config_loader import load_exploration_config  # type: ignore
+        from .planner import ExplorationConfig, plan  # type: ignore
 
         return ExplorationConfig, plan, load_exploration_config
     except Exception:  # pragma: no cover - fallback for REPL/tests
         import importlib.util
-        import os
         from pathlib import Path
 
         here = Path(__file__).resolve()
@@ -42,13 +41,13 @@ def _load_planner():
         return mod_planner.ExplorationConfig, mod_planner.plan, mod_loader.load_exploration_config
 
 
-def _merge_config(overrides: Dict[str, Any] | None, defaults: Any) -> Any:
+def _merge_config(overrides: dict[str, Any] | None, defaults: Any) -> Any:
     """Merge a plain dict of overrides into an ExplorationConfig instance.
 
     Only known fields are applied; unknown keys (except 'tags') are ignored.
     Returns a new ExplorationConfig object.
     """
-    ExplorationConfig, _, _ = _load_planner()
+    exploration_config, _, _ = _load_planner()
     if not overrides:
         return defaults
     fields = {
@@ -66,10 +65,10 @@ def _merge_config(overrides: Dict[str, Any] | None, defaults: Any) -> Any:
     }
     data = defaults.model_dump() if hasattr(defaults, "model_dump") else defaults.__dict__
     data.update(fields)
-    return ExplorationConfig(**data)
+    return exploration_config(**data)
 
 
-def _extra_tags(cfg: Dict[str, Any] | None) -> List[str]:
+def _extra_tags(cfg: dict[str, Any] | None) -> list[str]:
     if not cfg:
         return []
     t = cfg.get("tags")
@@ -78,8 +77,10 @@ def _extra_tags(cfg: Dict[str, Any] | None) -> List[str]:
     return [str(x) for x in (t if isinstance(t, list) else [t])]
 
 
-def _build_result(items: List[Any], breadth: int, depth: int, extra_tags: List[str], max_queries: int) -> Dict[str, Any]:
-    out: List[Dict[str, Any]] = []
+def _build_result(
+    items: list[Any], breadth: int, depth: int, extra_tags: list[str], max_queries: int
+) -> dict[str, Any]:
+    out: list[dict[str, Any]] = []
     for it in items:
         # filter to depth >= 1 to avoid seed-only entries
         d = int(getattr(it, "depth", 0))
@@ -109,14 +110,12 @@ def planner_tool():  # -> Tool
 
     # Local import to avoid heavy imports at module import time
     from inspect_ai.tool._tool import tool
-    from inspect_ai.tool._tool_def import ToolDef
-    from inspect_ai.tool._tool_params import ToolParams
 
-    ExplorationConfig, _plan, load_cfg = _load_planner()
+    exploration_config, _plan, load_cfg = _load_planner()
 
     @tool(name="planner_tool")
     def planner_tool_factory():  # -> Tool
-        async def execute(prompt: str, config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        async def execute(prompt: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
             """Deterministic exploration planner tool.
 
             Plans a small set of diverse, site‑aware web queries for a research task,
@@ -143,7 +142,7 @@ def planner_tool():  # -> Tool
             try:
                 base = load_cfg(None)
             except Exception:
-                base = ExplorationConfig()  # type: ignore[call-arg]
+                base = exploration_config()  # type: ignore[call-arg]
 
             cfg = _merge_config(config, base)
             items = _plan(prompt, cfg)
