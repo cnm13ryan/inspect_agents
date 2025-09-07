@@ -392,12 +392,15 @@ export INSPECT_PRUNE_DEBUG=1
   truncation (default 200).
 - `INSPECT_TRACE_FILE` — optional tracing file path (recognized by Inspect
   runtime; useful during reviews).
+- `INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN` — boolean (truthy values like `1/true/yes/on`; default off). When enabled, suppresses `DeprecationWarning` messages emitted by legacy Files wrapper tools to reduce CI noise while migrating to the unified `files_tool`.
 
 Examples
 ```bash
 export INSPECT_LOG_DIR=.inspect/logs
 export INSPECT_TOOL_OBS_TRUNCATE=200
 export INSPECT_TRACE_FILE=logs/inspect_ai/trace.log
+# Suppress legacy wrapper deprecation warnings in CI
+export INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1
 ```
 
 
