@@ -115,12 +115,11 @@ theme:
     - content.code.copy
 
 extra_javascript:
-  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
-  - https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js
+  # Keep mermaid2 plugin as sole renderer; no CDN mermaid here.
+  - assets/javascripts/mermaid-extras.js
 
-# Omit local assets for now; we can add overrides later.
-# extra_css:
-#   - assets/stylesheets/mermaid-extras.css
+extra_css:
+  - assets/stylesheets/mermaid-extras.css
 
 markdown_extensions:
   - admonition
