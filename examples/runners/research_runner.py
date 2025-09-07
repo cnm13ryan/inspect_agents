@@ -17,13 +17,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util as _il
 import os
 from pathlib import Path
-
-import importlib.util as _il
-from importlib.util import module_from_spec, spec_from_file_location
-from types import ModuleType
-from typing import Optional
+from types import ModuleType as _ModuleType
 
 # Robustly import local examples/_utils.py even if a site-packages "examples" exists
 _UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
@@ -37,7 +34,7 @@ _spec.loader.exec_module(_utils)
 _utils.ensure_repo_src_on_path()
 
 
-def _load_planner_tool() -> Optional[object]:
+def _load_planner_tool() -> object | None:
     """Load the examples planner tool as a Tool object, if present.
 
     Uses path-based import to avoid collisions with any site-packages module
@@ -47,10 +44,10 @@ def _load_planner_tool() -> Optional[object]:
         mod_path = Path(__file__).resolve().parents[1] / "inspect" / "exploration" / "planner_tool.py"
         if not mod_path.exists():
             return None
-        spec = spec_from_file_location("_examples_planner_tool", str(mod_path))
+        spec = _il.spec_from_file_location("_examples_planner_tool", str(mod_path))
         if spec is None or spec.loader is None:
             return None
-        mod: ModuleType = module_from_spec(spec)
+        mod: _ModuleType = _il.module_from_spec(spec)
         spec.loader.exec_module(mod)  # type: ignore[arg-type]
         return getattr(mod, "planner_tool")()
     except Exception:
@@ -108,9 +105,7 @@ async def _main() -> int:
     )
     args = parser.parse_args()
 
-    user_input = " ".join(args.prompt).strip() or os.getenv(
-        "PROMPT", "Write a short overview of Inspect‑AI"
-    )
+    user_input = " ".join(args.prompt).strip() or os.getenv("PROMPT", "Write a short overview of Inspect‑AI")
     if args.enable_web_search:
         os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
 
