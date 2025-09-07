@@ -727,11 +727,11 @@ Acceptance Criteria
 - Add the enriched keys; update reference docs; add unit tests asserting values and `*_source` labels across explicit, role-map, INSPECT_EVAL_MODEL, and provider branches.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No `resolve_model_explain(...)` function exists; only `resolve_model(...)` and debug logging via `_log_model_debug(...)` are implemented.
-**Evidence**: `src/inspect_agents/model.py` defines `resolve_model(...)` and `_log_model_debug(...)`; no `resolve_model_explain` or explain dict plumbing is present. Tests refer only to `resolve_model` (e.g., `tests/unit/inspect_agents/model/test_model.py`).
-**Conclusion**: Explain dict not implemented; field set and semantics remain undecided.
+**Finding**: A typed explain surface is implemented via `resolve_model_explain(...)` returning `(final: str, trace: ModelResolutionTrace)`. Each `ModelResolutionStep` in the trace includes `path`, `provider_arg`, `model_arg`, `role`, `role_env_model`, `role_env_provider`, `env_inspect_eval_model`, and optional `final_candidate`.
+**Evidence**: `src/inspect_agents/model.py` — `ModelResolutionStep` and `ModelResolutionTrace` definitions (L86–L109), `resolve_model_explain(...)` (L143–L231, L233–L389). Unit tests exercise the API and step labels in `tests/inspect_agents/test_model_resolver.py` (e.g., explicit path, role mapping, env override, vendor branches).
+**Conclusion**: Explain surface is implemented with a typed trace (enriched fields). Remaining enrichment keys like `*_source` are optional enhancements (see item 4 below).
 
 </details>
 
@@ -751,11 +751,11 @@ Acceptance Criteria
 - Replace `RuntimeError` raises with `ModelResolutionError(reason=..., explain=...)`; add tests for missing API key (openai), missing model (openai), and `openai-api/<vendor>` missing vendor key.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Errors use plain `RuntimeError` with human-readable messages; no typed `ModelResolutionError` or `.explain` payload.
-**Evidence**: `src/inspect_agents/model.py` raises `RuntimeError(...)` for missing API keys/models (see provider branches around env validation). No custom exception type present; no tests assert `.explain`.
-**Conclusion**: Typed error with structured context not implemented.
+**Finding**: Errors use a typed exception `ResolveModelError` that carries `.final_step` and a full `.trace`. The public `resolve_model(...)` wrapper preserves legacy behavior by catching `ResolveModelError` and re-raising `RuntimeError` with the same message.
+**Evidence**: `src/inspect_agents/model.py` `class ResolveModelError` (L111–L117); provider branches raising `ResolveModelError` (e.g., L295–L312, L333–L349); wrapper re-raising `RuntimeError` (L415–L420).
+**Conclusion**: Typed error with structured context is implemented while maintaining backwards-compatible external exceptions from `resolve_model(...)`.
 
 </details>
 
@@ -845,11 +845,11 @@ Acceptance Criteria
 - Type stubs + mypy annotations; docs list keys and meanings.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No explain API exists; therefore no `TypedDict` or dataclass surface to type.
-**Evidence**: `src/inspect_agents/model.py` exports only string-returning `resolve_model(...)`.
-**Conclusion**: Type shape undecided pending explain API.
+**Finding**: Type shape is a pair `(str, ModelResolutionTrace)` using dataclasses, not a dict. The trace contains a list of `ModelResolutionStep` entries plus `final`.
+**Evidence**: `src/inspect_agents/model.py` `ModelResolutionTrace` (L103–L109) and `resolve_model_explain(...) -> tuple[str, ModelResolutionTrace]` (L143–L151, L147–L148 signature).
+**Conclusion**: The project chose a typed dataclass trace over a plain dict. Documentation reflects this in a dedicated how-to page.
 
 </details>
 
@@ -865,11 +865,11 @@ Acceptance Criteria
 - Deterministic pass with no network; failures report specific `path` and `*_source`.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Unit tests cover `resolve_model(...)` (roles, provider/env validation) but no explain-surface tests exist.
-**Evidence**: Tests under `tests/unit/inspect_agents/model/` import and assert `resolve_model`; no `test_model_explain.py` present.
-**Conclusion**: Coverage for explain/debug semantics is absent; needs implementation first.
+**Finding**: Dedicated offline-safe tests cover the explain surface, branch labels, sentinel handling, vendor branches, and error paths.
+**Evidence**: `tests/inspect_agents/test_model_resolver.py` asserts `trace.steps[-1].path` across scenarios and validates `ResolveModelError` carries a trace.
+**Conclusion**: Coverage is in place and deterministic (uses env monkeypatching, no network).
 
 </details>
 
@@ -889,11 +889,11 @@ Acceptance Criteria
 - New how-to exists; examples updated; cross-links present from the reference page.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Only a brief note exists in the Environment reference; no dedicated how-to or example for model-resolution debugging.
-**Evidence**: `docs/reference/environment.md` mentions providers/models; no `docs/how-to/*model*resolution*` page exists; examples lack a debug-focused snippet.
-**Conclusion**: Documentation additions pending.
+**Finding**: A dedicated how-to documents the explain API with examples; the symbols are also exported from the package root for discoverability.
+**Evidence**: `docs/how-to/model_resolver_explain.md` (API, examples); exports in `src/inspect_agents/__init__.py` include `resolve_model_explain`, `ResolveModelError`, and trace types.
+**Conclusion**: Documentation for model-resolution debugging is present; cross-links can be expanded later as needed.
 
 </details>
 
