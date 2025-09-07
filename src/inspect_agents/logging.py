@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,8 @@ def _redact(obj: Any, key: str | None = None) -> Any:
         return {k: _redact(v, k) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_redact(v, key) for v in obj]
+    if isinstance(obj, datetime):
+        return obj.isoformat()
     if key in REDACT_KEYS:
         try:
             if isinstance(obj, str) and obj:
