@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "generated": {
+    "doc_marker_start": "BEGIN GENERATED: ENV_REFERENCE",
+    "doc_marker_end": "END GENERATED: ENV_REFERENCE",
+    "doc_tpl_marker_start": "BEGIN GENERATED: ENV_TEMPLATE",
+    "doc_tpl_marker_end": "END GENERATED: ENV_TEMPLATE",
+    "template_marker_start": "BEGIN GENERATED: COMMON_ENV",
+    "template_marker_end": "END GENERATED: COMMON_ENV"
+  },
+  "envs": [
+    {
+      "name": "DEEPAGENTS_MODEL_PROVIDER",
+      "category": "Providers & Models",
+      "type": "string",
+      "default": "ollama",
+      "sensitive": false,
+      "description": "Model provider when model lacks explicit prefix (e.g., ollama, lm-studio, openai)."
+    },
+    {
+      "name": "INSPECT_EVAL_MODEL",
+      "category": "Providers & Models",
+      "type": "string",
+      "default": "",
+      "sensitive": false,
+      "description": "Explicit Inspect model id (may include provider prefix)."
+    },
+    {
+      "name": "INSPECT_ENABLE_THINK",
+      "category": "Tool Toggles",
+      "type": "bool",
+      "default": "on-when-unset",
+      "sensitive": false,
+      "description": "Enable think() helper (lightweight; defaults to on when unset)."
+    },
+    {
+      "name": "INSPECT_ENABLE_WEB_SEARCH",
+      "category": "Tool Toggles",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Enable web_search() tool (requires Tavily or Google CSE keys)."
+    },
+    {
+      "name": "INSPECT_ENABLE_EXEC",
+      "category": "Tool Toggles",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Enable bash() and python() tools (requires sandbox)."
+    },
+    {
+      "name": "INSPECT_ENABLE_WEB_BROWSER",
+      "category": "Tool Toggles",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Enable web_browser() tools (requires sandbox + Playwright)."
+    },
+    {
+      "name": "INSPECT_ENABLE_TEXT_EDITOR_TOOL",
+      "category": "Tool Toggles",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Expose text_editor() tool directly (FS tools already route to it in sandbox)."
+    },
+    {
+      "name": "INSPECT_WEB_SEARCH_INTERNAL",
+      "category": "Tool Toggles",
+      "type": "string",
+      "default": "",
+      "sensitive": false,
+      "description": "Prefer internal provider for web search augmentation (e.g., openai, anthropic)."
+    },
+    {
+      "name": "INSPECT_AGENTS_FS_MODE",
+      "category": "Filesystem & Sandbox",
+      "type": "string",
+      "default": "store",
+      "sensitive": false,
+      "description": "Filesystem mode: store (in‑memory) | sandbox (host‑routed)."
+    },
+    {
+      "name": "INSPECT_AGENTS_FS_READ_ONLY",
+      "category": "Filesystem & Sandbox",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Sandbox read‑only mode: block write/edit/delete; allow ls/read."
+    },
+    {
+      "name": "INSPECT_SANDBOX_PREFLIGHT",
+      "category": "Filesystem & Sandbox",
+      "type": "string",
+      "default": "auto",
+      "sensitive": false,
+      "description": "Sandbox preflight mode: auto | skip | force."
+    },
+    {
+      "name": "INSPECT_SANDBOX_PREFLIGHT_TTL_SEC",
+      "category": "Filesystem & Sandbox",
+      "type": "int",
+      "default": 300,
+      "sensitive": false,
+      "description": "Preflight result cache TTL seconds."
+    },
+    {
+      "name": "INSPECT_SANDBOX_LOG_PATHS",
+      "category": "Filesystem & Sandbox",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Log fs_root/tool context in sandbox preflight warnings."
+    },
+    {
+      "name": "INSPECT_AGENTS_FS_ROOT",
+      "category": "Filesystem & Sandbox",
+      "type": "path",
+      "default": "/repo",
+      "sensitive": false,
+      "description": "Absolute root for sandbox confinement."
+    },
+    {
+      "name": "INSPECT_AGENTS_FS_MAX_BYTES",
+      "category": "Filesystem & Sandbox",
+      "type": "int",
+      "default": 5000000,
+      "sensitive": false,
+      "description": "Maximum per‑file byte ceiling (OOM guard)."
+    },
+    {
+      "name": "INSPECT_AGENTS_TOOL_TIMEOUT",
+      "category": "Filesystem & Sandbox",
+      "type": "int",
+      "default": 15,
+      "sensitive": false,
+      "description": "Default per‑tool timeout (seconds)."
+    },
+    {
+      "name": "INSPECT_AGENTS_TYPED_RESULTS",
+      "category": "Filesystem & Sandbox",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Return typed tool result models instead of plain strings/lists."
+    },
+    {
+      "name": "INSPECT_RETRY_DISABLE_TENACITY",
+      "category": "Retries & Backoff",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Bypass Tenacity; use fallback retry loop."
+    },
+    {
+      "name": "INSPECT_RETRY_MAX_ATTEMPTS",
+      "category": "Retries & Backoff",
+      "type": "int",
+      "default": 6,
+      "sensitive": false,
+      "description": "Max attempts including first call."
+    },
+    {
+      "name": "INSPECT_RETRY_INITIAL_SECONDS",
+      "category": "Retries & Backoff",
+      "type": "float",
+      "default": 1.0,
+      "sensitive": false,
+      "description": "Initial backoff seconds."
+    },
+    {
+      "name": "INSPECT_RETRY_MAX_SECONDS",
+      "category": "Retries & Backoff",
+      "type": "float",
+      "default": 60.0,
+      "sensitive": false,
+      "description": "Max backoff seconds."
+    },
+    {
+      "name": "INSPECT_RETRY_JITTER",
+      "category": "Retries & Backoff",
+      "type": "float",
+      "default": 0.0,
+      "sensitive": false,
+      "description": "Optional jitter seconds (>0 to enable)."
+    },
+    {
+      "name": "INSPECT_APPROVAL_PRESET",
+      "category": "Approvals & Policies",
+      "type": "enum",
+      "default": "",
+      "sensitive": false,
+      "description": "Approvals preset: ci | dev | prod (optional)."
+    },
+    {
+      "name": "INSPECT_LOG_DIR",
+      "category": "Observability",
+      "type": "path",
+      "default": ".inspect/logs",
+      "sensitive": false,
+      "description": "Transcript/log output directory."
+    },
+    {
+      "name": "INSPECT_TRACE_FILE",
+      "category": "Observability",
+      "type": "path",
+      "default": "",
+      "sensitive": false,
+      "description": "Optional trace file path."
+    },
+    {
+      "name": "INSPECT_TOOL_OBS_TRUNCATE",
+      "category": "Observability",
+      "type": "int",
+      "default": 200,
+      "sensitive": false,
+      "description": "Max chars for string fields in tool logs."
+    },
+    {
+      "name": "INSPECT_MAX_TOOL_OUTPUT",
+      "category": "Observability",
+      "type": "int",
+      "default": 16384,
+      "sensitive": false,
+      "description": "Global tool-output cap bytes (0 disables)."
+    },
+    {
+      "name": "INSPECT_LIMIT_NEARING_THRESHOLD",
+      "category": "Observability",
+      "type": "float",
+      "default": 0.8,
+      "sensitive": false,
+      "description": "Runner near-limit threshold (0<val<1)."
+    },
+    {
+      "name": "INSPECT_MODEL_DEBUG",
+      "category": "Debug",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Enable model resolver debug logs."
+    },
+    {
+      "name": "INSPECT_PRUNE_DEBUG",
+      "category": "Debug",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Emit prune/truncation info logs in iterative loop."
+    },
+    {
+      "name": "INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN",
+      "category": "Debug",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Suppress DeprecationWarning from legacy file wrappers (CI noise)."
+    },
+    {
+      "name": "INSPECT_ITERATIVE_TIME_LIMIT",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": "",
+      "sensitive": false,
+      "description": "Real-time budget in seconds (unset disables)."
+    },
+    {
+      "name": "INSPECT_ITERATIVE_MAX_STEPS",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": "",
+      "sensitive": false,
+      "description": "Maximum reasoning/tool steps (unset disables)."
+    },
+    {
+      "name": "INSPECT_PRUNE_AFTER_MESSAGES",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": 120,
+      "sensitive": false,
+      "description": "Threshold to apply global prune."
+    },
+    {
+      "name": "INSPECT_PRUNE_KEEP_LAST",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": 40,
+      "sensitive": false,
+      "description": "Tail size to retain during pruning."
+    },
+    {
+      "name": "INSPECT_PER_MSG_TOKEN_CAP",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": 0,
+      "sensitive": false,
+      "description": "Per-message token cap (0 disables)."
+    },
+    {
+      "name": "INSPECT_TRUNCATE_LAST_K",
+      "category": "Iterative Agent",
+      "type": "int",
+      "default": 200,
+      "sensitive": false,
+      "description": "Keep last K messages during token-aware truncation."
+    },
+    {
+      "name": "INSPECT_PRODUCTIVE_TIME",
+      "category": "Iterative Agent",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Subtract provider retry wait from time budget (where supported)."
+    }
+  ]
+}
