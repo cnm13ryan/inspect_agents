@@ -141,6 +141,12 @@ plugins:
       version: 10.6.1
   - autorefs
   - redirects
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
   - mkdocstrings:
       default_handler: python
       handlers:
