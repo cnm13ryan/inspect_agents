@@ -43,10 +43,19 @@ nav:
           - Stateless vs Stateful Tools — Q&A: guides/archive/stateless-vs-stateful-tools-1.md
   - Reference:
       - Environment Variables: reference/environment.md
+      - API Reference:
+          - Approval: api/approval.md
+          - Tools: api/tools.md
+          - Iterative: api/iterative.md
+          - Run: api/run.md
+          - Filesystem: api/fs.md
+          - Observability: api/observability.md
+          - Settings: api/settings.md
       - Tools:
           - Index: tools/README.md
           - Bash: tools/bash.md
           - Files: tools/files.md
+          - Deprecations & Migrations: tools/deprecations.md
           - Read File: tools/read_file.md
           - Write File: tools/write_file.md
           - Web Browser: tools/web_browser.md
@@ -73,9 +82,7 @@ nav:
       - D0004 — Tool Output Truncation Defaults: adr/0004-tool-output-truncation.md
       - D0005 — Tool Parallelism Policy: adr/0005-tool-parallelism-policy.md
   - Docs Index: DOCS_INDEX.md
-  - Backlog:
-      - Rewrite Backlog: backlog/rewrite/README.md
-      - Todos Index: backlog/todos/README.md
+  # Backlog removed from primary nav to reduce noise; pages remain addressable via direct URL.
 
 theme:
   name: material
@@ -131,6 +138,7 @@ plugins:
   - mermaid2:
       version: 10.6.1
   - autorefs
+  - redirects
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -143,3 +151,13 @@ plugins:
             show_root_heading: true
             separate_signature: true
             members_order: alphabetical
+  # Fast, internal-only link checking; opt-in via env for CI/local
+  - htmlproofer:
+      enabled: !ENV [ENABLED_HTMLPROOFER, False]
+      validate_external_urls: False  # keep CI under 5 minutes (no network)
+      skip_downloads: True           # avoid fetching remote content
+      raise_error_after_finish: True # report all bad links, then fail
+
+# Local hook (no extra deps): removes backlog/* from search index after build
+hooks:
+  - scripts/hooks.py
