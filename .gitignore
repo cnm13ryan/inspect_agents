@@ -226,3 +226,6 @@ logs/
 # macOS
 .DS_Store
 ._*
+
+# Ignore vendored pytest deps removed from repo
+tests/.pytest-deps/
