@@ -117,6 +117,28 @@ def planner_tool():  # -> Tool
     @tool(name="planner_tool")
     def planner_tool_factory():  # -> Tool
         async def execute(prompt: str, config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+            """Deterministic exploration planner tool.
+
+            Plans a small set of diverse, site‑aware web queries for a research task,
+            then returns a JSON‑friendly plan used by the supervisor/research agent.
+
+            Args:
+              prompt (str): User research question or topic to explore.
+              config (dict | None): Optional planner overrides. Recognized keys:
+                - breadth (int): branching factor per layer.
+                - depth (int): max expansion depth (seed is depth 0).
+                - seed (int): RNG seed for deterministic shuffles.
+                - convergence_delta (float): early‑stop threshold for BFS.
+                - max_queries (int): global cap on returned items.
+                - synonym_expansion (bool): enable synonym variants.
+                - site_hints (list[str]): preferred domains (e.g., ["arxiv.org"]).
+                - tags (list[str]): extra tags appended to each query.
+
+            Returns:
+              dict: {"breadth": int, "depth": int, "queries": [
+                {"query": str, "depth": int, "tags": list[str]}
+              ]}
+            """
             # Load defaults from YAML (if available), else use code defaults
             try:
                 base = load_cfg(None)
