@@ -97,6 +97,13 @@ def main() -> int:
     ap.add_argument("--json", help="path to JSON list of {url,title,snippet,published_at}")
     ap.add_argument("--topk", type=int, default=10)
     ap.add_argument("--now", help="YYYY-MM-DD override for 'now' (UTC)")
+
+    # Weight overrides for rapid tuning
+    g = ap.add_argument_group("weights", "Override ScoringConfig component weights")
+    g.add_argument("--w-authority", dest="w_authority", type=float, help="weight for domain authority (default 0.35)")
+    g.add_argument("--w-recency", dest="w_recency", type=float, help="weight for recency (default 0.25)")
+    g.add_argument("--w-topic", dest="w_topic", type=float, help="weight for topical similarity (default 0.30)")
+    g.add_argument("--w-citation", dest="w_citation", type=float, help="weight for citation signal (default 0.10)")
     args = ap.parse_args()
 
     if args.now:
@@ -109,7 +116,13 @@ def main() -> int:
         now = datetime.now(tz=timezone.utc)
 
     results = _load_results_from_json(args.json) if args.json else _mock_results(now)
-    cfg = ScoringConfig()
+    # Build config with optional weight overrides
+    cfg_updates = {}
+    for k in ("w_authority", "w_recency", "w_topic", "w_citation"):
+        v = getattr(args, k, None)
+        if v is not None:
+            cfg_updates[k] = float(v)
+    cfg = ScoringConfig().model_copy(update=cfg_updates)
     ranked = rerank_with_scores(args.query, results, cfg, now)
 
     topk = ranked[: args.topk]
