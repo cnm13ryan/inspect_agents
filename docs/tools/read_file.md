@@ -8,6 +8,14 @@ owner: docs
 
 # read_file
 
+!!! warning "Deprecated — use files tool"
+    This wrapper is deprecated and will be removed in a future release. Use the unified [files](files.md) tool with `{ command: "read" }`.
+
+    - Migration: `read_file({file_path, offset, limit, instance})` → `files({ params: { command: "read", file_path, offset, limit, instance } })`
+    - Full guide: see [Deprecations & Migrations](deprecations.md) for a one‑page before/after table.
+    - Warnings: executing this wrapper emits a `DeprecationWarning` (visible when `PYTHONWARNINGS=default`).
+    - CI noise control: set `INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1` to suppress the warning in automated runs.
+
 ## Overview
 - Reads a file and returns cat‑style numbered lines (left‑padded line numbers plus a tab) with per‑line truncation.
 - Use to inspect code/docs with controllable line ranges.
@@ -63,7 +71,7 @@ Typed (INSPECT_AGENTS_TYPED_RESULTS=1)
 Legacy (unset/false)
 ```
      1	# Project Title
-     2	
+     2
      3	Welcome to the repo.
 ```
 

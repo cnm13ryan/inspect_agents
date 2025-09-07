@@ -8,6 +8,14 @@ owner: docs
 
 # delete_file
 
+!!! warning "Deprecated — use files tool"
+    This wrapper is deprecated and will be removed in a future release. Use the unified [files](files.md) tool with `{ command: "delete" }`.
+
+    - Migration: `delete_file({file_path, instance?})` → `files({ params: { command: "delete", file_path, instance } })`
+    - Full guide: see [Deprecations & Migrations](deprecations.md) for a one‑page before/after table.
+    - Warnings: executing this wrapper emits a `DeprecationWarning` (visible when `PYTHONWARNINGS=default`).
+    - CI noise control: set `INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1` to suppress the warning in automated runs.
+
 ## Overview
 - Deletes a file from the in‑memory `Files` store. Not supported in sandbox mode for safety.
 - Classification: stateless.

@@ -8,6 +8,15 @@ owner: docs
 
 # edit_file
 
+!!! warning "Deprecated — use files tool"
+    This wrapper is deprecated and will be removed in a future release. Use the unified [files](files.md) tool with `{ command: "edit" }`.
+
+    - Migration: `edit_file({file_path, old_string, new_string, replace_all, expected_count?, dry_run?, instance?})`
+      → `files({ params: { command: "edit", file_path, old_string, new_string, replace_all, expected_count, dry_run, instance } })`
+    - Full guide: see [Deprecations & Migrations](deprecations.md) for a one‑page before/after table.
+    - Warnings: executing this wrapper emits a `DeprecationWarning` (visible when `PYTHONWARNINGS=default`).
+    - CI noise control: set `INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=1` to suppress the warning in automated runs.
+
 ## Overview
 - Performs a single‑string replace (first occurrence by default; or all with a flag) and writes the result back.
 - Use for targeted, atomic edits.
