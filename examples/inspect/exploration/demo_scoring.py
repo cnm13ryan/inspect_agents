@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any
 import sys
 from pathlib import Path
+import csv
 
 # Ensure repo root on path so we can import examples.* when invoked as a script
 ROOT = Path(__file__).resolve().parents[3]
@@ -97,6 +98,7 @@ def main() -> int:
     ap.add_argument("--json", help="path to JSON list of {url,title,snippet,published_at}")
     ap.add_argument("--topk", type=int, default=10)
     ap.add_argument("--now", help="YYYY-MM-DD override for 'now' (UTC)")
+    ap.add_argument("--output", choices=["json", "csv", "tsv"], default="json", help="output format (default: json)")
 
     # Weight overrides for rapid tuning
     g = ap.add_argument_group("weights", "Override ScoringConfig component weights")
@@ -126,17 +128,50 @@ def main() -> int:
     ranked = rerank_with_scores(args.query, results, cfg, now)
 
     topk = ranked[: args.topk]
-    payload = [
-        {
-            "rank": i + 1,
-            "url": r.result.url,
-            "title": r.result.title,
-            "score": round(r.score, 6),
-            "components": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in r.components.items()},
-        }
-        for i, r in enumerate(topk)
-    ]
-    print(json.dumps(payload, indent=2))
+    if args.output == "json":
+        payload = [
+            {
+                "rank": i + 1,
+                "url": r.result.url,
+                "title": r.result.title,
+                "score": round(r.score, 6),
+                "components": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in r.components.items()},
+            }
+            for i, r in enumerate(topk)
+        ]
+        print(json.dumps(payload, indent=2))
+    else:
+        # Flatten to tabular rows for spreadsheet analysis
+        headers = [
+            "rank",
+            "url",
+            "title",
+            "score",
+            "authority",
+            "recency",
+            "topic",
+            "citation",
+            "weighted_sum",
+            "duplicate_penalty",
+        ]
+        delim = "," if args.output == "csv" else "\t"
+        writer = csv.writer(sys.stdout, delimiter=delim, lineterminator="\n")
+        writer.writerow(headers)
+        for i, r in enumerate(topk):
+            comps = r.components
+            row = [
+                i + 1,
+                r.result.url,
+                r.result.title,
+                round(float(r.score), 6),
+                round(float(comps.get("authority", 0.0)), 6),
+                round(float(comps.get("recency", 0.0)), 6),
+                round(float(comps.get("topic", 0.0)), 6),
+                round(float(comps.get("citation", 0.0)), 6),
+                round(float(comps.get("weighted_sum", 0.0)), 6),
+                round(float(comps.get("duplicate_penalty", 0.0)), 6),
+            ]
+            writer.writerow(row)
     return 0
 
 
