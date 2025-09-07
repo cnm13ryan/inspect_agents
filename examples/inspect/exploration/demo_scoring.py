@@ -15,19 +15,19 @@ Optionally supply JSON input with a list of results:
 from __future__ import annotations
 
 import argparse
-import json
-from datetime import datetime, timezone
-from typing import Any
-import sys
-from pathlib import Path
 import csv
+import json
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 # Ensure repo root on path so we can import examples.* when invoked as a script
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from examples.inspect.exploration.scoring import (
+# Import after path modification to avoid E402
+from examples.inspect.exploration.scoring import (  # noqa: E402
     Result,
     ScoringConfig,
     rerank_with_scores,
@@ -41,14 +41,14 @@ def _parse_dt(val: str | None) -> datetime | None:
         # Accept YYYY-MM-DD or full ISO; assume naive is UTC
         dt = datetime.fromisoformat(val)
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
     except Exception:
         return None
 
 
 def _load_results_from_json(path: str) -> list[Result]:
-    data = json.loads(open(path, "r", encoding="utf-8").read())
+    data = json.loads(open(path, encoding="utf-8").read())
     out: list[Result] = []
     for item in data:
         out.append(
@@ -69,19 +69,19 @@ def _mock_results(now: datetime) -> list[Result]:
             url="http://randomblog.net/mars",
             title="Thoughts on Mars",
             snippet="a personal blog post",
-            published_at=now.replace(tzinfo=timezone.utc) if now.tzinfo else now,
+            published_at=now.replace(tzinfo=UTC) if now.tzinfo else now,
         ),
         Result(
             url="https://www.nasa.gov/news",
             title="New NASA study on Mars",
             snippet="details (doi:10.1234/5678)",
-            published_at=(now.replace(tzinfo=timezone.utc) if now.tzinfo else now),
+            published_at=(now.replace(tzinfo=UTC) if now.tzinfo else now),
         ),
         Result(
             url="https://arxiv.org/abs/2405.01234",
             title="Learning for Mars Rovers",
             snippet="ArXiv:2405.01234 shows results",
-            published_at=(now.replace(tzinfo=timezone.utc) if now.tzinfo else now),
+            published_at=(now.replace(tzinfo=UTC) if now.tzinfo else now),
         ),
         Result(
             url="https://cs.stanford.edu/mars",
@@ -111,11 +111,11 @@ def main() -> int:
     if args.now:
         now = datetime.fromisoformat(args.now)
         if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
+            now = now.replace(tzinfo=UTC)
         else:
-            now = now.astimezone(timezone.utc)
+            now = now.astimezone(UTC)
     else:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     results = _load_results_from_json(args.json) if args.json else _mock_results(now)
     # Build config with optional weight overrides

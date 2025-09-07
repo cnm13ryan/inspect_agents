@@ -30,7 +30,7 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple, Optional
+from typing import Any
 
 from inspect_agents.agents import build_subagents, build_supervisor
 from inspect_agents.approval import approval_preset
@@ -64,7 +64,9 @@ except Exception:  # pragma: no cover - fallback for file-based import
     planner_tool = getattr(_mod, "planner_tool")
 
 
-def _load_exploration_config(path: str | None) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+def _load_exploration_config(
+    path: str | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """Load optional exploration YAML.
 
     Returns a tuple: (policy, scoring, supervisor) where each element is a
@@ -93,9 +95,11 @@ def _load_exploration_config(path: str | None) -> Tuple[Optional[Dict[str, Any]]
             non_nested = {k: v for k, v in data.items() if k not in {"scoring", "supervisor"}}
             policy = non_nested or None
 
-        return (dict(policy) if policy else None,
-                dict(scoring) if scoring else None,
-                dict(supervisor) if supervisor else None)
+        return (
+            dict(policy) if policy else None,
+            dict(scoring) if scoring else None,
+            dict(supervisor) if supervisor else None,
+        )
     except Exception:
         return None, None, None
 
@@ -107,15 +111,10 @@ def _load_planner_config(path: str | None) -> dict[str, Any] | None:
 
 
 def _supervisor_prompt(planner_cfg: dict[str, Any] | None, *, override_text: str | None = None) -> str:
-    cfg_text = (
-        "\nPlanner config (JSON):\n" + json.dumps(planner_cfg, ensure_ascii=False)
-        if planner_cfg
-        else ""
-    )
+    cfg_text = "\nPlanner config (JSON):\n" + json.dumps(planner_cfg, ensure_ascii=False) if planner_cfg else ""
     preface = (override_text + "\n\n") if override_text else ""
     return (
-        preface
-        + "You are the orchestrator of a small research workflow.\n\n"
+        preface + "You are the orchestrator of a small research workflow.\n\n"
         "Goal\n"
         "- Generate a plan via planner_tool, write it to plan.json.\n"
         "- Write the user's question verbatim to question.txt.\n"
@@ -124,14 +123,14 @@ def _supervisor_prompt(planner_cfg: dict[str, Any] | None, *, override_text: str
         "Instructions\n"
         "1) Call planner_tool with prompt=<user input>. If a planner config is provided below, pass it as the 'config' argument.\n"
         "   - If planner_tool errors or returns invalid output, immediately write a minimal fallback plan to plan.json:\n"
-        "     {\"queries\": [{\"query\": <user input>, \"depth\": 1, \"tags\": [\"seed\"]}], \"breadth\": 1, \"depth\": 1}.\n"
+        '     {"queries": [{"query": <user input>, "depth": 1, "tags": ["seed"]}], "breadth": 1, "depth": 1}.\n'
         "2) Save the plan JSON to plan.json using write_file (even for fallback).\n"
         "3) Save the input question to question.txt using write_file.\n"
         "4) Handoff to research-agent (transfer_to_research-agent).\n"
         "5) After it finishes, handoff to critique-agent (transfer_to_critique-agent).\n"
-        "Important: Use one tool call at a time; avoid parallel tool invocations.\n"
-        + cfg_text
+        "Important: Use one tool call at a time; avoid parallel tool invocations.\n" + cfg_text
     )
+
 
 def _research_prompt(override_text: str | None = None) -> str:
     if override_text:
@@ -166,8 +165,8 @@ def build_runner_agent(
     planner_cfg: dict[str, Any] | None,
     attempts: int,
     model: Any | None,
-    supervisor_prompts: Optional[Dict[str, str]] = None,
-    scoring_cfg: Optional[Dict[str, Any]] = None,
+    supervisor_prompts: dict[str, str] | None = None,
+    scoring_cfg: dict[str, Any] | None = None,
 ):
     """Construct supervisor + sub-agents and return an Inspect agent.
 
@@ -183,9 +182,7 @@ def build_runner_agent(
     sub_configs = [
         {
             "name": "research-agent",
-            "description": (
-                "Used to research more in-depth questions. Only give this researcher one topic at a time."
-            ),
+            "description": ("Used to research more in-depth questions. Only give this researcher one topic at a time."),
             "prompt": _research_prompt((supervisor_prompts or {}).get("research")),
             "tools": ["web_search", "read_file", "write_file", "ls"],
             "mode": "handoff",

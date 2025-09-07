@@ -2,20 +2,23 @@ from __future__ import annotations
 
 import random
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable, List, Sequence
+from datetime import UTC, datetime
 
 try:
     # Prefer pydantic BaseModel when available in this repo (it is used broadly)
     from pydantic import BaseModel, Field
 except Exception:  # pragma: no cover - fallback to light shim if pydantic missing
+
     @dataclass
     class _ShimModel:  # type: ignore
         pass
 
     BaseModel = _ShimModel  # type: ignore
-    Field = lambda default=None, **_: default  # type: ignore
+
+    def Field(default=None, **_):  # noqa: N802
+        return default  # type: ignore
 
 
 class ExplorationConfig(BaseModel):
@@ -195,7 +198,7 @@ def _operator_variants(prompt: str) -> list[str]:
 
 def _recency_variants(prompt: str) -> list[str]:
     # Use timezone-aware UTC now to avoid deprecation warnings
-    this_year = datetime.now(timezone.utc).year
+    this_year = datetime.now(UTC).year
     last_year = this_year - 1
     rng = f"{last_year}..{this_year}"
     return [
@@ -209,7 +212,7 @@ def _site_variants(prompt: str, sites: Sequence[str]) -> list[tuple[str, str]]:
     for site in sites:
         d = _norm_domain(site)
         out.append((f"site:{d} {prompt}", d))
-    return [( _normalize_whitespace(q), d) for q, d in out]
+    return [(_normalize_whitespace(q), d) for q, d in out]
 
 
 def generate_seed_queries(prompt: str, cfg: ExplorationConfig) -> list[QuerySpec]:
@@ -225,16 +228,12 @@ def generate_seed_queries(prompt: str, cfg: ExplorationConfig) -> list[QuerySpec
     base = _normalize_whitespace(prompt)
     cls = classify_prompt(base)
 
-    candidates: list[QuerySpec] = [
-        QuerySpec(query=base, depth=0, tags=["seed", cls], target_domains=[])
-    ]
+    candidates: list[QuerySpec] = [QuerySpec(query=base, depth=0, tags=["seed", cls], target_domains=[])]
 
     # Site hints first for diversity
     if cfg.site_hints:
         for q, d in _site_variants(base, cfg.site_hints):
-            candidates.append(
-                QuerySpec(query=q, depth=0, tags=["seed", cls, f"site:{d}"], target_domains=[d])
-            )
+            candidates.append(QuerySpec(query=q, depth=0, tags=["seed", cls, f"site:{d}"], target_domains=[d]))
 
     # Operator variants
     for v in _operator_variants(base):
@@ -279,7 +278,11 @@ def _neighbor_expansions(item: QuerySpec, cfg: ExplorationConfig, prng: random.R
 
     # Expand with operator variants
     for v in _operator_variants(base):
-        neighbors.append(QuerySpec(query=v, depth=item.depth + 1, tags=item.tags + ["op:intitle"], target_domains=item.target_domains))
+        neighbors.append(
+            QuerySpec(
+                query=v, depth=item.depth + 1, tags=item.tags + ["op:intitle"], target_domains=item.target_domains
+            )
+        )
 
     # Expand with site hints, prefer distinct domains
     domains_used = set(item.target_domains)
@@ -287,18 +290,33 @@ def _neighbor_expansions(item: QuerySpec, cfg: ExplorationConfig, prng: random.R
         for q, d in _site_variants(base, cfg.site_hints):
             if d in domains_used:
                 continue
-            neighbors.append(QuerySpec(query=q, depth=item.depth + 1, tags=item.tags + [f"site:{d}"], target_domains=list(set(item.target_domains + [d]))))
+            neighbors.append(
+                QuerySpec(
+                    query=q,
+                    depth=item.depth + 1,
+                    tags=item.tags + [f"site:{d}"],
+                    target_domains=list(set(item.target_domains + [d])),
+                )
+            )
             domains_used.add(d)
 
     # Synonyms
     if cfg.synonym_expansion:
         for v in _synonym_variants(base, prng):
-            neighbors.append(QuerySpec(query=v, depth=item.depth + 1, tags=item.tags + ["synonym"], target_domains=item.target_domains))
+            neighbors.append(
+                QuerySpec(
+                    query=v, depth=item.depth + 1, tags=item.tags + ["synonym"], target_domains=item.target_domains
+                )
+            )
 
     # Recency tweaks for fresh topics
     if cls_tag == "fresh":
         for v in _recency_variants(base):
-            neighbors.append(QuerySpec(query=v, depth=item.depth + 1, tags=item.tags + ["recency"], target_domains=item.target_domains))
+            neighbors.append(
+                QuerySpec(
+                    query=v, depth=item.depth + 1, tags=item.tags + ["recency"], target_domains=item.target_domains
+                )
+            )
 
     # Deterministic shuffle for variety
     prng.shuffle(neighbors)

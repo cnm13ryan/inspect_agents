@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 try:  # optional: prefer real YAML if available
     import yaml  # type: ignore
@@ -17,9 +17,7 @@ except Exception:  # pragma: no cover - support import-by-path in tests/REPL
     from pathlib import Path
 
     _planner_path = Path(__file__).with_name("planner.py")
-    spec = importlib.util.spec_from_file_location(
-        "examples.inspect.exploration._planner_fallback", str(_planner_path)
-    )
+    spec = importlib.util.spec_from_file_location("examples.inspect.exploration._planner_fallback", str(_planner_path))
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     assert spec and spec.loader
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
@@ -36,7 +34,7 @@ def _default_yaml_path() -> str:
 def _coerce_scalar(val: str) -> Any:
     s = val.strip()
     # strip surrounding quotes
-    if (s.startswith("\"") and s.endswith("\"")) or (s.startswith("'") and s.endswith("'")):
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
         s = s[1:-1]
     # booleans
     low = s.lower()
@@ -53,8 +51,8 @@ def _coerce_scalar(val: str) -> Any:
     return s
 
 
-def _parse_site_hints_block(lines: List[str], start_idx: int) -> tuple[List[str], int]:
-    items: List[str] = []
+def _parse_site_hints_block(lines: list[str], start_idx: int) -> tuple[list[str], int]:
+    items: list[str] = []
     i = start_idx
     # detect indent of the list items relative to the key line
     key_indent = len(lines[start_idx]) - len(lines[start_idx].lstrip())
@@ -71,12 +69,12 @@ def _parse_site_hints_block(lines: List[str], start_idx: int) -> tuple[List[str]
     return items, i - 1
 
 
-def _fallback_load(path: str) -> Dict[str, Any]:
+def _fallback_load(path: str) -> dict[str, Any]:
     """Very small YAML subset parser for our expected shape.
 
     Supports top-level keys or keys nested under `policy:` and a simple list for `site_hints`.
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         raw = f.read()
 
     keys = {
@@ -90,7 +88,7 @@ def _fallback_load(path: str) -> Dict[str, Any]:
     }
 
     lines = raw.splitlines()
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
 
     i = 0
     while i < len(lines):
@@ -99,7 +97,7 @@ def _fallback_load(path: str) -> Dict[str, Any]:
         m_inline = re.match(r"^\s*site_hints\s*:\s*\[(.*)\]\s*$", line)
         if m_inline:
             inner = m_inline.group(1).strip()
-            items: List[str] = []
+            items: list[str] = []
             if inner:
                 parts = re.split(r"\s*,\s*", inner)
                 for p in parts:
@@ -138,7 +136,7 @@ def load_exploration_config(path: str | None = None) -> ExplorationConfig:
 
     if yaml is not None:  # type: ignore[truthy-function]
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 doc = yaml.safe_load(f)  # type: ignore[attr-defined]
             src = doc or {}
             if isinstance(src, dict) and "policy" in src and isinstance(src["policy"], dict):
@@ -146,15 +144,19 @@ def load_exploration_config(path: str | None = None) -> ExplorationConfig:
             if not isinstance(src, dict):
                 src = {}
             # Filter only known fields
-            fields = {k: src.get(k) for k in (
-                "breadth",
-                "depth",
-                "seed",
-                "convergence_delta",
-                "max_queries",
-                "synonym_expansion",
-                "site_hints",
-            ) if k in src}
+            fields = {
+                k: src.get(k)
+                for k in (
+                    "breadth",
+                    "depth",
+                    "seed",
+                    "convergence_delta",
+                    "max_queries",
+                    "synonym_expansion",
+                    "site_hints",
+                )
+                if k in src
+            }
             return ExplorationConfig(**fields)
         except Exception:
             # Fall back to minimal parser
