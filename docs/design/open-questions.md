@@ -160,7 +160,7 @@ Decision Needed
 <summary>⚠️ Still Open — Requires Decision</summary>
 
 **Finding**: `src/inspect_agents/tools.py` still defines `_fs_mode()` / `_use_sandbox_fs()` locally and does not import these from `fs`.
-**Evidence**: `src/inspect_agents/tools.py` shows local implementations for FS mode helpers.
+**Evidence**: See `src/inspect_agents/tools.py` `_fs_mode` and `_use_sandbox_fs` definitions at lines 73–85; no `inspect_agents.fs` import for these helpers appears elsewhere in the file.
 **Conclusion**: Migration not yet applied; proceed with Option A when ready to remove duplication.
 
 </details>
@@ -224,6 +224,15 @@ Proposed Direction
 
 Decision Needed
 - Approve doc updates in the next doc PR.
+
+<details>
+<summary>⚠️ Still Open — Requires Decision</summary>
+
+**Finding**: The core FS docs are updated, but the optional cross-link “Design Note” back to this section (mentioned in Proposed Direction) has not been added yet.
+**Evidence**: `docs/how-to/filesystem.md` and `docs/reference/environment.md` reflect consolidated FS behavior; no cross-link to this design page is present.
+**Conclusion**: Minor docs follow-up remains (add a short “Design Note” backlink). Otherwise, the documentation update is complete.
+
+</details>
 
 ---
 
