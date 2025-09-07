@@ -1,5 +1,13 @@
 import json
 import logging
+import pytest
+
+# This module duplicates coverage now provided by
+# tests/inspect_agents/test_observability_logging.py. Skip to avoid
+# double-emitting/duplicating the one-time cap-log assertions.
+pytestmark = pytest.mark.skip(
+    reason="Redundant with tests/inspect_agents/test_observability_logging.py (one-time cap log)."
+)
 
 
 def test_observability_once_log_direct_calls(caplog, monkeypatch):
@@ -36,4 +44,3 @@ def test_observability_once_log_direct_calls(caplog, monkeypatch):
     assert len(obs_events) == 1
     assert obs_events[0].get("effective_tool_output_limit") == 4096
     assert obs_events[0].get("source") == "env"
-

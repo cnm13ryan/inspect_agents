@@ -3,6 +3,14 @@ import logging
 
 import pytest
 
+# Redundant with consolidated observability cap-log tests in
+# tests/inspect_agents/test_observability_logging.py. This file exercised the
+# same semantics via tools_files; the main suite now covers one-time emission
+# and precedence. Skip to avoid duplication.
+pytestmark = pytest.mark.skip(
+    reason="Redundant with tests/inspect_agents/test_observability_logging.py (cap log via tools)."
+)
+
 
 @pytest.mark.asyncio
 async def test_effective_limit_log_with_env(caplog, monkeypatch):
