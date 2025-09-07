@@ -1,6 +1,27 @@
 repos:
+  # Python linting and formatting via Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pinned for reproducibility; update intentionally
+    rev: v0.12.12
+    hooks:
+      - id: ruff-check
+        args: ["--fix", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+
+  # Foundational text/code hygiene hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        # Preserve Markdown hard line breaks
+        args: ["--markdown-linebreak-ext=md"]
+      - id: end-of-file-fixer
+      - id: detect-private-key
+
+  # Local hooks
   - repo: local
     hooks:
+      # Guard: enforce Conventional Commit types vs allowed paths
       - id: conventional-commit-path-guard
         name: Conventional Commit Path Guard
         entry: python3 scripts/commit_guard.py
@@ -10,3 +31,20 @@ repos:
         pass_filenames: true
         types: [text]
 
+      # Block common editor backup files and macOS detritus from commits
+      - id: forbid-backup-files
+        name: Forbid backup/editor files (*.DS_Store, *~, .~*, *.un~, *.bak)
+        language: system
+        entry: bash
+        pass_filenames: false
+        stages: [pre-commit]
+        args:
+          - -c
+          - >-
+            CHANGED=$(git diff --cached --name-only --diff-filter=ACMR);
+            if [ -n "$CHANGED" ] && echo "$CHANGED" | grep -E \
+              '(^|/)\\.DS_Store$|(^|/)\\._[^/]+$|(~$)|(^|/)\\.~|(^|/)[^/]+\\.un~$|(^|/)[^/]+\\.bak$' >/dev/null; then
+              echo 'Commit blocked: backup/editor files detected:' >&2;
+              echo "$CHANGED" | grep -E '(^|/)\\.DS_Store$|(^|/)\\._[^/]+$|(~$)|(^|/)\\.~|(^|/)[^/]+\\.un~$|(^|/)[^/]+\\.bak$' >&2;
+              exit 1;
+            fi
