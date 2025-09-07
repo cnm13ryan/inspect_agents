@@ -107,6 +107,7 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.indexes
+    - navigation.path
     - toc.follow
     - toc.integrate
     - content.code.copy
