@@ -499,3 +499,16 @@ Examples
 uv run python examples/runners/supervisor_runner.py --env-file env_templates/inspect.env "..."
 export INSPECT_ENV_FILE=env_templates/inspect.env
 ```
+### CLI Flags ↔ Env Mapping
+
+Use these flags with the example Python runners; they reflect into the same env toggles used by the library.
+
+| CLI flag | Equivalent env | Notes |
+|---|---|---|
+| `--enable-think` | `INSPECT_ENABLE_THINK=1` | Lightweight helper; on by default unless explicitly set falsy. |
+| `--enable-web-search` | `INSPECT_ENABLE_WEB_SEARCH=1` | Requires provider keys (Tavily or Google CSE). |
+| `--enable-exec` | `INSPECT_ENABLE_EXEC=1` | Requires sandbox; enable only in sandbox/dev. |
+| `--enable-web-browser` | `INSPECT_ENABLE_WEB_BROWSER=1` | Heavy; requires sandbox + Playwright. |
+| `--enable-text-editor-tool` | `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` | Optional; FS tools route to the editor in sandbox mode. |
+
+Note: These flags are surfaced by the example runners (e.g., supervisor_runner.py). See the Examples README for runner-specific details.
