@@ -25,6 +25,11 @@ Tip
 - Or export: `export INSPECT_ENV_FILE=env_templates/inspect.env`
 
 
+## Conventions
+
+- Truthy booleans — unless stated otherwise, boolean flags interpret the following values as true (case-insensitive): `1`, `true`, `yes`, `on`. Unset, empty, or any other value is treated as false.
+
+
 ## Providers & Models (Role Mapping, Precedence)
 
 - `DEEPAGENTS_MODEL_PROVIDER` (default: `ollama`)
