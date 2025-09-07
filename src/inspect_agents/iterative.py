@@ -748,6 +748,23 @@ def build_iterative_agent(
                                                 },
                                             )
                                             transcript()._event(ev)
+
+                                            # Optional: also mirror the approval policy event to preserve
+                                            # operator parity when both layers are active. Gated by env.
+                                            if _truth(os.getenv("INSPECT_EXECUTOR_PRESCAN_MIRROR_POLICY")):
+                                                ev2 = ToolEvent(
+                                                    id=str(sc_id),
+                                                    function=str(sc_fn),
+                                                    arguments=dict(sc_args or {}),
+                                                    pending=False,
+                                                    error=ToolCallError("approval", "Skipped due to handoff"),
+                                                    metadata={
+                                                        "source": "policy/handoff_exclusive",
+                                                        "selected_handoff_id": sel_id,
+                                                        "skipped_function": sc_fn,
+                                                    },
+                                                )
+                                                transcript()._event(ev2)
                                         except Exception:
                                             continue
                                 except Exception:
