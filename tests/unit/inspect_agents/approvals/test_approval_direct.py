@@ -41,7 +41,29 @@ def _load_module_with_stubs(monkeypatch):
             self.view = view
             self.type = type
 
+    # Minimal error shim to match Inspect's ToolCallError shape used in transcript events.
+    # Including this ensures downstream imports in other tests (e.g., prescan emission)
+    # can construct an error object even when this stubbed module remains in sys.modules.
+    class ToolCallError:  # pragma: no cover - tiny shim
+        def __init__(self, type, message):
+            self.type = type
+            self.message = message
+
+    class ToolCallContent:  # pragma: no cover - tiny shim
+        def __init__(self, title=None, format="text", content=""):
+            self.title = title
+            self.format = format
+            self.content = content
+
+    class ToolCallView:  # pragma: no cover - tiny shim
+        def __init__(self, context=None, call=None):
+            self.context = context
+            self.call = call
+
     tool_mod.ToolCall = ToolCall
+    tool_mod.ToolCallError = ToolCallError
+    tool_mod.ToolCallContent = ToolCallContent
+    tool_mod.ToolCallView = ToolCallView
     monkeypatch.setitem(sys.modules, "inspect_ai.tool._tool_call", tool_mod)
 
     registry_mod = types.ModuleType("inspect_ai._util.registry")
