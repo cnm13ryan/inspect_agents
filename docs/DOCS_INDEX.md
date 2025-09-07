@@ -18,6 +18,7 @@ This is the entry point for the Inspect Agents documentation. It organizes all e
 
 ## Reference
 - Environment Variables: `./reference/environment.md`
+  - Environment & Limits — Effective Tool‑Output Cap: `./reference/environment.md#environment--limits--effective-tool-output-cap`
 - Tools Reference Index: `./tools/README.md`
 
 ## Design Notes
