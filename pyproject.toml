@@ -77,6 +77,9 @@ docs = [
     "mkdocs-autorefs>=1.0",
     "mkdocs-redirects>=1.2.1",
     "mkdocs-exclude-search>=0.6.5",
+    "mkdocs-minify-plugin",
+    # Git last updated dates
+    "mkdocs-git-revision-date-localized-plugin",
     # Optional link checker for CI (not wired here yet)
     "mkdocs-htmlproofer-plugin>=1.2.0",
     # API documentation
