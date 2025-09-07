@@ -223,6 +223,8 @@ export INSPECT_DISABLE_TOOL_PARALLEL=1   # allow only the first non‑handoff to
   `ToolException("SandboxReadOnly")` and emits a `tool_event` with
   `phase="error"` and `error="SandboxReadOnly"`. Listing and reading remain
   allowed. Has no effect in `store` mode.
+- `INSPECT_AGENTS_FS_ROOT` — absolute root path for sandbox confinement (default `/repo`). Must be an absolute path; non‑absolute values are converted to absolute.
+- `INSPECT_AGENTS_FS_MAX_BYTES` — maximum allowed file size in bytes for read/write/edit operations (default `5_000_000`).
 
 See also
 - Design discussion and pending decisions: ../design/open-questions.md#filesystem-sandbox-%E2%80%94-read-only-mode-new
@@ -240,6 +242,8 @@ export INSPECT_SANDBOX_PREFLIGHT=auto
 export INSPECT_SANDBOX_PREFLIGHT_TTL_SEC=300
 export INSPECT_SANDBOX_LOG_PATHS=1
 export INSPECT_AGENTS_FS_READ_ONLY=1   # block write/edit/delete; allow ls/read
+export INSPECT_AGENTS_FS_ROOT=/repo    # absolute path for sandbox confinement
+export INSPECT_AGENTS_FS_MAX_BYTES=5000000  # per‑file byte ceiling
 export INSPECT_AGENTS_TOOL_TIMEOUT=20
 export INSPECT_AGENTS_TYPED_RESULTS=1
 ```
