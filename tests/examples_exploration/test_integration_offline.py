@@ -21,14 +21,16 @@ def _load_planner_tool() -> object:
 
 
 def _load_tools() -> object:
+    # Import the installed package-style module so relative imports resolve
+    import sys
+
     repo_root = Path(__file__).resolve().parents[2]
-    mod_path = repo_root / "src" / "inspect_agents" / "tools.py"
-    assert mod_path.exists(), f"Missing module at {mod_path}"
-    spec = spec_from_file_location("inspect_agents_tools", str(mod_path))
-    assert spec and spec.loader
-    mod = module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[arg-type]
-    return mod
+    src_dir = str(repo_root / "src")
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+    import inspect_agents.tools as tools  # type: ignore
+
+    return tools
 
 
 @pytest.mark.asyncio
