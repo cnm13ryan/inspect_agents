@@ -80,12 +80,12 @@ Note on status:
 - [Tests — Edge Cases Coverage](./todo_tests_side_effect_helper_extensions.md)
 
 ### Providers & Models — Resolver Diagnostics
-- [Implement `resolve_model_explain(...)`](./todo_feature_model_resolver_explain_api.md)
-- [Typed Error with `.explain`](./todo_feature_model_resolver_error_type.md)
+- [Implement `resolve_model_explain(...)`](./todo_feature_model_resolver_explain_api.md) — DONE.
+- [Typed Error with `.explain`](./todo_feature_model_resolver_error_type.md) — DONE.
 - [Stabilize `path` Labels Contract](./todo_api_model_resolver_path_labels_contract.md)
 - [Explicit Sentinel Handling for `INSPECT_EVAL_MODEL=none/none`](./todo_feature_model_resolver_env_sentinel_none_none.md)
-- [Tests — Explain/Precedence Coverage](./todo_tests_model_explain_coverage.md)
-- [Docs — Debugging Model Resolution How‑To](./todo_docs_model_resolution_debugging_howto.md)
+- [Tests — Explain/Precedence Coverage](./todo_tests_model_explain_coverage.md) — DONE.
+- [Docs — Debugging Model Resolution How‑To](./todo_docs_model_resolution_debugging_howto.md) — DONE (see `docs/how-to/model_resolver_explain.md`).
 
 ### Settings & Env Centralization
 - [Iterative Helpers — Wrap `settings.int_env`](./todo_settings_iterative_wrappers.md)
