@@ -7,8 +7,16 @@ from pathlib import Path
 import pytest
 
 
+def _repo_root() -> Path:
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if (parent / "examples").exists() and (parent / "pyproject.toml").exists():
+            return parent
+    return p.parents[-1]
+
+
 def _load_planner_module() -> object:
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = _repo_root()
     mod_path = repo_root / "examples" / "inspect" / "exploration" / "planner_tool.py"
     assert mod_path.exists(), f"Missing module at {mod_path}"
     spec = spec_from_file_location("planner_tool_for_persist", str(mod_path))
