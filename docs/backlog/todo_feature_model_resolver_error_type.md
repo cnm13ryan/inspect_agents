@@ -14,3 +14,10 @@
 ## Success Criteria
 - Typed errors emitted with structured context; tests pass.
 
+## Status
+- DONE (2025-09-07)
+- Implemented `ResolveModelError` carrying `.trace` and `.final_step`; `resolve_model(...)` continues to raise `RuntimeError` for backward compatibility while `resolve_model_explain(...)` raises `ResolveModelError`.
+- References:
+  - Code: `src/inspect_agents/model.py`
+  - Tests: `tests/inspect_agents/test_model_resolver.py`
+  - Docs: `docs/how-to/model_resolver_explain.md`
