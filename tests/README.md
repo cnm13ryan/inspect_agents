@@ -6,4 +6,3 @@ This is a short index for testing documentation. For the complete guides, see:
 - Relative link: [docs/README.md](docs/README.md)
 
 In pytest output, the session header prints: `guides: tests/docs/README.md`.
-

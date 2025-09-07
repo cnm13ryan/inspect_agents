@@ -26,13 +26,13 @@ Provide role-based model selection (e.g., researcher, coder, editor, grader) wit
 
 ## Trade‑offs
 - Fixed role set vs. dynamic roles
-  - Fixed: predictability, typo detection; but less flexible. 
+  - Fixed: predictability, typo detection; but less flexible.
   - Dynamic (chosen): accepts any role; relies on env to opt-in mapping. Mitigation: document a recommended set and add optional strict mode later if needed.
 - Single env vs. split provider+model
-  - Single full path: simplest mental model; copy/paste friendly. 
+  - Single full path: simplest mental model; copy/paste friendly.
   - Split: enables shared provider with per-role tags. Chosen: support both; precedence to full path.
 - Repo defaults vs. pass‑through
-  - Opinionated defaults: faster out‑of‑box; might surprise and carry maintenance cost. 
+  - Opinionated defaults: faster out‑of‑box; might surprise and carry maintenance cost.
   - Pass‑through (chosen): safer; lets Inspect-native role routing work when present.
 - Global `INSPECT_EVAL_MODEL` vs. role mapping precedence
   - Role mapping (chosen) overrides global; prevents a global from clobbering role-specific intent.

@@ -47,10 +47,10 @@ This folder contains small utilities to help work with Inspect‑AI logs, docs, 
   ```bash
   # Analyze newest eval
   uv run python scripts/read_log_eval.py
-  
+
   # List recent logs
   uv run python scripts/read_log_eval.py --list
-  
+
   # Analyze a specific file (relative to INSPECT_LOG_DIR or absolute)
   uv run python scripts/read_log_eval.py --file 2025-09-04T14-05-28+01-00_iterative-task.eval
   ```
@@ -97,7 +97,7 @@ This folder contains small utilities to help work with Inspect‑AI logs, docs, 
   ```bash
   # Check only (prints diffs if any)
   uv run python scripts/sweep_status.py
-  
+
   # Apply changes in place
   uv run python scripts/sweep_status.py --write
   ```

@@ -31,4 +31,3 @@
 - [ ] Augment envelope string with counts line.
 - [ ] Add integration test asserting counts line and payload length.
 - [ ] Run `pytest -q -k truncation` and ensure green.
-

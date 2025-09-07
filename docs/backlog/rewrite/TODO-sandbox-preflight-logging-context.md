@@ -23,4 +23,3 @@
 - With env disabled/default: warning unchanged (minimal fields).
 - With `INSPECT_SANDBOX_LOG_PATHS=1`: includes additional fields; appears once per process.
 - Tests (new): capture logs with `caplog` and assert presence/absence of fields under both settings.
-

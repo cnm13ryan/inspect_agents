@@ -37,4 +37,3 @@
 - [ ] Update inline docs for the field.
 - [ ] Add/adjust test to assert default limit applies with no explicit max.
 - [ ] Run `pytest -q -k truncation` and ensure green.
-

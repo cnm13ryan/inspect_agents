@@ -13,4 +13,3 @@
 
 ## Success Criteria
 - Explicit, testable handling of the sentinel value.
-

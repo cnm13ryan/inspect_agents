@@ -70,4 +70,3 @@ Themes
 How to Update This File
 - Treat STATUS.md as a convenience index; authoritative details live in the docs/backlog items and tests.
 - When a theme’s last blocking item lands (code + tests/docs), flip its status here in the same PR.
-

@@ -32,4 +32,3 @@ Status: Planned • Owner: TBA • Priority: Medium
 - [ ] Import `os` and parse truthy env var `INSPECT_DISABLE_TOOL_PARALLEL` in `disable_parallel_tools(...)`.
 - [ ] Return True if flag is set (short‑circuit), else fall back to existing per‑tool checks.
 - [ ] Add/adjust tests to exercise the flag path.
-

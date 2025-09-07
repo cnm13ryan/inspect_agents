@@ -32,4 +32,3 @@ Notes
 
 Troubleshooting
 - If you run without `uv sync`/install, the script adds `<repo>/src` and `<repo>/external/inspect_ai/src` to `sys.path` automatically so imports succeed when invoked with `uv run python ...`.
-

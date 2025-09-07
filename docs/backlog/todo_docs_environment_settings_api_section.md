@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Section present; examples reference `settings.*` helpers where appropriate.
-

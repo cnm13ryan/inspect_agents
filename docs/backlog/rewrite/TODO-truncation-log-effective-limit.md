@@ -30,4 +30,3 @@
 - [ ] Determine `source` and emit one-time log within `truncate_tool_output`.
 - [ ] (Optional) Add a log-capture test to assert single emission.
 - [ ] Verify logs appear once under `pytest -q -k truncation` when truncation occurs.
-

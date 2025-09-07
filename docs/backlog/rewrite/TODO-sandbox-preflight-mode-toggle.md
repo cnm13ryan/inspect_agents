@@ -31,4 +31,3 @@
   - `force`: first sandbox call raises `PrerequisiteError` when unavailable; with in-process stubs, calls succeed.
 - Tests (new): focused unit tests validating each mode using existing stubbing pattern (see tests prompt). Must run offline.
 - Performance: after initial branch decision, no added awaits on hot paths; logs emitted once per process.
-

@@ -36,4 +36,3 @@ Implementation Notes
 Rollout
 - Document default and override precedence in user guides.
 - Optional: add a startup log line indicating effective `max_tool_output` and its source (arg/config/env/default) for easier debugging.
-

@@ -14,4 +14,3 @@
 ## Success Criteria
 - No remaining local FS helpers in `tools.py`.
 - `standard_tools()` continues to filter `bash_session` and gate `text_editor()` behind sandbox.
-

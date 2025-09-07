@@ -17,4 +17,3 @@
 
 ## Success Criteria
 - Tests pass; logs optionally show debug lines when `INSPECT_PRUNE_DEBUG` set.
-

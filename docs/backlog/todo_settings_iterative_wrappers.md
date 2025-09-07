@@ -12,4 +12,3 @@
 
 ## Success Criteria
 - Delegation in place; behavior unchanged for disabled/empty values.
-

@@ -27,7 +27,7 @@ owner: docs
 ## Examples
 ```
 # Minimal strings are coerced to TodoItem with pending status
-write_todos(todos=["Draft web_search prompts", "Prep bash compile command"]) 
+write_todos(todos=["Draft web_search prompts", "Prep bash compile command"])
 
 # Structured items with explicit statuses
 write_todos(todos=[

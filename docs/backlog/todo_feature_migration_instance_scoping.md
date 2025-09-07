@@ -13,4 +13,3 @@
 
 ## Success Criteria
 - Optional per‑agent instance scoping supported with tests.
-

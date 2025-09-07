@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Table present near the top; avoids duplication drift with `--help`.
-

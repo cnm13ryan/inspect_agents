@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Example command present under Tool‑Output Truncation section.
-

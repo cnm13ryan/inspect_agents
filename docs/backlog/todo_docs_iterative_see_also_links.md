@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Concise links present at the bottom of the page.
-

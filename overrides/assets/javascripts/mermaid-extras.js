@@ -28,7 +28,7 @@ function whenReady(fn) {
 
 whenReady(function() {
   console.log('📄 Page ready, waiting for diagrams...');
-  
+
   // Give mermaid time to render, then initialize
   setTimeout(function() {
     initializeMermaidExtras();
@@ -47,43 +47,43 @@ function waitForSvgPanZoom(callback, attempts = 0) {
 
 function initializeMermaidExtras() {
   console.log('🔧 Starting Mermaid extras initialization...');
-  
+
   // Find all mermaid diagrams
   const diagrams = document.querySelectorAll('.mermaid');
   console.log(`📊 Found ${diagrams.length} .mermaid elements`);
-  
+
   if (diagrams.length === 0) {
     // Try again in a bit
     setTimeout(initializeMermaidExtras, 1000);
     return;
   }
-  
+
   // Wait for svg-pan-zoom to be available
   waitForSvgPanZoom(function() {
     console.log('✅ svg-pan-zoom library loaded');
-    
+
     diagrams.forEach((mermaidDiv, index) => {
       // Find SVG inside mermaid div
       const svg = mermaidDiv.querySelector('svg');
-      
+
       if (!svg) {
         console.log(`⚠️  Diagram ${index + 1}: No SVG found inside .mermaid`);
         return;
       }
-      
+
       // Skip if already processed
       if (mermaidDiv.dataset.panZoomInitialized === 'true') {
         console.log(`⏭️  Diagram ${index + 1}: Already initialized`);
         return;
       }
-      
+
       console.log(`🎯 Diagram ${index + 1}: Initializing...`);
-      
+
       try {
         // Ensure mermaid div is properly styled
         mermaidDiv.style.position = 'relative';
         mermaidDiv.style.overflow = 'visible';
-        
+
         // Add fullscreen button
         if (!mermaidDiv.querySelector('.mermaid-fullscreen-btn')) {
           const fullscreenBtn = document.createElement('button');
@@ -95,7 +95,7 @@ function initializeMermaidExtras() {
           };
           mermaidDiv.appendChild(fullscreenBtn);
         }
-        
+
         // Initialize pan-zoom on the SVG
         const panZoom = svgPanZoom(svg, {
           zoomEnabled: true,
@@ -112,18 +112,18 @@ function initializeMermaidExtras() {
           contain: false,
           eventsListenerElement: svg
         });
-        
+
         // Store instance
         svg._panZoom = panZoom;
         mermaidDiv.dataset.panZoomInitialized = 'true';
-        
+
         console.log(`✅ Diagram ${index + 1}: Pan-zoom initialized successfully`);
-        
+
         // Add keyboard controls
         svg.setAttribute('tabindex', '0');
         svg.addEventListener('keydown', function(e) {
           if (!panZoom) return;
-          
+
           switch(e.key.toLowerCase()) {
             case 'r':
               e.preventDefault();
@@ -150,17 +150,17 @@ function initializeMermaidExtras() {
               break;
           }
         });
-        
+
         // Click on SVG to focus it
         svg.addEventListener('click', function() {
           svg.focus();
         });
-        
+
       } catch (error) {
         console.error(`❌ Diagram ${index + 1}: Initialization failed:`, error);
       }
     });
-    
+
     // Add help text
     console.log('💡 Pan-zoom controls: Drag to pan, scroll to zoom, R to reset, F for fullscreen');
   });
@@ -170,7 +170,7 @@ function toggleFullscreen(container) {
   const isFullscreen = container.classList.contains('mermaid-fullscreen');
   const svg = container.querySelector('svg');
   const panZoom = svg ? svg._panZoom : null;
-  
+
   if (isFullscreen) {
     // Exit fullscreen
     container.classList.remove('mermaid-fullscreen');
@@ -180,7 +180,7 @@ function toggleFullscreen(container) {
     container.classList.add('mermaid-fullscreen');
     document.body.style.overflow = 'hidden';
   }
-  
+
   // Refit diagram after transition
   if (panZoom) {
     setTimeout(function() {
@@ -198,7 +198,7 @@ document.addEventListener('keydown', function(e) {
     fullscreenElements.forEach(function(el) {
       el.classList.remove('mermaid-fullscreen');
       document.body.style.overflow = '';
-      
+
       const svg = el.querySelector('svg');
       if (svg && svg._panZoom) {
         setTimeout(function() {
@@ -215,7 +215,7 @@ document.addEventListener('keydown', function(e) {
 let reinitTimeout;
 const observer = new MutationObserver(function(mutations) {
   let hasNewMermaid = false;
-  
+
   mutations.forEach(function(mutation) {
     mutation.addedNodes.forEach(function(node) {
       if (node.nodeType === 1) { // Element node
@@ -227,7 +227,7 @@ const observer = new MutationObserver(function(mutations) {
       }
     });
   });
-  
+
   if (hasNewMermaid) {
     clearTimeout(reinitTimeout);
     reinitTimeout = setTimeout(function() {

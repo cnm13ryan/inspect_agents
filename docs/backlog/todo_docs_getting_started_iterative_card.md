@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Card present; no duplicated flag tables; link back to the reference page.
-

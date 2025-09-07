@@ -25,4 +25,3 @@
   - Start with unavailable sandbox → next call marks unavailable; install stubs in `sys.modules` → call `reset_sandbox_preflight()` → subsequent call uses sandbox path.
   - Reverse direction (stubs → remove → reset) yields Store fallback.
 - No regressions in default flows; no additional hot-path cost.
-

@@ -12,4 +12,3 @@
 
 ## Success Criteria
 - Label contract documented; tests avoid brittle string comparisons.
-

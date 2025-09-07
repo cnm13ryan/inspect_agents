@@ -13,4 +13,3 @@
 
 ## Success Criteria
 - Policy‑aware behavior with tests covering deny vs timeout.
-

@@ -30,4 +30,3 @@
 - [ ] Implement new test without passing `max_output`.
 - [ ] Assert payload length is exactly `16 * 1024` bytes.
 - [ ] Run the truncation test subset and ensure green.
-

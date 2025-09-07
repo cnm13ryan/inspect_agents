@@ -15,4 +15,3 @@
 
 ## Success Criteria
 - Deterministic tests passing offline; no change to user‑visible behavior.
-
