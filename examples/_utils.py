@@ -27,6 +27,7 @@ from pathlib import Path
 __all__ = [
     "ensure_repo_src_on_path",
     "load_env_files",
+    "print_effective_tool_output_limit",
 ]
 
 
@@ -117,3 +118,18 @@ def load_env_files(example_dir: Path | None, include_template: bool = True) -> N
         if include_template:
             _load_kv_file(repo_root / "env_templates" / "inspect.env")
 
+
+def print_effective_tool_output_limit(label: str = "Tool-output cap") -> None:
+    """Print the effective tool-output limit and its source.
+
+    Uses inspect_agents.observability.get_effective_tool_output_limit(), falling
+    back silently if the helper or upstream deps are unavailable.
+    """
+    try:
+        from inspect_agents.observability import get_effective_tool_output_limit
+
+        limit, source = get_effective_tool_output_limit()
+        print(f"{label}: {limit} bytes ({source})")
+    except Exception:
+        # Best-effort only; absence should not break example runners
+        return

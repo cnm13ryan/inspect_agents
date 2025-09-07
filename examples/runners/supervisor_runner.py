@@ -106,6 +106,12 @@ async def _main() -> int:
     if args.enable_text_editor_tool:
         os.environ["INSPECT_ENABLE_TEXT_EDITOR_TOOL"] = "1"
 
+    # Debug: show effective tool-output cap once
+    try:
+        _utils.print_effective_tool_output_limit()
+    except Exception:
+        pass
+
     model_id = resolve_model(provider=args.provider, model=args.model)
     agent = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=model_id)
     result = await run_agent(agent, user_input)

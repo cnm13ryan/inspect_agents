@@ -121,6 +121,12 @@ async def _main() -> int:
         print(model_id)
         return 0
 
+    # Debug: show effective tool-output cap once
+    try:
+        _utils.print_effective_tool_output_limit()
+    except Exception:
+        pass
+
     # If a YAML config is provided, build from config; else use the inline composition
     yaml_agent = None
     yaml_approvals = []

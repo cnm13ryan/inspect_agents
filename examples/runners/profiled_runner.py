@@ -140,6 +140,10 @@ def main() -> int:
 
     # Run programmatic eval (displays console UI and writes logs under INSPECT_LOG_DIR)
     print(f"Profile: {t}.{h}.{n} | Sandbox={sandbox} | Approval={args.approval}")
+    try:
+        _utils.print_effective_tool_output_limit()
+    except Exception:
+        pass
     if h == "H2" and n == "N1":
         print("Note: Configure K8s allowDomains in your Helm values for N1.")
     if h == "H1" and n in {"N1", "N2"}:

@@ -72,6 +72,12 @@ async def _main() -> int:
         print(model_id)
         return 0
 
+    # Debug: show effective tool-output cap once
+    try:
+        _utils.print_effective_tool_output_limit()
+    except Exception:
+        pass
+
     agent = build_iterative_agent(
         prompt=(
             "You are an iterative coding agent. Work in small, verifiable steps. "
