@@ -197,16 +197,16 @@ The blocks below are generated from a single machine‑readable spec to avoid dr
     - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL_NAME` (default `local-model`),
       `LM_STUDIO_API_KEY` (placeholder token OK for local).
   - Remote providers (require API keys + model tag)
-    - `OPENAI_API_KEY`, `OPENAI_MODEL`
-    - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
-    - `GOOGLE_API_KEY`, `GOOGLE_MODEL`
-    - `GROQ_API_KEY`, `GROQ_MODEL`
-    - `MISTRAL_API_KEY`, `MISTRAL_MODEL`
-    - `PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL`
-    - `FIREWORKS_API_KEY`, `FIREWORKS_MODEL`
-    - `GROK_API_KEY`, `GROK_MODEL`
-    - `GOODFIRE_API_KEY`, `GOODFIRE_MODEL`
-    - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`
+    - `OPENAI_API_KEY` (sensitive), `OPENAI_MODEL`
+    - `ANTHROPIC_API_KEY` (sensitive), `ANTHROPIC_MODEL`
+    - `GOOGLE_API_KEY` (sensitive), `GOOGLE_MODEL`
+    - `GROQ_API_KEY` (sensitive), `GROQ_MODEL`
+    - `MISTRAL_API_KEY` (sensitive), `MISTRAL_MODEL`
+    - `PERPLEXITY_API_KEY` (sensitive), `PERPLEXITY_MODEL`
+    - `FIREWORKS_API_KEY` (sensitive), `FIREWORKS_MODEL`
+    - `GROK_API_KEY` (sensitive), `GROK_MODEL`
+    - `GOODFIRE_API_KEY` (sensitive), `GOODFIRE_MODEL`
+    - `OPENROUTER_API_KEY` (sensitive), `OPENROUTER_MODEL`
   - OpenAI‑compatible vendors via `openai-api/<vendor>` also use
     `<VENDOR>_API_KEY` and `<VENDOR>_MODEL` (e.g., `LM_STUDIO_*`).
 
@@ -247,6 +247,11 @@ export LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1
 export LM_STUDIO_MODEL_NAME=local-model
 export LM_STUDIO_API_KEY=lm-studio
 ```
+
+Security note — treat API keys as secrets
+- Never commit provider keys to source control.
+- Prefer platform secret stores and point `INSPECT_ENV_FILE` at a mounted file.
+
 
 One‑time fallback hint (local‑first)
 - When no explicit model, role mapping, or provider config is set, the resolver falls back to `ollama/<tag>` and emits a one‑time INFO log mentioning `final_fallback_ollama`. Configure one of the following to avoid implicit local fallback:
@@ -657,3 +662,79 @@ Use these flags with the example Python runners; they reflect into the same env 
 | `--enable-text-editor-tool` | `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` | Optional; FS tools route to the editor in sandbox mode. |
 
 Note: These flags are surfaced by the example runners (e.g., supervisor_runner.py). See the Examples README for runner-specific details.
+
+## Platform Appendix — Secure Injection of Environment
+
+This appendix shows minimal, working examples to inject sensitive keys safely. Adjust names/paths to your deployment.
+
+### Kubernetes (Secret mounted as file)
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: inspect-env
+type: Opaque
+stringData:
+  inspect.env: |
+    OPENAI_API_KEY=...   # sensitive
+    INSPECT_ENABLE_WEB_SEARCH=1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inspect-agents
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: your/image:tag
+          env:
+            - name: INSPECT_ENV_FILE
+              value: /etc/inspect/inspect.env
+          volumeMounts:
+            - name: inspect-env
+              mountPath: /etc/inspect
+              readOnly: true
+      volumes:
+        - name: inspect-env
+          secret:
+            secretName: inspect-env
+```
+
+Notes
+- For single keys, you may instead use `env.valueFrom.secretKeyRef` per key.
+- No global hot reload: update the Secret and restart Pods to apply changes.
+
+### Docker Compose (secrets + env-file pointer)
+
+```yaml
+version: "3.9"
+services:
+  app:
+    image: your/image:tag
+    environment:
+      INSPECT_ENV_FILE: /run/secrets/inspect_env
+    secrets:
+      - inspect_env
+secrets:
+  inspect_env:
+    file: ./secrets/inspect.env   # contains OPENAI_API_KEY=..., etc.
+```
+
+Precedence
+- Service `environment:` entries override values from `env_file`/secrets; process env at runtime overrides both.
+
+### systemd (EnvironmentFile)
+
+```ini
+[Service]
+EnvironmentFile=/etc/inspect/inspect.env
+# Optional single-key override (discouraged for secrets)
+# Environment=OPENAI_API_KEY=...
+```
+
+Usage
+- Place `/etc/inspect/inspect.env` with `0600` perms and root ownership.
+- Apply changes with: `sudo systemctl daemon-reload && sudo systemctl restart <unit>`.
