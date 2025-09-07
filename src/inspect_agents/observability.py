@@ -8,6 +8,13 @@ import os
 import time
 from typing import Any
 
+# Public exports
+__all__ = [
+    "log_tool_event",
+    "maybe_emit_effective_tool_output_limit_log",
+    "get_effective_tool_output_limit",
+]
+
 # Local defaults (env-configurable)
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
 
@@ -97,6 +104,42 @@ def maybe_emit_effective_tool_output_limit_log() -> None:
 
     # Mark as logged within this module only
     _EFFECTIVE_LIMIT_LOGGED = True
+
+
+def get_effective_tool_output_limit() -> tuple[int, str]:
+    """Return the effective tool-output limit and its source without side effects.
+
+    Precedence mirrors the one-time log helper but performs no logging and
+    makes no modifications to upstream config:
+      1) Active GenerateConfig.max_tool_output → (value, "config")
+      2) Env INSPECT_MAX_TOOL_OUTPUT → (value, "env")
+      3) Fallback default 16 KiB → (16384, "default")
+    """
+    # Try config first (no side effects)
+    try:
+        from inspect_ai.model._generate_config import (  # type: ignore
+            active_generate_config,
+        )
+
+        cfg = active_generate_config()
+        cfg_limit = getattr(cfg, "max_tool_output", None)
+        if cfg_limit is not None:
+            try:
+                return int(cfg_limit), "config"
+            except Exception:
+                # If malformed, fall through to env/default resolution
+                pass
+    except Exception:
+        # If upstream is unavailable, fall back to env/default
+        pass
+
+    # Next, environment
+    env_limit = _parse_int(os.getenv("INSPECT_MAX_TOOL_OUTPUT"))
+    if env_limit is not None:
+        return env_limit, "env"
+
+    # Default (16 KiB)
+    return 16 * 1024, "default"
 
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
