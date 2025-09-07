@@ -574,6 +574,8 @@ def edit_file():  # -> Tool
             old_string: str,
             new_string: str,
             replace_all: bool = False,
+            expected_count: int | None = None,
+            dry_run: bool = False,
             instance: str | None = None,
         ) -> str | FileEditResult:
             # Convert wrapper params to unified FilesParams and delegate to files tool
@@ -583,6 +585,8 @@ def edit_file():  # -> Tool
                 old_string=old_string,
                 new_string=new_string,
                 replace_all=replace_all,
+                expected_count=expected_count,
+                dry_run=dry_run,
                 instance=instance,
             )
             try:
@@ -605,6 +609,13 @@ def edit_file():  # -> Tool
         params.properties["replace_all"] = json_schema(bool)
         params.properties["replace_all"].description = "Replace all occurrences if true"
         params.properties["replace_all"].default = False
+        params.properties["expected_count"] = json_schema(int)
+        params.properties["expected_count"].description = (
+            "Optional expected number of replacements; mismatches raise an error"
+        )
+        params.properties["dry_run"] = json_schema(bool)
+        params.properties["dry_run"].description = "When true, validate/count but do not modify the file"
+        params.properties["dry_run"].default = False
         params.properties["instance"] = json_schema(str)
         params.properties["instance"].description = "Optional Files instance for isolation"
         params.required.extend(["file_path", "old_string", "new_string"])
