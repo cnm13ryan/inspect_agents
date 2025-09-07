@@ -47,4 +47,3 @@ def test_show_limits_respects_env_override():
     assert proc.returncode == 0, proc.stderr
     out = (proc.stdout or "").strip()
     assert out == "Tool-output cap: 12345 bytes (env)"
-

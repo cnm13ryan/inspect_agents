@@ -31,6 +31,7 @@ async def test_limits_event_on_return_tuple(caplog, monkeypatch):
     from inspect_ai.agent._agent import AgentState, agent
     from inspect_ai.model._chat_message import ChatMessageAssistant
     from inspect_ai.tool._tool_call import ToolCall
+
     from inspect_agents.agents import build_supervisor
 
     @agent
@@ -49,6 +50,7 @@ async def test_limits_event_on_return_tuple(caplog, monkeypatch):
     agent_obj = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
 
     from inspect_ai.util import LimitExceededError, time_limit
+
     from inspect_agents.run import run_agent
 
     before = len(caplog.records)
@@ -82,6 +84,7 @@ async def test_limits_event_before_raise(caplog, monkeypatch):
     from inspect_ai.agent._agent import AgentState, agent
     from inspect_ai.model._chat_message import ChatMessageAssistant
     from inspect_ai.tool._tool_call import ToolCall
+
     from inspect_agents.agents import build_supervisor
 
     @agent
@@ -100,6 +103,7 @@ async def test_limits_event_before_raise(caplog, monkeypatch):
     agent_obj = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model2())
 
     from inspect_ai.util import LimitExceededError, time_limit
+
     from inspect_agents.run import run_agent
 
     before = len(caplog.records)

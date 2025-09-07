@@ -1,10 +1,9 @@
-import os
 import pytest
 
 from inspect_agents import (
-    resolve_model_explain,
-    resolve_model,
     ResolveModelError,
+    resolve_model,
+    resolve_model_explain,
 )
 
 

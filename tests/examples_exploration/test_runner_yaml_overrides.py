@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import asyncio
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,8 +12,8 @@ def _load_runner_module() -> object:
     Mirrors other tests' import-by-path approach to avoid package import
     conflicts when a site-packages "examples" module exists.
     """
-    import sys
     import importlib
+    import sys
 
     # Ensure repo root on path so the local examples package resolves
     repo_root = Path(__file__).resolve().parents[2]

@@ -1,25 +1,25 @@
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Ensure repo root is on path so we can import examples.* for tests
 ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from examples.inspect.exploration.scoring import (
+# Import after path modification to avoid E402
+from examples.inspect.exploration.scoring import (  # noqa: E402
     Result,
     ScoringConfig,
-    normalize_domain,
-    domain_authority,
-    recency_weight,
-    topical_similarity,
     citation_present,
-    dedupe_penalty,
+    domain_authority,
+    normalize_domain,
+    recency_weight,
     rerank,
+    rerank_with_scores,
     score,
     score_components,
-    rerank_with_scores,
+    topical_similarity,
 )
 
 

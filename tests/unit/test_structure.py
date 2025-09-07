@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 # Legacy roots that should remain empty of code going forward.
 # Note: historically, tests lived under these roots. This repository now
 # hosts first-class suites under "tests/inspect_agents/**" (see docs), so we
@@ -47,9 +46,7 @@ def test_no_legacy_tests_present() -> None:
 
         for dirpath, dirnames, filenames in os.walk(root):
             # Skip ignored directories (prevents descending into __pycache__ etc.)
-            dirnames[:] = [
-                d for d in dirnames if d not in IGNORED_DIRS and not d.startswith(".")
-            ]
+            dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS and not d.startswith(".")]
 
             # Flag any non-ignored files (and all .py files) as violations
             for fname in filenames:
@@ -59,9 +56,7 @@ def test_no_legacy_tests_present() -> None:
                 if fpath.suffix == ".py" or not _ignored_file(fpath):
                     offenders.append(fpath.as_posix())
 
-    assert (
-        not offenders
-    ), (
+    assert not offenders, (
         "Legacy test files detected under deprecated roots.\n"
         "Move tests to 'tests/unit/**' or 'tests/integration/**'.\n"
         "Offending paths:\n  - " + "\n  - ".join(sorted(offenders))

@@ -40,35 +40,35 @@ def test_update_todo_status_error_handling():
 
     # First create a todo list
     todos = [Todo(content="task1", status="pending"), Todo(content="task2", status="pending")]
-    
+
     async def _setup():
         return await write_tool(todos=todos)
-    
+
     asyncio.run(_setup())
-    
+
     # Test invalid index (too high)
     async def _invalid_index_high():
         await update_tool(todo_index=10, status="in_progress")
-    
+
     with pytest.raises(ToolException) as exc_info:
         asyncio.run(_invalid_index_high())
     assert "Invalid todo operation" in str(exc_info.value.message)
-    
+
     # Test invalid index (negative)
     async def _invalid_index_negative():
         await update_tool(todo_index=-1, status="in_progress")
-    
+
     with pytest.raises(ToolException) as exc_info:
         asyncio.run(_invalid_index_negative())
     assert "Invalid todo operation" in str(exc_info.value.message)
-    
+
     # Test invalid status - now caught by Pydantic validation
     async def _invalid_status():
         await update_tool(todo_index=0, status="invalid_status")
-    
+
     with pytest.raises(ToolException) as exc_info:
         asyncio.run(_invalid_status())
     # Now validation happens at the Pydantic level, so error message is different
-    assert ("Invalid todo status parameters" in str(exc_info.value.message) or 
-            "Invalid todo operation" in str(exc_info.value.message))
-
+    assert "Invalid todo status parameters" in str(exc_info.value.message) or "Invalid todo operation" in str(
+        exc_info.value.message
+    )

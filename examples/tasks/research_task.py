@@ -16,8 +16,8 @@ Environment
 
 from __future__ import annotations
 
-import os
 import json
+import os
 from pathlib import Path
 
 from inspect_ai import Task, task
@@ -35,6 +35,7 @@ from inspect_agents.tools import (
     write_file,
     write_todos,
 )
+
 
 # Local helper to load the examples planner tool via path-based import to avoid
 # collisions with any site-packages module named "examples".
@@ -82,12 +83,15 @@ def research_task(
         try:
             # Load planner API by path to avoid site-packages name conflicts
             import importlib.util as _il
+
             base = Path(__file__).resolve().parents[1] / "inspect" / "exploration"
             spec_p = _il.spec_from_file_location("_examples_planner", str(base / "planner.py"))
             spec_c = _il.spec_from_file_location("_examples_cfg_loader", str(base / "config_loader.py"))
             if spec_p and spec_p.loader and spec_c and spec_c.loader:
-                mod_p = _il.module_from_spec(spec_p); spec_p.loader.exec_module(mod_p)  # type: ignore[arg-type]
-                mod_c = _il.module_from_spec(spec_c); spec_c.loader.exec_module(mod_c)  # type: ignore[arg-type]
+                mod_p = _il.module_from_spec(spec_p)
+                spec_p.loader.exec_module(mod_p)  # type: ignore[arg-type]
+                mod_c = _il.module_from_spec(spec_c)
+                spec_c.loader.exec_module(mod_c)  # type: ignore[arg-type]
                 cfg = mod_c.load_exploration_config(None)
                 items = mod_p.plan(prompt, cfg)
                 # Build JSON like planner_tool (filter out seeds depth<1)
@@ -96,11 +100,13 @@ def research_task(
                     d = int(getattr(it, "depth", 0))
                     if d < 1:
                         continue
-                    q.append({
-                        "query": getattr(it, "query", ""),
-                        "depth": d,
-                        "tags": list(getattr(it, "tags", []) or []),
-                    })
+                    q.append(
+                        {
+                            "query": getattr(it, "query", ""),
+                            "depth": d,
+                            "tags": list(getattr(it, "tags", []) or []),
+                        }
+                    )
                     if len(q) >= int(getattr(cfg, "max_queries", len(items))):
                         break
                 result = {"breadth": int(cfg.breadth), "depth": int(cfg.depth), "queries": q}

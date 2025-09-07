@@ -104,6 +104,7 @@ def test_executor_prescan_handoff_keeps_first_and_skips_rest(monkeypatch):
     ]
     assert len(skipped) == 1
 
+
 def test_executor_no_prescan_does_not_filter_handoffs(monkeypatch):
     ensure_vendor_on_path()
 
@@ -172,9 +173,7 @@ def test_executor_no_prescan_does_not_filter_handoffs(monkeypatch):
     # No executor/prescan skip events should appear in the transcript
     events = transcript().events
     assert not any(
-        isinstance(e, ToolEvent)
-        and getattr(e, "metadata", None)
-        and e.metadata.get("source") == "executor/prescan"
+        isinstance(e, ToolEvent) and getattr(e, "metadata", None) and e.metadata.get("source") == "executor/prescan"
         for e in events
     )
 

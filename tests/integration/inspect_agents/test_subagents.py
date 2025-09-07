@@ -20,11 +20,11 @@ pytestmark = pytest.mark.handoff
 def sub_read_agent():
     async def execute(state: AgentState, tools: list = []):
         val = store().get("shared", None)
-        
+
         # Create assistant message with submit tool call to exit the react loop
         assistant_message = ChatMessageAssistant(
             content=f"shared={val}",
-            tool_calls=[ToolCall(id="submit_1", function="submit", arguments={"answer": f"shared={val}"})]
+            tool_calls=[ToolCall(id="submit_1", function="submit", arguments={"answer": f"shared={val}"})],
         )
         state.messages.append(assistant_message)
         return state
@@ -77,12 +77,7 @@ def test_handoff_boundary_and_prefix_and_ids():
     assert all(m.id not in original_ids for m in added)
 
     # Assistant messages are prefixed with [reader]
-    assert any(
-        isinstance(m, ChatMessageAssistant) and "[reader]" in (m.text or "")
-        for m in added
-    )
+    assert any(isinstance(m, ChatMessageAssistant) and "[reader]" in (m.text or "") for m in added)
 
     # Store value was visible to the sub-agent and included in reply
-    assert any(
-        isinstance(m, ChatMessageAssistant) and "shared=XYZ" in m.text for m in added
-    )
+    assert any(isinstance(m, ChatMessageAssistant) and "shared=XYZ" in m.text for m in added)

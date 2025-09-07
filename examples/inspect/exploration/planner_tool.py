@@ -1,12 +1,12 @@
-from __future__ import annotations
-
-from typing import Any
-
 """Examples tool wrapper: deterministic exploration planner.
 
 Surfaces QuerySpec items from the examples planner as a simple, JSON-friendly
 structure for downstream web search tools. Offline and deterministic.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 
 def _load_planner():

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -25,7 +25,8 @@ def test_scoring_domain_recency_and_duplicates() -> None:
     except Exception:
         pass
 
-    now = datetime(2025, 9, 7, tzinfo=timezone.utc)
+    now = datetime(2025, 9, 7, tzinfo=UTC)
+
     class Cfg:
         w_authority = 0.35
         w_recency = 0.25
@@ -71,7 +72,7 @@ def test_scoring_domain_recency_and_duplicates() -> None:
     # Whitelist authority should make arxiv/nasa.gov generally stronger than example.org
     a_score = s.score("llm search", results[0], cfg, now)
     e1_score = s.score("llm search", results[1], cfg, now)
-    e2_score = s.score("llm search", results[2], cfg, now)
+    s.score("llm search", results[2], cfg, now)
     assert a_score > e1_score  # whitelist domain beats neutral
 
     # Newer item should rank higher than older, holding others roughly constant

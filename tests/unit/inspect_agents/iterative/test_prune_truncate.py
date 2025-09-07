@@ -62,7 +62,8 @@ def test_overflow_model_length_appends_hint_then_prunes(monkeypatch):
         return out, 0.0
 
     monkeypatch.setattr(
-        "inspect_agents._model_retry.generate_with_retry_time", fake_generate_with_retry_time,
+        "inspect_agents._model_retry.generate_with_retry_time",
+        fake_generate_with_retry_time,
         raising=True,
     )
 
@@ -123,9 +124,7 @@ def test_prune_history_drops_non_adjacent_tool(monkeypatch):
     # Use a dummy model that returns a tiny assistant once so the loop runs
     class DummyModel(Model):
         async def generate(self, input, tools, config, cache: bool = False):  # noqa: ARG002
-            return ModelOutput.from_message(
-                ChatMessageAssistant(content="ok", source="generate")
-            )
+            return ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
 
     agent = build_iterative_agent(
         model=DummyModel.__new__(DummyModel),

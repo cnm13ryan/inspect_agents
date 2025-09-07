@@ -72,4 +72,3 @@ def test_one_time_cap_log_default_when_no_env(caplog, monkeypatch):
     assert len(obs_events) == 1
     assert obs_events[0].get("effective_tool_output_limit") == 16 * 1024
     assert obs_events[0].get("source") == "default"
-

@@ -16,6 +16,7 @@ try:  # Prefer the canonical implementation from Inspect Tool Support
         ToolException as _ToolException,
     )
 except Exception:  # Fallback to a simple local definition for test stubs
+
     class _ToolException(Exception):  # type: ignore[no-redef]  # noqa: N818
         """Raised when a tool encounters an error."""
 

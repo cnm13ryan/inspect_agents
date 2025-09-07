@@ -36,26 +36,31 @@ def test_minimal_yaml_builds_and_runs(monkeypatch):
     # Ensure approval stubs exist for mapping
     import sys
     import types
-    if 'inspect_ai.approval' not in sys.modules:
-        pkg = types.ModuleType('inspect_ai.approval')
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval', pkg)
-    if 'inspect_ai.approval._approval' not in sys.modules:
-        mod = types.ModuleType('inspect_ai.approval._approval')
+
+    if "inspect_ai.approval" not in sys.modules:
+        pkg = types.ModuleType("inspect_ai.approval")
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval", pkg)
+    if "inspect_ai.approval._approval" not in sys.modules:
+        mod = types.ModuleType("inspect_ai.approval._approval")
+
         class Approval:  # minimal stub
             def __init__(self, decision, modified=None, explanation=None):
                 self.decision = decision
                 self.modified = modified
                 self.explanation = explanation
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', mod)
-        setattr(mod, 'Approval', Approval)
-    if 'inspect_ai.approval._policy' not in sys.modules:
-        pol = types.ModuleType('inspect_ai.approval._policy')
+
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", mod)
+        setattr(mod, "Approval", Approval)
+    if "inspect_ai.approval._policy" not in sys.modules:
+        pol = types.ModuleType("inspect_ai.approval._policy")
+
         class ApprovalPolicy:  # minimal stub container
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
-        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', pol)
+
+        setattr(pol, "ApprovalPolicy", ApprovalPolicy)
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._policy", pol)
 
     agent_obj, tools, approvals, limits = load_and_build(yaml_txt, model=toy_submit_model())
     result = asyncio.run(run_agent(agent_obj, "start", approval=approvals, limits=limits))
@@ -74,27 +79,33 @@ def test_subagent_declared_and_handoff_tool_present(monkeypatch):
     # ensure approval stubs so loader can import
     import sys
     import types
-    if 'inspect_ai.approval' not in sys.modules:
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval', types.ModuleType('inspect_ai.approval'))
-    if 'inspect_ai.approval._approval' not in sys.modules:
-        mod = types.ModuleType('inspect_ai.approval._approval')
+
+    if "inspect_ai.approval" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval", types.ModuleType("inspect_ai.approval"))
+    if "inspect_ai.approval._approval" not in sys.modules:
+        mod = types.ModuleType("inspect_ai.approval._approval")
+
         class Approval:
             pass
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', mod)
-        setattr(mod, 'Approval', Approval)
-    if 'inspect_ai.approval._policy' not in sys.modules:
-        pol = types.ModuleType('inspect_ai.approval._policy')
+
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", mod)
+        setattr(mod, "Approval", Approval)
+    if "inspect_ai.approval._policy" not in sys.modules:
+        pol = types.ModuleType("inspect_ai.approval._policy")
+
         class ApprovalPolicy:  # minimal stub container
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
-        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', pol)
+
+        setattr(pol, "ApprovalPolicy", ApprovalPolicy)
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._policy", pol)
 
     agent_obj, tools, approvals, _ = load_and_build(yaml_txt, model=toy_submit_model())
 
     # Verify the tool list includes the handoff tool definition
     from inspect_ai.tool._tool_def import tool_defs
+
     defs = asyncio.run(tool_defs(tools))
     assert any(d.name == "transfer_to_helper" for d in defs)
 
@@ -135,22 +146,27 @@ def test_subagent_role_only_uses_env_mapping(monkeypatch):
     # ensure approval stubs so loader can import
     import sys
     import types
-    if 'inspect_ai.approval' not in sys.modules:
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval', types.ModuleType('inspect_ai.approval'))
-    if 'inspect_ai.approval._approval' not in sys.modules:
-        mod = types.ModuleType('inspect_ai.approval._approval')
+
+    if "inspect_ai.approval" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval", types.ModuleType("inspect_ai.approval"))
+    if "inspect_ai.approval._approval" not in sys.modules:
+        mod = types.ModuleType("inspect_ai.approval._approval")
+
         class Approval:  # minimal stub
             pass
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', mod)
-        setattr(mod, 'Approval', Approval)
-    if 'inspect_ai.approval._policy' not in sys.modules:
-        pol = types.ModuleType('inspect_ai.approval._policy')
+
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", mod)
+        setattr(mod, "Approval", Approval)
+    if "inspect_ai.approval._policy" not in sys.modules:
+        pol = types.ModuleType("inspect_ai.approval._policy")
+
         class ApprovalPolicy:  # minimal stub container
             def __init__(self, approver=None, tools=None):
                 self.approver = approver
                 self.tools = tools
-        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', pol)
+
+        setattr(pol, "ApprovalPolicy", ApprovalPolicy)
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._policy", pol)
 
     with pytest.raises(RuntimeError) as e:
         load_and_build(yaml_txt)
@@ -181,26 +197,32 @@ def test_subagent_model_precedence_over_role(monkeypatch):
     # ensure approval stubs so loader can import
     import sys
     import types
-    if 'inspect_ai.approval' not in sys.modules:
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval', types.ModuleType('inspect_ai.approval'))
-    if 'inspect_ai.approval._approval' not in sys.modules:
-        mod = types.ModuleType('inspect_ai.approval._approval')
+
+    if "inspect_ai.approval" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval", types.ModuleType("inspect_ai.approval"))
+    if "inspect_ai.approval._approval" not in sys.modules:
+        mod = types.ModuleType("inspect_ai.approval._approval")
+
         class Approval:
             pass
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._approval', mod)
-        setattr(mod, 'Approval', Approval)
-    if 'inspect_ai.approval._policy' not in sys.modules:
-        pol = types.ModuleType('inspect_ai.approval._policy')
+
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", mod)
+        setattr(mod, "Approval", Approval)
+    if "inspect_ai.approval._policy" not in sys.modules:
+        pol = types.ModuleType("inspect_ai.approval._policy")
+
         class ApprovalPolicy:
             def __init__(self, approver=None, tools=None):
                 self.approver = approver
                 self.tools = tools
-        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
-        monkeypatch.setitem(sys.modules, 'inspect_ai.approval._policy', pol)
+
+        setattr(pol, "ApprovalPolicy", ApprovalPolicy)
+        monkeypatch.setitem(sys.modules, "inspect_ai.approval._policy", pol)
 
     # Should not raise (uses explicit model and ignores role mapping at build time)
     agent_obj, tools, approvals, _ = load_and_build(yaml_txt)
     # Sanity: the handoff tool is present
     from inspect_ai.tool._tool_def import tool_defs
+
     defs = asyncio.run(tool_defs(tools))
     assert any(d.name == "transfer_to_helper" for d in defs)

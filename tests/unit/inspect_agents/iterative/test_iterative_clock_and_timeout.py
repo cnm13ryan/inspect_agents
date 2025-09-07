@@ -17,9 +17,7 @@ from inspect_agents.iterative import build_iterative_agent
 
 class NoToolModel(Model):
     async def generate(self, input, tools, config, cache: bool = False):  # noqa: ARG002
-        return ModelOutput.from_message(
-            ChatMessageAssistant(content="ok", source="generate")
-        )
+        return ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
 
 
 def test_clock_injection_constant_zero_formats_progress_zero():
@@ -37,7 +35,11 @@ def test_clock_injection_constant_zero_formats_progress_zero():
     new_state = asyncio.run(agent(state))
 
     # Assert: last Info message shows zero elapsed
-    infos = [m for m in new_state.messages if isinstance(m, ChatMessageUser) and isinstance(m.content, str) and m.content.startswith("Info: ")]
+    infos = [
+        m
+        for m in new_state.messages
+        if isinstance(m, ChatMessageUser) and isinstance(m.content, str) and m.content.startswith("Info: ")
+    ]
     assert infos, "Expected at least one progress Info message"
     assert any("00:00:00 elapsed" in (m.content or "") for m in infos)
 
@@ -95,4 +97,3 @@ def test_timeout_factory_injection_observes_remaining_budget():
 
     assert calls, "Expected timeout_factory to be invoked for tool execution"
     assert calls[0] == 7, f"Expected remaining budget 7, got {calls[0]}"
-

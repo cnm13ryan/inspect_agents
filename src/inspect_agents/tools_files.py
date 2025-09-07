@@ -10,7 +10,7 @@ import os
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import anyio
-from pydantic import BaseModel, Discriminator, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, RootModel
 
 if TYPE_CHECKING:  # pragma: no cover
     from inspect_ai.tool._tool import Tool
@@ -83,8 +83,8 @@ class BaseFileParams(BaseModel):
 
     instance: str | None = Field(None, description="Optional Files instance for isolation")
 
-    class Config:
-        extra = "forbid"
+    # Pydantic v2 style config
+    model_config = ConfigDict(extra="forbid")
 
 
 class LsParams(BaseFileParams):
@@ -128,9 +128,7 @@ class EditParams(BaseFileParams):
     )
     dry_run: bool = Field(
         False,
-        description=(
-            "When true, compute counts and validate but do not modify the file."
-        ),
+        description=("When true, compute counts and validate but do not modify the file."),
     )
 
 
@@ -247,9 +245,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         },
     )
 
-    def _format_lines(
-        content_lines: list[str], start_line_num: int = 1, *, pad: bool = True
-    ) -> tuple[list[str], str]:
+    def _format_lines(content_lines: list[str], start_line_num: int = 1, *, pad: bool = True) -> tuple[list[str], str]:
         """Format lines with numbering and return both list and joined string.
 
         Args:
@@ -335,14 +331,13 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                     lines=nopad_lines,
                     summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
                 )
-            _log_tool_event(
-                name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0
-            )
+            _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0)
             return joined_output
         except Exception:
             # Secondary fallback: attempt a direct bash 'sed -n' read if available
             try:
                 import shlex as _shlex
+
                 from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
 
                 start_line = max(1, int(params.offset) + 1)
@@ -371,9 +366,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                             summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
                         )
                     _padded, joined_output = _format_lines(lines, start_line, pad=True)
-                    _log_tool_event(
-                        name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0
-                    )
+                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0)
                     return joined_output
             except Exception:
                 # Graceful fallback to store-backed mode
@@ -388,6 +381,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         if _use_sandbox_fs():
             try:
                 import shlex as _shlex
+
                 from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
 
                 start_line = max(1, int(params.offset) + 1)
@@ -416,9 +410,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                             summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
                         )
                     _padded, joined_output = _format_lines(lines, start_line, pad=True)
-                    _log_tool_event(
-                        name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0
-                    )
+                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0)
                     return joined_output
             except Exception:
                 pass
@@ -660,7 +652,9 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
                 # Dry run: no write
                 if params.dry_run:
-                    replaced = (counted_occurrences if params.replace_all else 1) if counted_occurrences is not None else 1
+                    replaced = (
+                        (counted_occurrences if params.replace_all else 1) if counted_occurrences is not None else 1
+                    )
                     summary = f"(dry_run) Would update file {params.file_path} replacing {replaced} occurrence(s)"
                     if _use_typed_results():
                         _log_tool_event(

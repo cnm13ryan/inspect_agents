@@ -22,7 +22,7 @@ from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, t
 from inspect_ai.tool._tool_call import ToolCall  # noqa: E402
 
 # Import approval module from this repo
-approval = importlib.import_module('inspect_agents.approval')
+approval = importlib.import_module("inspect_agents.approval")
 
 
 class _Msg:
@@ -30,14 +30,14 @@ class _Msg:
         self.tool_calls = tool_calls
 
 
-def _parse_tool_event_from_caplog(caplog: 'logging.LogCaptureFixture'):
+def _parse_tool_event_from_caplog(caplog: "logging.LogCaptureFixture"):
     records = []
     for rec in caplog.records:
         msg = rec.getMessage()
-        if not msg.startswith('tool_event '):
+        if not msg.startswith("tool_event "):
             continue
         try:
-            payload = json.loads(msg.split('tool_event ', 1)[1])
+            payload = json.loads(msg.split("tool_event ", 1)[1])
             records.append(payload)
         except Exception:
             continue
@@ -71,7 +71,9 @@ def test_handoff_exclusive_skips_non_handoff(caplog):
     assert any(e.get("tool") == "handoff_exclusive" and e.get("phase") == "skipped" for e in events)
     # Validate required fields
     matched = [e for e in events if e.get("tool") == "handoff_exclusive" and e.get("phase") == "skipped"]
-    assert matched and matched[-1].get("selected_handoff_id") == "1" and matched[-1].get("skipped_function") == "read_file"
+    assert (
+        matched and matched[-1].get("selected_handoff_id") == "1" and matched[-1].get("skipped_function") == "read_file"
+    )
 
     # Optionally assert a standardized transcript ToolEvent for the skip
     tev = transcript().find_last_event(ToolEvent)
@@ -98,4 +100,3 @@ def test_no_handoff_approves_everything():
 
     result = asyncio.run(approver(msg, read_call, None, history))
     assert getattr(result, "decision", None) == "approve"
-

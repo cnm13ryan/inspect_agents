@@ -51,7 +51,11 @@ def _install_inspect_stubs(monkeypatch):
 def _clear_env(monkeypatch):
     # Ensure no lingering env from the developer shell interferes
     for k in list(os.environ.keys()):
-        if k.startswith("INSPECT_LIMIT_TIME__") or k.startswith("INSPECT_LIMIT_MESSAGES__") or k.startswith("INSPECT_LIMIT_TOKENS__"):
+        if (
+            k.startswith("INSPECT_LIMIT_TIME__")
+            or k.startswith("INSPECT_LIMIT_MESSAGES__")
+            or k.startswith("INSPECT_LIMIT_TOKENS__")
+        ):
             monkeypatch.delenv(k, raising=False)
 
 

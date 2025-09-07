@@ -20,9 +20,9 @@ import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from pathlib import Path as _Path
 
 import pytest
-from pathlib import Path as _Path
 
 # Ensure src/ (and optional external/inspect_ai) are importable for tests
 # This avoids requiring an editable install in local runs/CI.
@@ -139,6 +139,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pragma: no
     else:
         terminalreporter.write_line("No specific match; see the index above.")
 
+
 # ----------------------------------------------------------------------
 # Optional plugin shims
 # ----------------------------------------------------------------------
@@ -173,9 +174,7 @@ if not _HAS_PYTEST_BENCHMARK:  # pragma: no cover - exercised only when plugin m
         # Register the 'benchmark' marker to avoid unknown-mark warnings when
         # the real plugin isn't installed.
         try:
-            config.addinivalue_line(
-                "markers", "benchmark: no-op when pytest-benchmark is unavailable"
-            )
+            config.addinivalue_line("markers", "benchmark: no-op when pytest-benchmark is unavailable")
         except Exception:
             pass
 
@@ -189,10 +188,10 @@ def approval_modules_guard():  # pragma: no cover - test support only
 
     # Remember originals and clear stubs before running
     _mod_names = [
-        'inspect_ai.approval._approval',
-        'inspect_ai.approval._policy',
-        'inspect_ai._util.registry',
-        'inspect_ai.tool._tool_call',
+        "inspect_ai.approval._approval",
+        "inspect_ai.approval._policy",
+        "inspect_ai._util.registry",
+        "inspect_ai.tool._tool_call",
     ]
     _saved = {name: _sys.modules.get(name) for name in _mod_names}
     for name in _mod_names:
@@ -201,6 +200,7 @@ def approval_modules_guard():  # pragma: no cover - test support only
     # Clear any registered approver
     try:
         from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+
         init_tool_approval(None)  # type: ignore[func-returns-value]
     except Exception:
         pass
@@ -216,6 +216,7 @@ def approval_modules_guard():  # pragma: no cover - test support only
                 _sys.modules[name] = mod
         try:
             from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+
             init_tool_approval(None)  # type: ignore[func-returns-value]
         except Exception:
             pass
@@ -226,7 +227,6 @@ def approval_modules_guard():  # pragma: no cover - test support only
 @pytest.fixture
 def tool_modules_guard(monkeypatch):  # pragma: no cover - test support only
     import sys as _sys
-    import types as _types
 
     targets = [
         "inspect_ai.tool._tools._text_editor",
@@ -264,6 +264,7 @@ def pytest_pyfunc_call(pyfuncitem):  # pragma: no cover - passthrough logic
         if pyfuncitem.get_closest_marker("asyncio") is None:
             return None
         import asyncio as _asyncio
+
         # Build kwargs from resolved fixtures
         argnames = getattr(pyfuncitem._fixtureinfo, "argnames", ())
         kwargs = {name: pyfuncitem.funcargs[name] for name in argnames}
@@ -271,9 +272,11 @@ def pytest_pyfunc_call(pyfuncitem):  # pragma: no cover - passthrough logic
         return True
     return None
 
+
 # ----------------------------------------------------------------------
 # Default Env Guard (autouse)
 # ----------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _default_env_guard(monkeypatch, request):
@@ -321,9 +324,7 @@ def _default_env_guard(monkeypatch, request):
 def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
     # Ensure common markers are known regardless of optional plugins
     try:
-        config.addinivalue_line(
-            "markers", "benchmark: present even if pytest-benchmark is unavailable"
-        )
+        config.addinivalue_line("markers", "benchmark: present even if pytest-benchmark is unavailable")
     except Exception:
         pass
     try:
@@ -345,19 +346,22 @@ def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
             config.addinivalue_line("markers", f"{_m}: repository-defined test marker")
         except Exception:
             pass
+
+
 # Optional dependency shim for `jsonlines` managed via fixture to ensure cleanup.
 @pytest.fixture(autouse=True, scope="session")
 def jsonlines_stub():  # pragma: no cover - test support only
     try:
         import jsonlines as _jsonlines  # type: ignore  # noqa: F401
+
         yield  # Real package present; nothing to stub
         return
     except Exception:
         pass
 
     import json
-    import types as _types
     import sys as _sys
+    import types as _types
 
     _jl = _types.ModuleType("jsonlines")
 

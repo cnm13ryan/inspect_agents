@@ -25,4 +25,3 @@ def test_prune_messages_smoke():
     assert all(m is not junk for m in pruned)
     # Tool kept only when paired with its assistant
     assert any(getattr(m, "tool_call_id", None) == "1" for m in pruned)
-

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-import os
 import asyncio
 import contextlib
+import os
+from typing import Any
+
 from .observability import log_tool_event
 
 
@@ -45,7 +46,7 @@ async def run_agent(
         preset = (os.getenv("INSPECT_APPROVAL_PRESET") or "").strip().lower()
         if preset in {"ci", "dev", "prod"}:
             try:
-                from .approval import approval_preset, activate_approval_policies
+                from .approval import activate_approval_policies, approval_preset
 
                 activate_approval_policies(approval_preset(preset))
             except Exception:
@@ -90,13 +91,13 @@ async def run_agent(
             return None
         candidates: list[float] = []
         # Prefer explicit type checks when available
-        _TimeLimitType: Any | None = None
+        _TimeLimitType: Any | None = None  # noqa: N806
         try:  # Inspect exports the internal class symbol from the module
             from inspect_ai.util._limit import _TimeLimit as _TL  # type: ignore
 
-            _TimeLimitType = _TL
+            _TimeLimitType = _TL  # noqa: N806
         except Exception:
-            _TimeLimitType = None
+            _TimeLimitType = None  # noqa: N806
 
         for it in items:
             try:

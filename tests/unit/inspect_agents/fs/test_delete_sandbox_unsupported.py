@@ -7,7 +7,9 @@ from inspect_agents.exceptions import ToolException
 from inspect_agents.tools_files import DeleteParams, execute_delete
 
 
-def test_delete_sandbox_unsupported_raises_and_logs(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_sandbox_unsupported_raises_and_logs(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Enable sandbox mode; ensure not in read-only variant for this test
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     monkeypatch.delenv("INSPECT_AGENTS_FS_READ_ONLY", raising=False)
@@ -40,4 +42,3 @@ def test_delete_sandbox_unsupported_raises_and_logs(caplog: pytest.LogCaptureFix
 
     assert len(error_events) == 1
     assert error_events[0].get("error") == "SandboxUnsupported"
-

@@ -49,6 +49,7 @@ def test_wrong_type_yields_parsing_error_phrase():
     # Ensure no lingering approval policy interferes with execution
     try:
         from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+
         init_tool_approval(None)  # clear any registered approver
     except Exception:
         pass
@@ -98,4 +99,3 @@ def test_yaml_coercion_maps_scalar_to_first_param():
 
     call_true = parse_tool_call(id="2", function="echo_value", arguments="true", tools=[tool_info])
     assert call_true.arguments == {"value": True}
-

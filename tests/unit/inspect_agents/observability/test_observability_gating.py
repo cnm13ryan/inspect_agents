@@ -19,9 +19,7 @@ def _cap_observability_once_events(caplog):
     return [
         e
         for e in _cap_logs(caplog)
-        if e.get("tool") == "observability"
-        and e.get("phase") == "info"
-        and "effective_tool_output_limit" in e
+        if e.get("tool") == "observability" and e.get("phase") == "info" and "effective_tool_output_limit" in e
     ]
 
 

@@ -14,4 +14,3 @@ def test_fs_truthy_is_settings_truthy() -> None:
     assert fs.truthy is settings.truthy
     # Alias check: underscore alias remains a direct alias for one cycle
     assert fs._truthy is settings.truthy
-

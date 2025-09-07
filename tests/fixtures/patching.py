@@ -71,4 +71,3 @@ def patch_use_site(import_path: str, *, new: Any | None = None, autospec: bool =
         # Fallback: simple replacement without autospec
         with patch(import_path, new=new):
             yield
-

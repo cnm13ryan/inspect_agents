@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import sys
 import types
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 def ensure_vendor_on_path() -> None:
@@ -62,6 +63,7 @@ def build_apply_shim(monkeypatch) -> types.ModuleType:
                 if approver:
                     break
         if approver is None:
+
             class _Approval:
                 decision = "approve"
                 modified = None

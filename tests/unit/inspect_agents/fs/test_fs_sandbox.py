@@ -2,7 +2,6 @@ import asyncio
 import sys
 
 from inspect_agents.tools import edit_file, ls, read_file, write_file
-
 from tests.fixtures.editor_stubs import install_bash_stub, install_editor_stub
 
 

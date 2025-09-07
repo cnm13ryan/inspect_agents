@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 
 def _load_runner_module() -> object:
-    import sys, importlib
+    import importlib
+    import sys
+
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
@@ -39,4 +41,3 @@ def test_supervisor_prompt_includes_planner_cfg(monkeypatch: pytest.MonkeyPatch)
     assert "Planner config (JSON):" in prompt
     expected_json = json.dumps(planner_cfg, ensure_ascii=False)
     assert expected_json in prompt
-

@@ -18,11 +18,12 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 def _load_planner_tool():
     import importlib.util
+
     here = Path(__file__).resolve()
     mod_path = here.parents[1] / "inspect" / "exploration" / "planner_tool.py"
     spec = importlib.util.spec_from_file_location("_examples_planner_tool", str(mod_path))
@@ -44,7 +45,7 @@ async def _main() -> int:
     args = ap.parse_args()
 
     prompt = " ".join(args.prompt).strip()
-    cfg: Dict[str, Any] = {
+    cfg: dict[str, Any] = {
         "breadth": args.breadth,
         "depth": args.depth,
         "max_queries": args.max_queries,
@@ -67,4 +68,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

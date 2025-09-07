@@ -151,6 +151,7 @@ def scoped_quarantine_filter(include_state_summary: bool = True) -> MessageFilte
         summary = _identity_filter()
     return _compose_filters(strict, summary)
 
+
 def _filter_for_mode(mode: str) -> MessageFilter:
     mode = (mode or "strict").strip().lower()
     if mode == "off":
@@ -170,6 +171,7 @@ def _normalize_agent_env_suffix(name: str) -> str:
     Example: "Research Assistant v2" -> "research_assistant_v2"
     """
     import re
+
     lower = (name or "").lower()
     replaced = re.sub(r"[^a-z0-9]+", "_", lower)
     collapsed = re.sub(r"_+", "_", replaced).strip("_")

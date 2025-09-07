@@ -122,4 +122,3 @@ __all__ = [
     "resolve_pruning",
     "resolve_truncation",
 ]
-

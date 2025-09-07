@@ -21,6 +21,7 @@ def _install_apply_shim(monkeypatch):
     """
     # Ensure inspect_ai.approval is a package so submodules load
     from pathlib import Path
+
     repo_root = Path(__file__).resolve().parents[2]
     approval_pkg_path = repo_root / "external" / "inspect_ai" / "src" / "inspect_ai" / "approval"
     if "inspect_ai.approval" not in sys.modules:
@@ -36,24 +37,30 @@ def _install_apply_shim(monkeypatch):
     # Provide lightweight stubs to avoid heavy deps
     if "inspect_ai._util.config" not in sys.modules:
         cfg_stub = types.ModuleType("inspect_ai._util.config")
+
         def read_config_object(_path):  # pragma: no cover
             return {}
+
         cfg_stub.read_config_object = read_config_object
         monkeypatch.setitem(sys.modules, "inspect_ai._util.config", cfg_stub)
     if "inspect_ai.util._resource" not in sys.modules:
         res_stub = types.ModuleType("inspect_ai.util._resource")
+
         def resource(path, type="file"):  # pragma: no cover
             return path
+
         res_stub.resource = resource
         monkeypatch.setitem(sys.modules, "inspect_ai.util._resource", res_stub)
     # Ensure transcript has ApprovalEvent for logging
     if "inspect_ai.log._transcript" in sys.modules:
         tmod = sys.modules["inspect_ai.log._transcript"]
         if not hasattr(tmod, "ApprovalEvent"):
+
             class ApprovalEvent:  # pragma: no cover
                 def __init__(self, **kwargs):
                     for k, v in kwargs.items():
                         setattr(self, k, v)
+
             setattr(tmod, "ApprovalEvent", ApprovalEvent)
 
     apply_mod = types.ModuleType("inspect_ai.approval._apply")
@@ -85,17 +92,19 @@ def _install_apply_shim(monkeypatch):
                     break
 
         if approver is None:
+
             class _Rej:
                 decision = "reject"
                 modified = None
                 explanation = "No approver"
+
             return False, _Rej()
 
         view = viewer(call) if viewer else None
         approval = await approver(message, call, view, history)
         try:
             with open("approval_debug.log", "a") as fp:  # pragma: no cover - debug
-                fp.write(f"decision={getattr(approval,'decision',None)}\n")
+                fp.write(f"decision={getattr(approval, 'decision', None)}\n")
         except Exception:
             pass
         if getattr(approval, "decision", None) in ("approve", "modify"):
@@ -114,9 +123,7 @@ def submit_model():
         state.messages.append(
             ChatMessageAssistant(
                 content="",  # content intentionally unused
-                tool_calls=[
-                    ToolCall(id="1", function="submit", arguments={"answer": "DONE"})
-                ],
+                tool_calls=[ToolCall(id="1", function="submit", arguments={"answer": "DONE"})],
             )
         )
         return state
@@ -125,9 +132,7 @@ def submit_model():
 
 
 def _supervisor():
-    return build_supervisor(
-        prompt="You are helpful.", tools=[], attempts=1, model=submit_model()
-    )
+    return build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=submit_model())
 
 
 def test_approve_allows_original_args(approval_modules_guard, monkeypatch):

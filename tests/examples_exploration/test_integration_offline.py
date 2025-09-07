@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import json
-import os
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -80,11 +78,10 @@ async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pyt
 
     # Verify JSON structure by reading back
     content = await read_file(file_path="plan.json", limit=2000)
-    raw_lines = (
-        content.splitlines() if isinstance(content, str) else list(getattr(content, "lines", []))
-    )
+    raw_lines = content.splitlines() if isinstance(content, str) else list(getattr(content, "lines", []))
     # Strip legacy numbered prefixes like "   1\t" when typed results are disabled
     import re as _re
+
     clean_lines = [_re.sub(r"^\s*\d+\t", "", ln) for ln in raw_lines]
     text = "\n".join(clean_lines)
     data = json.loads(text)

@@ -20,6 +20,7 @@ Options:
 Note: This is an examples-only scaffold. Library code lives under
 `src/inspect_agents/` and should be used directly in projects/tests.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -132,6 +133,7 @@ def memory_tools(mem: KVMemory) -> list[Tool]:
 
 
 # --- Runner ------------------------------------------------------------------
+
 
 async def _build_agent(mode: str, extra_tools: list[object]):
     prompt = (

@@ -25,29 +25,26 @@ def test_should_emit_progress_edge_cases():
 
 def test_remaining_timeout_none_limit():
     # No overall limit -> None per-call timeout
-    assert _remaining_timeout(start=0.0, limit_sec=None, total_retry_time=0.0, productive_time_enabled=False, now=10.0) is None
+    assert (
+        _remaining_timeout(start=0.0, limit_sec=None, total_retry_time=0.0, productive_time_enabled=False, now=10.0)
+        is None
+    )
 
 
 def test_remaining_timeout_clamps_and_productive_time():
     # With productive time disabled: wall=110-100=10, limit=20 -> remaining=10
     assert (
-        _remaining_timeout(
-            start=100.0, limit_sec=20, total_retry_time=0.0, productive_time_enabled=False, now=110.0
-        )
+        _remaining_timeout(start=100.0, limit_sec=20, total_retry_time=0.0, productive_time_enabled=False, now=110.0)
         == 10
     )
     # With productive time enabled: elapsed=(110-100)-7=3, remaining=17
     assert (
-        _remaining_timeout(
-            start=100.0, limit_sec=20, total_retry_time=7.0, productive_time_enabled=True, now=110.0
-        )
+        _remaining_timeout(start=100.0, limit_sec=20, total_retry_time=7.0, productive_time_enabled=True, now=110.0)
         == 17
     )
     # Exhausted/negative budget clamps to at least 1
     assert (
-        _remaining_timeout(
-            start=100.0, limit_sec=5, total_retry_time=0.0, productive_time_enabled=False, now=106.0
-        )
+        _remaining_timeout(start=100.0, limit_sec=5, total_retry_time=0.0, productive_time_enabled=False, now=106.0)
         == 1
     )
 
@@ -58,10 +55,7 @@ def test_append_overflow_hint_appends_exact_string():
     msgs: list[Any] = [ChatMessageUser(content="hello")]
     _append_overflow_hint(msgs)
     assert isinstance(msgs[-1], ChatMessageUser)
-    assert (
-        getattr(msgs[-1], "content", None)
-        == "Context too long; please summarize recent steps and continue."
-    )
+    assert getattr(msgs[-1], "content", None) == "Context too long; please summarize recent steps and continue."
 
 
 def test_prune_with_debug_threshold_logs_and_keeps_tail(caplog: pytest.LogCaptureFixture):
@@ -110,4 +104,3 @@ def test_prune_with_debug_overflow_logs(caplog: pytest.LogCaptureFixture):
     assert contents == ["m0", "m3", "m4"]
     expect = "Prune: reason=overflow pre=5 post=3 keep_last=2"
     assert any(expect in rec.getMessage() for rec in caplog.records)
-

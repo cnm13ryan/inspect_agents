@@ -1,7 +1,5 @@
 import asyncio
 import json
-import sys
-import types
 from typing import Any
 
 import pytest
@@ -30,8 +28,6 @@ def _install_stub_run(monkeypatch, sleep_s: float, return_tuple: bool = True):
 
 
 def _tool_logs(caplog):
-    import logging
-
     caplog.set_level("INFO", logger="inspect_agents.tools")
     return caplog
 
@@ -50,7 +46,11 @@ def _extract_limit_nearing_events(records):
             continue
         if payload.get("tool") == "observability":
             continue
-        if payload.get("tool") == "limits" and payload.get("phase") == "info" and payload.get("event") == "limit_nearing":
+        if (
+            payload.get("tool") == "limits"
+            and payload.get("phase") == "info"
+            and payload.get("event") == "limit_nearing"
+        ):
             events.append(payload)
     return events
 

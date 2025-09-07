@@ -20,9 +20,8 @@ def _install_apply_shim_with_policy(monkeypatch):
     try:  # pragma: no cover - exercised indirectly by import side effects
         from inspect_ai.approval import _apply as _real_apply
         from inspect_ai.approval._policy import policy_approver  # noqa: F401
-        if hasattr(_real_apply, "init_tool_approval") and hasattr(
-            _real_apply, "apply_tool_approval"
-        ):
+
+        if hasattr(_real_apply, "init_tool_approval") and hasattr(_real_apply, "apply_tool_approval"):
             return
     except Exception:
         pass
@@ -33,10 +32,7 @@ def _install_apply_shim_with_policy(monkeypatch):
     def policy_approver(policies):  # type: ignore[no-redef]
         def matches(call, tools):
             pats = tools if isinstance(tools, list) else [tools]
-            return any(
-                fnmatch.fnmatch(call.function, p if p.endswith("*") else p + "*")
-                for p in pats
-            )
+            return any(fnmatch.fnmatch(call.function, p if p.endswith("*") else p + "*") for p in pats)
 
         async def approve(message, call, view, history):
             for pol in policies:
@@ -44,6 +40,7 @@ def _install_apply_shim_with_policy(monkeypatch):
                     ap = await pol.approver(message, call, view, history)
                     if getattr(ap, "decision", None) != "escalate":
                         return ap
+
             # default reject
             class _A:
                 pass
@@ -64,6 +61,7 @@ def _install_apply_shim_with_policy(monkeypatch):
 
     async def apply_tool_approval(message, call, viewer, history):
         if _approver_ref["fn"] is None:
+
             class _Approval:
                 decision = "approve"
                 modified = None
@@ -80,6 +78,7 @@ def _install_apply_shim_with_policy(monkeypatch):
     monkeypatch.setitem(sys.modules, "inspect_ai.approval._apply", apply_mod)
     if "inspect_ai.approval._approval" not in sys.modules:
         appr = types.ModuleType("inspect_ai.approval._approval")
+
         class Approval:  # minimal constructor compatibility
             def __init__(self, decision, modified=None, explanation=None):
                 self.decision = decision
@@ -90,6 +89,7 @@ def _install_apply_shim_with_policy(monkeypatch):
         monkeypatch.setitem(sys.modules, "inspect_ai.approval._approval", appr)
     if "inspect_ai.approval._policy" not in sys.modules:
         pol = types.ModuleType("inspect_ai.approval._policy")
+
         class ApprovalPolicy:  # minimal constructor compatibility
             def __init__(self, approver, tools):
                 self.approver = approver
@@ -102,6 +102,7 @@ def _install_apply_shim_with_policy(monkeypatch):
 def test_ci_preset_auto_approves(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("ci")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="write_file", arguments={}), None, []))
@@ -112,6 +113,7 @@ def test_ci_preset_auto_approves(monkeypatch):
 def test_dev_preset_escalates_then_rejects(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("dev")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="write_file", arguments={}), None, []))
@@ -123,6 +125,7 @@ def test_dev_preset_escalates_then_rejects(monkeypatch):
 def test_prod_preset_terminates_sensitive_and_redacts(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"file_path": "/etc/passwd", "api_key": "SECRET", "file_text": "X"}
@@ -138,6 +141,7 @@ def test_prod_preset_terminates_sensitive_and_redacts(monkeypatch):
 def test_dev_preset_escalates_python_then_rejects(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("dev")
     approver = policy_approver(policies)
     approval = asyncio.run(approver("", ToolCall(id="1", function="python", arguments={}), None, []))
@@ -149,8 +153,11 @@ def test_dev_preset_escalates_python_then_rejects(monkeypatch):
 def test_dev_preset_escalates_web_browser_go_then_rejects(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("dev")
-    approval = asyncio.run(policy_approver(policies)("", ToolCall(id="1", function="web_browser_go", arguments={}), None, []))
+    approval = asyncio.run(
+        policy_approver(policies)("", ToolCall(id="1", function="web_browser_go", arguments={}), None, [])
+    )
     ok = getattr(approval, "decision", None) in ("approve", "modify")
     assert ok is False
     assert getattr(approval, "decision", None) == "reject"
@@ -159,6 +166,7 @@ def test_dev_preset_escalates_web_browser_go_then_rejects(monkeypatch):
 def test_prod_preset_terminates_python_with_redacted_args(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"code": "import os; os.system('rm -rf /')", "api_key": "SECRET"}
@@ -173,6 +181,7 @@ def test_prod_preset_terminates_python_with_redacted_args(monkeypatch):
 def test_prod_preset_terminates_web_browser_go_with_redacted_args(monkeypatch):
     _install_apply_shim_with_policy(monkeypatch)
     from inspect_ai.approval._policy import policy_approver  # import after shim
+
     policies = approval_preset("prod")
     approver = policy_approver(policies)
     args = {"url": "https://malicious.example.com", "authorization": "Bearer SECRET_TOKEN"}
@@ -182,4 +191,6 @@ def test_prod_preset_terminates_web_browser_go_with_redacted_args(monkeypatch):
     assert getattr(approval, "decision", None) == "terminate"
     text = getattr(approval, "explanation", "")
     assert "[REDACTED]" in text and "SECRET_TOKEN" not in text
+
+
 pytestmark = pytest.mark.approvals

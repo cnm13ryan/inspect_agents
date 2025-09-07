@@ -68,7 +68,7 @@ class TestFsRootConfinement:
                 "/repo/../etc/passwd",
                 "../../etc/passwd",
             ]
-            
+
             for path in forbidden_paths:
                 with pytest.raises(Exception) as exc_info:
                     _validate_sandbox_path(path)
@@ -84,7 +84,7 @@ class TestFsRootConfinement:
                 "/repo/subdir/../../../etc/passwd",
                 "/repo/./../../etc/passwd",
             ]
-            
+
             for path in traversal_attempts:
                 with pytest.raises(Exception) as exc_info:
                     _validate_sandbox_path(path)
@@ -190,7 +190,7 @@ class TestSandboxPathValidationIntegration:
         """Test read operation allows paths within configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {"/repo/allowed.txt": "content"}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
@@ -206,7 +206,7 @@ class TestSandboxPathValidationIntegration:
         """Test read operation denies paths outside configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
@@ -224,16 +224,12 @@ class TestSandboxPathValidationIntegration:
         """Test write operation allows paths within configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
-            params = FilesParams(root=WriteParams(
-                command="write", 
-                file_path="/repo/new.txt", 
-                content="test content"
-            ))
+            params = FilesParams(root=WriteParams(command="write", file_path="/repo/new.txt", content="test content"))
             result = await self.tool(params)
             return result
 
@@ -244,16 +240,14 @@ class TestSandboxPathValidationIntegration:
         """Test write operation denies paths outside configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
-            params = FilesParams(root=WriteParams(
-                command="write", 
-                file_path="/tmp/malicious.txt", 
-                content="bad content"
-            ))
+            params = FilesParams(
+                root=WriteParams(command="write", file_path="/tmp/malicious.txt", content="bad content")
+            )
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)
             return str(exc_info.value)
@@ -265,17 +259,14 @@ class TestSandboxPathValidationIntegration:
         """Test edit operation allows paths within configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {"/repo/edit.txt": "hello world"}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
-            params = FilesParams(root=EditParams(
-                command="edit",
-                file_path="/repo/edit.txt",
-                old_string="hello",
-                new_string="hi"
-            ))
+            params = FilesParams(
+                root=EditParams(command="edit", file_path="/repo/edit.txt", old_string="hello", new_string="hi")
+            )
             result = await self.tool(params)
             return result
 
@@ -286,17 +277,14 @@ class TestSandboxPathValidationIntegration:
         """Test edit operation denies paths outside configured root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
         async def test():
-            params = FilesParams(root=EditParams(
-                command="edit",
-                file_path="/etc/hosts",
-                old_string="localhost",
-                new_string="malicious"
-            ))
+            params = FilesParams(
+                root=EditParams(command="edit", file_path="/etc/hosts", old_string="localhost", new_string="malicious")
+            )
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)
             return str(exc_info.value)
@@ -308,7 +296,7 @@ class TestSandboxPathValidationIntegration:
         """Test ls operation uses configured root directory."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {"file1.txt": "content1", "file2.txt": "content2"}
         _install_editor_stub_with_validation(monkeypatch, fs)
         _install_bash_stub_with_root(monkeypatch, fs)
@@ -326,7 +314,7 @@ class TestSandboxPathValidationIntegration:
         """Test that path traversal attacks are prevented."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {}
         _install_editor_stub_with_validation(monkeypatch, fs)
 
@@ -338,6 +326,7 @@ class TestSandboxPathValidationIntegration:
         ]
 
         for path in traversal_paths:
+
             async def test_path():
                 params = FilesParams(root=ReadParams(command="read", file_path=path))
                 with pytest.raises(Exception) as exc_info:
@@ -351,7 +340,7 @@ class TestSandboxPathValidationIntegration:
         """Test that relative paths are properly handled within root."""
         monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
         monkeypatch.setenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-        
+
         fs: dict[str, str] = {"/repo/relative.txt": "relative content"}
         _install_editor_stub_with_validation(monkeypatch, fs)
 

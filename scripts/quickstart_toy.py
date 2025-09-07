@@ -18,12 +18,15 @@ def toy_submit_model():
             )
         )
         return state
+
     return execute
+
 
 async def main():
     sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
     result = await run_agent(sup, "hello")
     print("Completion:", result.output.completion)
+
 
 asyncio.run(main())
 # Expected output: "Completion: DONE"

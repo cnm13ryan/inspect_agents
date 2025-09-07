@@ -54,4 +54,3 @@ policy:
     assert cfg2.max_queries == 7
     assert cfg2.synonym_expansion is True
     assert cfg2.site_hints == ["arxiv.org", "*.gov"]
-

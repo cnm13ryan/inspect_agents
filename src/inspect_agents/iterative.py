@@ -76,16 +76,19 @@ def _should_emit_progress(step: int, every: int | None) -> bool:
 
 def _append_overflow_hint(messages: list[object]) -> None:
     """Append the standard overflow hint message to the conversation."""
-    # Local import to avoid heavy import at module import time
+    # Local imports to avoid heavy import at module import time
     from inspect_ai.model._chat_message import ChatMessageUser
 
-    messages.append(
-        ChatMessageUser(
-            content=(
-                "Context too long; please summarize recent steps and continue."
-            )
-        )
-    )
+    try:
+        # Prefer shared constant used by conversation utilities
+        from ._conversation import _OVERFLOW_HINT  # type: ignore
+
+        hint: str = str(_OVERFLOW_HINT)
+    except Exception:
+        # Fallback to literal to preserve behavior if import path changes
+        hint = "Context too long; please summarize recent steps and continue."
+
+    messages.append(ChatMessageUser(content=hint))
 
 
 def _prune_with_debug(
@@ -160,6 +163,7 @@ def _prune_with_debug(
 
     return messages
 
+
 def _base_tools(*, code_only: bool = False) -> list[object]:
     """Return base toolset for the iterative agent.
 
@@ -188,18 +192,12 @@ def _default_system_message(*, code_only: bool = False) -> str:
         "- Continue improving until time is up or explicit stop.\n"
     )
     if code_only:
-        base += (
-            "- Code-only mode: no exec/search/browser tools are available; "
-            "prefer read/edit file tools.\n"
-        )
+        base += "- Code-only mode: no exec/search/browser tools are available; prefer read/edit file tools.\n"
     return base
 
 
 def _default_continue_message() -> str:
-    return (
-        "Now, given prior progress, take the next small step toward the goal. "
-        "Use a tool if needed."
-    )
+    return "Now, given prior progress, take the next small step toward the goal. Use a tool if needed."
 
 
 def build_iterative_agent(
@@ -270,6 +268,7 @@ def build_iterative_agent(
         ChatMessageUser,
     )
     from inspect_ai.model._generate_config import GenerateConfig
+
     # Early config APIs for global tool-output cap
     try:
         from inspect_ai.model._generate_config import (
@@ -352,9 +351,7 @@ def build_iterative_agent(
 
             # Enable prune debug logs if either INSPECT_PRUNE_DEBUG or
             # INSPECT_MODEL_DEBUG is set (reuse existing model debug toggle).
-            _prune_debug: bool = bool(
-                os.getenv("INSPECT_PRUNE_DEBUG") or os.getenv("INSPECT_MODEL_DEBUG")
-            )
+            _prune_debug: bool = bool(os.getenv("INSPECT_PRUNE_DEBUG") or os.getenv("INSPECT_MODEL_DEBUG"))
 
             # Advisory warning for very small max_messages caps
             if isinstance(max_messages, int) and 0 < max_messages < 6:
@@ -433,9 +430,7 @@ def build_iterative_agent(
             # our local generate() wrapper. When INSPECT_PRODUCTIVE_TIME=1 is
             # enabled, we subtract this from elapsed time for budget/timeout.
             total_retry_time: float = 0.0
-            productive_time_enabled: bool = bool(
-                os.getenv("INSPECT_PRODUCTIVE_TIME")
-            )
+            productive_time_enabled: bool = bool(os.getenv("INSPECT_PRODUCTIVE_TIME"))
             step = 0
             # Accept either an Inspect Model spec or a model-like object with `generate()`
             if model is not None and hasattr(model, "generate"):
@@ -450,9 +445,7 @@ def build_iterative_agent(
                 # Time budget
                 if _time_limit is not None:
                     _wall = clock() - start
-                    _elapsed = (
-                        _wall - total_retry_time if productive_time_enabled else _wall
-                    )
+                    _elapsed = _wall - total_retry_time if productive_time_enabled else _wall
                     if _elapsed >= _time_limit:
                         break
 
@@ -481,6 +474,7 @@ def build_iterative_agent(
                 # Token budget limit (approximate)
                 try:
                     if isinstance(token_limit, int) and token_limit > 0:
+
                         def _extract_text(m: Any) -> str:
                             # Prefer .text when present; else flatten string content; else best-effort
                             try:
@@ -543,9 +537,7 @@ def build_iterative_agent(
 
                         if approx_tokens >= int(token_limit):
                             state.messages.append(
-                                ChatMessageUser(
-                                    content=f"[limit] Token limit reached (~{approx_tokens}). Stopping."
-                                )
+                                ChatMessageUser(content=f"[limit] Token limit reached (~{approx_tokens}). Stopping.")
                             )
                             break
                 except Exception:
@@ -555,9 +547,7 @@ def build_iterative_agent(
                 # Progress ping every N steps (persisted)
                 if _should_emit_progress(step, progress_every):
                     _wall = clock() - start
-                    _elapsed = (
-                        _wall - total_retry_time if productive_time_enabled else _wall
-                    )
+                    _elapsed = _wall - total_retry_time if productive_time_enabled else _wall
                     # Emit an info log with wall, retry accrual, and productive elapsed
                     try:
                         logger.info(
@@ -570,9 +560,7 @@ def build_iterative_agent(
                     except Exception:
                         pass
                     state.messages.append(
-                        ChatMessageUser(
-                            content=(f"Info: {_format_progress_time(int(_wall))} elapsed")
-                        )
+                        ChatMessageUser(content=(f"Info: {_format_progress_time(int(_wall))} elapsed"))
                     )
 
                 # Prune history to bound growth
@@ -584,10 +572,7 @@ def build_iterative_agent(
 
                 # Opportunistic global prune when message list exceeds threshold
                 try:
-                    if (
-                        _eff_prune_after is not None
-                        and len(state.messages) > _eff_prune_after
-                    ):
+                    if _eff_prune_after is not None and len(state.messages) > _eff_prune_after:
                         state.messages = _prune_with_debug(
                             state.messages,
                             keep_last=_eff_prune_keep,
@@ -602,9 +587,7 @@ def build_iterative_agent(
                     pass
 
                 # Build ephemeral conversation with a nudge but don't persist the nudge
-                conversation = copy.deepcopy(state.messages) + [
-                    ChatMessageUser(content=step_nudge)
-                ]
+                conversation = copy.deepcopy(state.messages) + [ChatMessageUser(content=step_nudge)]
 
                 # Compute per-call timeout so we do not run past the budget
                 gen_timeout: int | None = _remaining_timeout(
@@ -679,11 +662,7 @@ def build_iterative_agent(
                             selected = None
                             skipped: list[Any] = []
                             for tc in list(tool_calls):
-                                fn = (
-                                    tc.get("function")
-                                    if isinstance(tc, dict)
-                                    else getattr(tc, "function", None)
-                                )
+                                fn = tc.get("function") if isinstance(tc, dict) else getattr(tc, "function", None)
                                 if isinstance(fn, str) and fn.startswith("transfer_to_"):
                                     if selected is None:
                                         selected = tc
@@ -697,7 +676,9 @@ def build_iterative_agent(
                                 # Replace the last assistant message with a shallow copy
                                 # containing only the selected handoff tool call.
                                 try:
-                                    from inspect_ai.model._chat_message import ChatMessageAssistant as _MsgAssistant  # type: ignore
+                                    from inspect_ai.model._chat_message import (
+                                        ChatMessageAssistant as _MsgAssistant,  # type: ignore
+                                    )
 
                                     last_msg = state.messages[-1] if state.messages else None
                                     if isinstance(last_msg, _MsgAssistant):
@@ -732,8 +713,16 @@ def build_iterative_agent(
                                     for sc in skipped:
                                         try:
                                             sc_id = sc.get("id") if isinstance(sc, dict) else getattr(sc, "id", None)
-                                            sc_fn = sc.get("function") if isinstance(sc, dict) else getattr(sc, "function", None)
-                                            sc_args = sc.get("arguments") if isinstance(sc, dict) else getattr(sc, "arguments", None)
+                                            sc_fn = (
+                                                sc.get("function")
+                                                if isinstance(sc, dict)
+                                                else getattr(sc, "function", None)
+                                            )
+                                            sc_args = (
+                                                sc.get("arguments")
+                                                if isinstance(sc, dict)
+                                                else getattr(sc, "arguments", None)
+                                            )
                                             ev = ToolEvent(
                                                 id=str(sc_id),
                                                 function=str(sc_fn),
@@ -799,9 +788,7 @@ def build_iterative_agent(
                         else:
                             exec_res = await _exec_tools(state.messages, active_tools, _max_out)
                     except TimeoutError:
-                        state.messages.append(
-                            ChatMessageUser(content="Timeout: The tool call timed out.")
-                        )
+                        state.messages.append(ChatMessageUser(content="Timeout: The tool call timed out."))
                         break
 
                     # Persist tool execution results (messages + possible output)
