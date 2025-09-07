@@ -18,9 +18,10 @@ def _load_scoring() -> object:
 
 def test_scoring_domain_recency_and_duplicates() -> None:
     s = _load_scoring()
-    # Resolve postponed evaluation of typing annotations under Pydantic
+    # Resolve postponed evaluation of typing annotations under Pydantic (best-effort)
     try:
         s.ScoringConfig.model_rebuild()
+        s.Result.model_rebuild()
     except Exception:
         pass
 
