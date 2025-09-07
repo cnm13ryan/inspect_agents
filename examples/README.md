@@ -150,6 +150,9 @@ Planner tool
 
 Tip: Standard tools (think, web_search, etc.) are available via env toggles; see docs/reference/environment.md and docs/tools/*.
 
+See also
+- CLI Flags ↔ Env Mapping: docs/reference/environment.md#cli-flags-env-mapping
+
 ### Python Runners (run with `python`)
 
 Supervisor runner (examples/runners/supervisor_runner.py)
