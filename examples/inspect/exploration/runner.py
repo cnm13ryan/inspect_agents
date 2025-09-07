@@ -47,7 +47,21 @@ from inspect_agents.tools import (
 )
 
 # Local tool: exploration planner exposed as an Inspect tool
-from .planner_tool import planner_tool
+# Import planner_tool with a robust fallback so this module works when loaded
+# via package import (python -m) or via path-based import in the Inspect task.
+try:
+    from .planner_tool import planner_tool  # type: ignore
+except Exception:  # pragma: no cover - fallback for file-based import
+    import importlib.util as _il
+    from pathlib import Path as _Path
+
+    _mod_path = _Path(__file__).with_name("planner_tool.py")
+    _spec = _il.spec_from_file_location("_examples_planner_tool", str(_mod_path))
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"Unable to load planner_tool from {_mod_path}")
+    _mod = _il.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
+    planner_tool = getattr(_mod, "planner_tool")
 
 
 def _load_exploration_config(path: str | None) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
