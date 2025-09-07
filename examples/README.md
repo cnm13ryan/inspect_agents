@@ -4,6 +4,19 @@ This repo’s examples are grouped by intent so you can quickly find the right e
 
 Canonical guide for the research example: `docs/getting-started/research_example.md`.
 
+## Start Here
+
+New to the repo? Run these three in order:
+
+- Offline toy (no network):
+  - `python scripts/quickstart_toy.py`
+- Inspect CLI task (single sample):
+  - `uv run inspect eval examples/tasks/prompt_task.py -T prompt="Write a concise overview of LangGraph"`
+- Python runner (iterative loop):
+  - `uv run python examples/runners/iterative_runner.py --time-limit 120 --max-steps 20 "List repo files and summarize"`
+
+More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
+
 ## Layout
 
 - tasks/: Inspect CLI tasks (run with `inspect eval`)
@@ -153,6 +166,8 @@ uv run python examples/runners/supervisor_runner.py "Write a short overview of L
 | `--enable-think` | flag | false | Enable `think()` tool. | `INSPECT_ENABLE_THINK=1` |
 | `--enable-web-search` | flag | false | Enable `web_search()` tool. | `INSPECT_ENABLE_WEB_SEARCH=1` + search keys |
 | `--enable-exec` | flag | false | Enable `bash()` and `python()` tools. | `INSPECT_ENABLE_EXEC=1` |
+
+Tip — If you see “No sandbox environment has been provided …” after enabling exec, add a sandbox (`--sandbox local` for Inspect CLI) or use the profiled runner. See: `docs/how-to/inspect_sandbox.md`.
 | `--enable-web-browser` | flag | false | Enable browser tools. | `INSPECT_ENABLE_WEB_BROWSER=1` |
 | `--enable-text-editor-tool` | flag | false | Expose editor tool directly. | `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` |
 
