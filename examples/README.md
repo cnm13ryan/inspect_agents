@@ -20,6 +20,7 @@ Canonical guide for the research example: `docs/getting-started/research_example
 - demos/: Small, self‑contained demonstration scripts
   - `examples/demos/simple_arch_demo.py` — simple architecture demo (supervisor/iterative modes).
   - `examples/demos/subagent_approvals_demo.py` — handoff exclusivity + approvals demo (offline).
+  - `examples/demos/exploration_demo.py` — exploration planner demo that prints and writes `plan.json`.
 
 - configs/: Example configurations
   - `examples/configs/research/supervisor.yaml` — YAML composition for the research supervisor.
@@ -40,6 +41,32 @@ Canonical guide for the research example: `docs/getting-started/research_example
 - Demos
   - `uv run python examples/demos/simple_arch_demo.py --mode supervisor "Research topic..."`
   - `uv run python examples/demos/subagent_approvals_demo.py --preset dev`
+  - `uv run python examples/demos/exploration_demo.py --breadth 2 --depth 2 --max-queries 6 "Explore Inspect‑AI agent patterns"`
+
+## Exploration Planner (examples)
+
+- Direct API (pure‑Python, deterministic):
+
+```python
+from examples.inspect.exploration.planner import plan, ExplorationConfig as C
+items = plan("Explore Inspect‑AI agent patterns", C(breadth=3, depth=2, seed=0, max_queries=8))
+for it in items:
+    print(it.depth, it.query, it.tags)
+```
+
+- Tool wrapper (Inspect‑AI tool) via demo script:
+
+```bash
+uv run python examples/demos/exploration_demo.py --breadth 2 --depth 2 --max-queries 6 \
+  "Explore Inspect‑AI agent patterns"
+
+# Prints the plan to stdout and writes plan.json in the CWD
+cat plan.json | jq .
+```
+
+Notes
+- The planner is examples‑only and offline (no network). It generates a small, diverse set of web queries with bounded breadth/depth and stop rules.
+- `examples/tasks/research_task.py` and `examples/runners/research_runner.py` expose a `planner_tool` to the supervisor so you can plan before searching.
 
 ## CLI Reference
 
@@ -61,7 +88,7 @@ uv run inspect eval examples/tasks/iterative_task.py \
 # Research composition (inline or YAML config)
 uv run inspect eval examples/tasks/research_task.py \
   -T prompt="Curate arXiv papers Quantinuum published in 2025" \
-  -T attempts=1 -T enable_web_search=true
+  -T attempts=1 -T enable_web_search=true -T write_plan=true -T plan_out=plan.json
 uv run inspect eval examples/tasks/research_task.py \
   -T config=examples/configs/research/supervisor.yaml -T prompt="Research topic..."
 ```
@@ -91,6 +118,14 @@ research_task.py (examples/tasks/research_task.py)
 | `attempts` | int | 1 | Agent attempts (submit semantics). | — |
 | `config` | str/path | — | Optional YAML composition (overrides inline defaults). | — |
 | `enable_web_search` | bool | false | Enables `web_search()` in the composition. | Sets `INSPECT_ENABLE_WEB_SEARCH=1` + provider keys |
+| `write_plan` | bool | false | Pre-plan and write `plan.json` using the examples planner. | — |
+| `plan_out` | str/path | `plan.json` | Output path for the plan JSON. | — |
+
+Planner tool
+
+- The research supervisor exposes an examples-only tool named `planner_tool` that returns a deterministic JSON exploration plan: `{ breadth, depth, queries: [{ query, depth, tags }] }`.
+- To persist the plan when invoking the task via Inspect CLI, use: `-T write_plan=true -T plan_out=plan.json` (see Quick Start above). This runs the same planning logic offline before the agent executes.
+- The Python runner (`examples/runners/research_runner.py`) also loads `planner_tool` into the supervisor; no extra flags are required. Use the demo (`examples/demos/exploration_demo.py`) or the task’s `write_plan` flag if you want a saved `plan.json` during a runner-based flow.
 
 Tip: Standard tools (think, web_search, etc.) are available via env toggles; see docs/reference/environment.md and docs/tools/*.
 
@@ -142,6 +177,10 @@ uv run python examples/runners/research_runner.py --enable-web-search "What is I
 | `--enable-web-search` | flag | false | Enable `web_search()` tool. | `INSPECT_ENABLE_WEB_SEARCH=1` + search keys |
 | `--approval` | enum | — | Apply approvals preset (`dev`|`ci`|`prod`). | — |
 | `--config` | str/path | — | Load composition from YAML. | — |
+
+Planner tool
+
+- The research runner exposes the examples `planner_tool` to the supervisor, enabling "plan before search" behavior out of the box. To capture a plan file, either run the planner demo (`examples/demos/exploration_demo.py`) separately or use the Inspect task variant with `-T write_plan=true`.
 
 Profiled runner (examples/runners/profiled_runner.py)
 
