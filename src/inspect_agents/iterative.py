@@ -665,6 +665,98 @@ def build_iterative_agent(
                 msg = state.output.message if hasattr(state, "output") else None
                 tool_calls = getattr(msg, "tool_calls", None) if msg else None
                 if tool_calls:
+                    # Optional executor pre-scan: enforce first-handoff exclusivity
+                    # early by filtering tool calls before scheduling.
+                    def _truth(v: str | None) -> bool:
+                        try:
+                            return bool(v) and str(v).strip().lower() in {"1", "true", "yes", "on"}
+                        except Exception:
+                            return False
+
+                    if _truth(os.getenv("INSPECT_EXECUTOR_PRESCAN_HANDOFF")):
+                        try:
+                            # Identify first handoff (transfer_to_*) and mark others as skipped
+                            selected = None
+                            skipped: list[Any] = []
+                            for tc in list(tool_calls):
+                                fn = (
+                                    tc.get("function")
+                                    if isinstance(tc, dict)
+                                    else getattr(tc, "function", None)
+                                )
+                                if isinstance(fn, str) and fn.startswith("transfer_to_"):
+                                    if selected is None:
+                                        selected = tc
+                                    else:
+                                        skipped.append(tc)
+                                else:
+                                    # When a handoff is present, all non-handoffs are skipped as well
+                                    skipped.append(tc)
+
+                            if selected is not None:
+                                # Replace the last assistant message with a shallow copy
+                                # containing only the selected handoff tool call.
+                                try:
+                                    from inspect_ai.model._chat_message import ChatMessageAssistant as _MsgAssistant  # type: ignore
+
+                                    last_msg = state.messages[-1] if state.messages else None
+                                    if isinstance(last_msg, _MsgAssistant):
+                                        new_msg = _MsgAssistant(
+                                            content=getattr(last_msg, "content", ""),
+                                            tool_calls=[selected],
+                                            source=getattr(last_msg, "source", None),
+                                            metadata=getattr(last_msg, "metadata", None),
+                                            model=getattr(last_msg, "model", None),
+                                        )
+                                        state.messages[-1] = new_msg
+                                    else:
+                                        # Fallback: update the output message directly
+                                        try:
+                                            setattr(msg, "tool_calls", [selected])
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    # Never block execution on prescan message copy
+                                    pass
+
+                                # Emit standardized transcript events for each skipped call
+                                try:
+                                    from inspect_ai.log._transcript import ToolEvent, transcript  # type: ignore
+                                    from inspect_ai.tool._tool_call import ToolCallError  # type: ignore
+
+                                    sel_id = (
+                                        selected.get("id")
+                                        if isinstance(selected, dict)
+                                        else getattr(selected, "id", None)
+                                    )
+                                    for sc in skipped:
+                                        try:
+                                            sc_id = sc.get("id") if isinstance(sc, dict) else getattr(sc, "id", None)
+                                            sc_fn = sc.get("function") if isinstance(sc, dict) else getattr(sc, "function", None)
+                                            sc_args = sc.get("arguments") if isinstance(sc, dict) else getattr(sc, "arguments", None)
+                                            ev = ToolEvent(
+                                                id=str(sc_id),
+                                                function=str(sc_fn),
+                                                arguments=dict(sc_args or {}),
+                                                pending=False,
+                                                # Use approval type for parity with policy-level skips
+                                                error=ToolCallError("approval", "Skipped due to handoff"),
+                                                metadata={
+                                                    "source": "executor/prescan",
+                                                    "selected_handoff_id": sel_id,
+                                                    "skipped_function": sc_fn,
+                                                },
+                                            )
+                                            transcript()._event(ev)
+                                        except Exception:
+                                            continue
+                                except Exception:
+                                    # Best-effort only: failures here must not affect execution
+                                    pass
+                        except Exception:
+                            # Outer prescan guard: never block execution
+                            pass
+
                     # Per‑call timeout equals remaining budget
                     timeout_ctx = _remaining_timeout(
                         start,
