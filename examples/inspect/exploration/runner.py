@@ -199,7 +199,7 @@ def build_runner_agent(
         },
     ]
 
-    subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools)
+    subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools, default_model=model)
 
     # Supervisor with planner tool + subagent handoffs
     sup = build_supervisor(

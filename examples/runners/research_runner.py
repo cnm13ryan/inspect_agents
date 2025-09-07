@@ -169,7 +169,7 @@ async def _main() -> int:
             },
         ]
 
-        subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools)
+        subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools, default_model=model_id)
 
         # Expose planner tool to the supervisor (not to sub-agents)
         planner = _load_planner_tool()
