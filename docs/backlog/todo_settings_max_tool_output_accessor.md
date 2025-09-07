@@ -12,4 +12,3 @@
 
 ## Success Criteria
 - Single accessor used across code; behavior unchanged.
-

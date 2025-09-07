@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Subsection present with 5–8 core flags and cross‑link to `examples/runners/supervisor_runner.py`.
-

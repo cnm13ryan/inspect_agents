@@ -27,4 +27,3 @@
 - `CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai pytest -q -k sandbox` passes locally.
 - Logs captured exactly once per process per scenario; assertions stable across platforms.
 - Failing modes show clear `PrerequisiteError` trace when in `force` mode.
-

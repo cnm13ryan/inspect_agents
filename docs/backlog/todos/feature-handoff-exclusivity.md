@@ -46,4 +46,3 @@ Status: Planned • Owner: TBA • Priority: High
 - [ ] Execute only the first handoff; do not enqueue other calls in that turn.
 - [ ] Keep non‑handoff turns behavior unchanged.
 - [ ] Update/enable tests that assert exclusivity.
-

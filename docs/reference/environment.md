@@ -71,7 +71,7 @@ Examples
 ```bash
 # Force OpenAI across the board
 export DEEPAGENTS_MODEL_PROVIDER=openai
-export OPENAI_API_KEY=... 
+export OPENAI_API_KEY=...
 export OPENAI_MODEL=gpt-4o-mini
 
 # Role mapping: grader uses a specific OpenAI model; others keep defaults

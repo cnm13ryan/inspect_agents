@@ -16,4 +16,3 @@
 
 ## Success Criteria
 - Tests cover precedence and log‑once; CI green.
-

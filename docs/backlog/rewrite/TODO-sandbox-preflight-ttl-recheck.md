@@ -25,4 +25,3 @@
 ## Success Criteria
 - Manual validation: simulate missing → stubs appear; with small TTL, next call after TTL flips to available; status-changed log emitted once.
 - Default behavior unchanged when env unset.
-

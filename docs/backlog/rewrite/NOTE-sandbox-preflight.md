@@ -45,4 +45,3 @@ Proposed Environment Variables (not all implemented yet)
 Rationale & Alignment
 - Matches project patterns: env-driven behavior, conservative defaults, lazy imports, graceful fallbacks, and testability without Docker.
 - One-time structured logging integrates with existing `_log_tool_event` semantics and redaction/truncation.
-

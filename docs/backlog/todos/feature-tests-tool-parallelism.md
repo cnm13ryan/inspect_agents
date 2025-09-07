@@ -34,4 +34,3 @@ Status: Planned • Owner: TBA • Priority: High
 - [ ] Add a multi‑handoff test; assert first‑wins policy and transcript `skipped` events for others.
 - [ ] Add a kill‑switch test for `INSPECT_DISABLE_TOOL_PARALLEL=1`.
 - [ ] Keep/validate the two‑parallel‑tools test.
-

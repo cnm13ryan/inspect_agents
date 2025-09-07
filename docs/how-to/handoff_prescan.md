@@ -21,4 +21,3 @@ Defaults:
 
 Notes:
 - Pre‑scan never throws; all operations are best‑effort. If event emission fails, execution continues.
-

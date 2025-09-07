@@ -13,4 +13,3 @@
 
 ## Success Criteria
 - No double‑application; deterministic tests passing offline.
-

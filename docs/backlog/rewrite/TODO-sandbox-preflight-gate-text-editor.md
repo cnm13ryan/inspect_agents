@@ -23,4 +23,3 @@
 - With missing sandbox and no stubs, and strict gating enabled, `text_editor()` is omitted.
 - With stubs or real sandbox, tool is present (when enabled by env).
 - No regressions to other tools exposure logic.
-

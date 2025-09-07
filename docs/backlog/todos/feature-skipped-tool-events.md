@@ -34,4 +34,3 @@ Status: Planned • Owner: TBA • Priority: High
 - [ ] Emit one summary log line for the turn.
 - [ ] Ensure no `ChatMessageTool` is appended for skipped calls.
 - [ ] Add tests asserting transcript “skipped” events.
-

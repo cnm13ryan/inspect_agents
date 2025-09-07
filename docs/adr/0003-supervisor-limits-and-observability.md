@@ -46,4 +46,3 @@ Consequences
 Rollout
 - Document usage in a user‑facing guide (`docs/supervisor-limits.md`).  
 - Optional CLI flags: `--limit message=24`, `--limit time=90s` mapped to runner/sub‑agent as appropriate.
-

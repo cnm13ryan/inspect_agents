@@ -16,4 +16,3 @@
 
 ## Success Criteria
 - Tests pass; coverage for precedence and summary sizing.
-

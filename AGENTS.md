@@ -205,7 +205,7 @@ Types: feat | fix | docs | style | refactor | perf | test | build | ci | chore |
   # Iterative agent limits
   monkeypatch.setenv("INSPECT_ITERATIVE_MAX_STEPS", "3")
   monkeypatch.delenv("INSPECT_ITERATIVE_TIME_LIMIT", raising=False)
-  
+
   # Model resolution / debug logging
   monkeypatch.setenv("INSPECT_MODEL_DEBUG", "1")
   monkeypatch.delenv("DEEPAGENTS_MODEL_PROVIDER", raising=False)

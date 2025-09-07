@@ -36,7 +36,7 @@ Typed (INSPECT_AGENTS_TYPED_RESULTS=1)
 Legacy (unset/false)
 ```
      1	# Project Title
-     2	
+     2
      3	Welcome to the repo.
 ```
 
@@ -119,4 +119,3 @@ Notes
 ## Guidance for Docs & Agents
 - Prefer typed examples in docs for clarity; include a short callout on how to switch to legacy behavior.
 - Treat summary strings as illustrative; rely on invariants (counts, ranges, backend) rather than exact phrasing.
-

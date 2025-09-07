@@ -99,8 +99,8 @@
   }
 }
 
-.mermaid svg:active { 
-  cursor: grabbing; 
+.mermaid svg:active {
+  cursor: grabbing;
 }
 
 .mermaid svg:focus {
@@ -205,7 +205,7 @@
 }
 
 .mermaid-figure figcaption,
-.mermaid-caption { 
+.mermaid-caption {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -311,7 +311,7 @@
 }
 
 [data-md-color-scheme="slate"] .mermaid-figure figcaption,
-[data-md-color-scheme="slate"] .mermaid-caption { 
+[data-md-color-scheme="slate"] .mermaid-caption {
   color: #8b949e !important;
   background: rgba(255,255,255,0.03) !important;
   border-color: #30363d !important;
@@ -323,12 +323,12 @@
     background-color: #161b22;
     border-color: #30363d;
   }
-  
+
   .mermaid svg text,
   .mermaid svg tspan {
     fill: #f0f6fc !important;
   }
-  
+
   .mermaid svg .node rect,
   .mermaid svg .node circle,
   .mermaid svg .node ellipse,
@@ -337,7 +337,7 @@
     fill: #21262d;
     stroke: #58a6ff;
   }
-  
+
   .mermaid svg .node text,
   .mermaid svg .cluster text,
   .mermaid svg .actor text,
@@ -345,49 +345,49 @@
   .mermaid svg .labelText {
     fill: #e6edf3 !important;
   }
-  
+
   .mermaid svg .edgePath .path,
   .mermaid svg .flowchart-link {
     stroke: #8b949e;
   }
-  
+
   .mermaid svg .marker {
     fill: #8b949e;
   }
-  
+
   .mermaid-fullscreen {
     background: #161b22 !important;
   }
-  
+
   .mermaid-fullscreen-btn {
     background: rgba(22, 27, 34, 0.95);
     border-color: #30363d;
     color: #f0f6fc;
   }
-  
+
   .mermaid-fullscreen-btn:hover {
     background: rgba(22, 27, 34, 1);
     border-color: #58a6ff;
   }
-  
+
   .mermaid::after {
     color: #8b949e;
     background: rgba(22, 27, 34, 0.9);
   }
-  
+
   .svg-pan-zoom-control {
     background: rgba(22, 27, 34, 0.95) !important;
     border-color: #30363d !important;
     color: #f0f6fc !important;
   }
-  
+
   .svg-pan-zoom-control:hover {
     background: rgba(22, 27, 34, 1) !important;
     border-color: #58a6ff !important;
   }
-  
+
   .mermaid-figure figcaption,
-  .mermaid-caption { 
+  .mermaid-caption {
     color: #8b949e !important;
     background: rgba(255,255,255,0.03) !important;
     border-color: #30363d !important;
@@ -415,7 +415,7 @@
 }
 
 .dark .mermaid-figure figcaption,
-.dark .mermaid-caption { 
+.dark .mermaid-caption {
   color: #8b949e !important;
   background: rgba(255,255,255,0.03) !important;
   border-color: #30363d !important;
@@ -429,22 +429,22 @@
     margin-right: 0;
     width: 100%;
   }
-  
+
   .mermaid svg {
     min-width: unset;
   }
-  
+
   .mermaid::after {
     display: none;
   }
-  
+
   .mermaid-fullscreen-btn {
     top: 8px;
     right: 8px;
     padding: 4px 8px;
     font-size: 12px;
   }
-  
+
   .mermaid-figure figcaption,
   .mermaid-caption {
     font-size: 0.85em !important;
@@ -460,12 +460,12 @@
     background: white !important;
     page-break-inside: avoid;
   }
-  
+
   .mermaid svg text,
   .mermaid svg tspan {
     fill: #000 !important;
   }
-  
+
   .mermaid svg .node rect,
   .mermaid svg .node circle,
   .mermaid svg .node ellipse,
@@ -474,22 +474,22 @@
     fill: #fff !important;
     stroke: #000 !important;
   }
-  
+
   .mermaid svg .edgePath .path,
   .mermaid svg .flowchart-link {
     stroke: #000 !important;
   }
-  
+
   .mermaid svg .marker {
     fill: #000 !important;
   }
-  
+
   .mermaid-fullscreen-btn,
   .svg-pan-zoom-control,
   .mermaid::after {
     display: none !important;
   }
-  
+
   .mermaid-figure figcaption,
   .mermaid-caption {
     color: #000 !important;

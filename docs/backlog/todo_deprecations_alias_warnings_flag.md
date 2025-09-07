@@ -12,4 +12,3 @@
 
 ## Success Criteria
 - Opt‑in warnings available; documented migration path.
-

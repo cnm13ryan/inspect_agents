@@ -11,4 +11,3 @@
 
 ## Success Criteria
 - Docs‑only PRs trigger the light job; others run full CI.
-

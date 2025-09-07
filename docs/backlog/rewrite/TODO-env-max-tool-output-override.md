@@ -36,4 +36,3 @@
 - [ ] Update GenerateConfig field docs with precedence and env name.
 - [ ] Add integration test for env behavior and precedence.
 - [ ] Run `pytest -q -k truncation` and ensure green.
-
