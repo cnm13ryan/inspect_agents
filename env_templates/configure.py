@@ -4,12 +4,14 @@ Inspect Agents — Environment Configurator
 
 Interactive helper that generates .env files aligned with env_templates/inspect.env
 and the environment reference in docs/reference/environment.md. It covers:
-  - Providers & models (LM‑Studio, Ollama)
+  - Providers & models (LM‑Studio, Ollama, remote providers via keys)
   - Web search providers (Tavily, Google CSE)
-  - Filesystem & sandbox settings
   - Tool toggles
-  - Quarantine & limits
-  - Logging & truncation
+  - Approvals & parallelism policies
+  - Filesystem & sandbox settings (advanced preflight/limits)
+  - Iterative agent budgets (time/steps/pruning)
+  - Logging, tracing, and tool‑output truncation
+  - Quarantine & per‑agent limits
 
 Writes .env at the repo root and examples/inspect/.env (legacy) unless disabled.
 """
@@ -146,6 +148,42 @@ def build_providers_section() -> list[str]:
             f"OLLAMA_BASE_URL={base_url}",
             "",
         ]
+
+    # Role mapping examples (commented)
+    lines += [
+        "# Role mapping (optional; examples — uncomment and customize)",
+        "# INSPECT_ROLE_GRADER_PROVIDER=openai",
+        "# INSPECT_ROLE_GRADER_MODEL=gpt-4o-mini",
+        "# INSPECT_ROLE_RESEARCHER_PROVIDER=ollama",
+        "# INSPECT_ROLE_RESEARCHER_MODEL=llama3.1:8b",
+        "",
+    ]
+
+    # Remote provider keys (commented)
+    lines += [
+        "# Remote providers (set when using non-local providers)",
+        "# OPENAI_API_KEY=",
+        "# OPENAI_MODEL=",
+        "# ANTHROPIC_API_KEY=",
+        "# ANTHROPIC_MODEL=",
+        "# GOOGLE_API_KEY=",
+        "# GOOGLE_MODEL=",
+        "# GROQ_API_KEY=",
+        "# GROQ_MODEL=",
+        "# MISTRAL_API_KEY=",
+        "# MISTRAL_MODEL=",
+        "# PERPLEXITY_API_KEY=",
+        "# PERPLEXITY_MODEL=",
+        "# FIREWORKS_API_KEY=",
+        "# FIREWORKS_MODEL=",
+        "# GROK_API_KEY=",
+        "# GROK_MODEL=",
+        "# GOODFIRE_API_KEY=",
+        "# GOODFIRE_MODEL=",
+        "# OPENROUTER_API_KEY=",
+        "# OPENROUTER_MODEL=",
+        "",
+    ]
 
     return lines
 
@@ -305,6 +343,114 @@ def build_quarantine_section() -> list[str]:
     return lines
 
 
+def build_approvals_section() -> list[str]:
+    print("\nApprovals & Parallelism")
+    lines: list[str] = ["## Approvals & Presets"]
+    choice = choose("Approval preset (optional)", ["none", "dev", "prod", "ci"], default_idx=0)
+    if choice != "none":
+        lines += [f"INSPECT_APPROVAL_PRESET={choice}"]
+    else:
+        lines += ["# INSPECT_APPROVAL_PRESET=dev"]
+
+    # Parallel kill-switch
+    if ask_bool("Enable parallel kill-switch for non-handoff tools?", default=False):
+        lines += ["INSPECT_DISABLE_TOOL_PARALLEL=1"]
+    else:
+        lines += ["# INSPECT_DISABLE_TOOL_PARALLEL=1", "# INSPECT_TOOL_PARALLELISM_DISABLE=1  # legacy alias"]
+    lines.append("")
+    return lines
+
+
+def build_fs_advanced_section() -> list[str]:
+    print("\nFilesystem — Advanced")
+    lines: list[str] = ["## Filesystem & Sandbox (advanced)"]
+    mode = choose("Sandbox preflight mode", ["auto", "skip", "force"], default_idx=0)
+    ttl = ask("Preflight TTL seconds", default="300")
+    root = ask("Sandbox FS root (absolute)", default="/repo")
+    max_bytes = ask("Max file bytes (OOM guard)", default="5000000")
+    timeout = ask("Default tool timeout (sec)", default="15")
+    typed = ask_bool("Return typed tool results?", default=False)
+    lines += [
+        f"# INSPECT_SANDBOX_PREFLIGHT={mode}",
+        f"# INSPECT_SANDBOX_PREFLIGHT_TTL_SEC={ttl}",
+        f"# INSPECT_SANDBOX_LOG_PATHS=0",
+        f"# INSPECT_AGENTS_FS_ROOT={root}",
+        f"# INSPECT_AGENTS_FS_MAX_BYTES={max_bytes}",
+        f"# INSPECT_AGENTS_TOOL_TIMEOUT={timeout}",
+        ("INSPECT_AGENTS_TYPED_RESULTS=1" if typed else "# INSPECT_AGENTS_TYPED_RESULTS=1"),
+        "",
+    ]
+    return lines
+
+
+def build_iterative_section() -> list[str]:
+    print("\nIterative Agent Budgets")
+    lines: list[str] = ["## Iterative Agent (time/steps/pruning)"]
+    if not ask_bool("Configure iterative budgets now?", default=False):
+        lines += [
+            "# INSPECT_ITERATIVE_TIME_LIMIT=60",
+            "# INSPECT_ITERATIVE_MAX_STEPS=10",
+            "# INSPECT_PRUNE_AFTER_MESSAGES=120",
+            "# INSPECT_PRUNE_KEEP_LAST=40",
+            "# INSPECT_PER_MSG_TOKEN_CAP=0",
+            "# INSPECT_TRUNCATE_LAST_K=200",
+            "# INSPECT_PRODUCTIVE_TIME=1",
+            "",
+        ]
+        return lines
+
+    tlim = ask("Time limit seconds (empty to skip)", default="")
+    steps = ask("Max steps (empty to skip)", default="")
+    prune_after = ask("Prune after messages (<=0 disables)", default="120")
+    keep_last = ask("Prune keep last", default="40")
+    cap = ask("Per-message token cap (0 disables)", default="0")
+    last_k = ask("Truncate last K messages", default="200")
+    prod = ask_bool("Enable productive-time accounting?", default=True)
+
+    if tlim:
+        lines += [f"INSPECT_ITERATIVE_TIME_LIMIT={tlim}"]
+    else:
+        lines += ["# INSPECT_ITERATIVE_TIME_LIMIT=60"]
+    if steps:
+        lines += [f"INSPECT_ITERATIVE_MAX_STEPS={steps}"]
+    else:
+        lines += ["# INSPECT_ITERATIVE_MAX_STEPS=10"]
+    lines += [
+        f"INSPECT_PRUNE_AFTER_MESSAGES={prune_after}",
+        f"INSPECT_PRUNE_KEEP_LAST={keep_last}",
+        f"INSPECT_PER_MSG_TOKEN_CAP={cap}",
+        f"INSPECT_TRUNCATE_LAST_K={last_k}",
+        ("INSPECT_PRODUCTIVE_TIME=1" if prod else "# INSPECT_PRODUCTIVE_TIME=1"),
+        "",
+    ]
+    return lines
+
+
+def build_observability_section() -> list[str]:
+    print("\nLogging, Tracing & Truncation")
+    lines: list[str] = ["## Logging & Observability"]
+    trace = ask("Trace file path (empty to skip)", default="")
+    trunc = ask("Tool log string truncate (chars)", default="200")
+    cap = ask("Global tool-output cap bytes (0=disable; empty=skip)", default="")
+    if trunc:
+        lines += [f"# INSPECT_TOOL_OBS_TRUNCATE={trunc}"]
+    else:
+        lines += ["# INSPECT_TOOL_OBS_TRUNCATE=200"]
+    if trace:
+        lines += [f"# INSPECT_TRACE_FILE={trace}"]
+    else:
+        lines += ["# INSPECT_TRACE_FILE=logs/inspect_ai/trace.log"]
+    if cap:
+        lines += [f"# INSPECT_MAX_TOOL_OUTPUT={cap}"]
+    else:
+        lines += ["# INSPECT_MAX_TOOL_OUTPUT=16384"]
+
+    # Runner near-limit telemetry
+    near = ask("Runner near-limit threshold (0<val<1)", default="0.8")
+    lines += [f"# INSPECT_LIMIT_NEARING_THRESHOLD={near}", ""]
+    return lines
+
+
 def assemble_lines(sections: Iterable[list[str]]) -> str:
     lines: list[str] = []
     for sec in sections:
@@ -323,10 +469,25 @@ def main() -> None:
     providers = build_providers_section()
     web_search = build_web_search_section()
     tools = build_tools_section()
+    approvals = build_approvals_section()
     fs = build_fs_section()
+    fs_adv = build_fs_advanced_section()
+    iterative = build_iterative_section()
+    observability = build_observability_section()
     quarantine = build_quarantine_section()
 
-    content = assemble_lines([header, providers, web_search, fs, tools, quarantine])
+    content = assemble_lines([
+        header,
+        providers,
+        web_search,
+        tools,
+        approvals,
+        fs,
+        fs_adv,
+        iterative,
+        observability,
+        quarantine,
+    ])
 
     repo_root = get_repo_root()
     root_env = repo_root / ".env"
