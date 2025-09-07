@@ -24,6 +24,146 @@ Tip
 - Point the runner to a file: `--env-file env_templates/inspect.env`
 - Or export: `export INSPECT_ENV_FILE=env_templates/inspect.env`
 
+## Generated — Common Environment Flags
+
+The blocks below are generated from a single machine‑readable spec to avoid drift between docs and templates. Do not edit between the markers by hand.
+
+<!-- BEGIN GENERATED: ENV_REFERENCE -->
+<!-- GENERATED: do not edit by hand -->
+
+#### Approvals & Policies
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_APPROVAL_PRESET` | enum |  | no | Approvals preset: ci \| dev \| prod (optional). |
+
+#### Debug
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN` | bool | False | no | Suppress DeprecationWarning from legacy file wrappers (CI noise). |
+| `INSPECT_MODEL_DEBUG` | bool | False | no | Enable model resolver debug logs. |
+| `INSPECT_PRUNE_DEBUG` | bool | False | no | Emit prune/truncation info logs in iterative loop. |
+
+#### Filesystem & Sandbox
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_AGENTS_FS_MAX_BYTES` | int | 5000000 | no | Maximum per‑file byte ceiling (OOM guard). |
+| `INSPECT_AGENTS_FS_MODE` | string | store | no | Filesystem mode: store (in‑memory) \| sandbox (host‑routed). |
+| `INSPECT_AGENTS_FS_READ_ONLY` | bool | False | no | Sandbox read‑only mode: block write/edit/delete; allow ls/read. |
+| `INSPECT_AGENTS_FS_ROOT` | path | /repo | no | Absolute root for sandbox confinement. |
+| `INSPECT_AGENTS_TOOL_TIMEOUT` | int | 15 | no | Default per‑tool timeout (seconds). |
+| `INSPECT_AGENTS_TYPED_RESULTS` | bool | False | no | Return typed tool result models instead of plain strings/lists. |
+| `INSPECT_SANDBOX_LOG_PATHS` | bool | False | no | Log fs_root/tool context in sandbox preflight warnings. |
+| `INSPECT_SANDBOX_PREFLIGHT` | string | auto | no | Sandbox preflight mode: auto \| skip \| force. |
+| `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` | int | 300 | no | Preflight result cache TTL seconds. |
+
+#### Iterative Agent
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_ITERATIVE_MAX_STEPS` | int |  | no | Maximum reasoning/tool steps (unset disables). |
+| `INSPECT_ITERATIVE_TIME_LIMIT` | int |  | no | Real-time budget in seconds (unset disables). |
+| `INSPECT_PER_MSG_TOKEN_CAP` | int | 0 | no | Per-message token cap (0 disables). |
+| `INSPECT_PRODUCTIVE_TIME` | bool | False | no | Subtract provider retry wait from time budget (where supported). |
+| `INSPECT_PRUNE_AFTER_MESSAGES` | int | 120 | no | Threshold to apply global prune. |
+| `INSPECT_PRUNE_KEEP_LAST` | int | 40 | no | Tail size to retain during pruning. |
+| `INSPECT_TRUNCATE_LAST_K` | int | 200 | no | Keep last K messages during token-aware truncation. |
+
+#### Observability
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_LIMIT_NEARING_THRESHOLD` | float | 0.8 | no | Runner near-limit threshold (0<val<1). |
+| `INSPECT_LOG_DIR` | path | .inspect/logs | no | Transcript/log output directory. |
+| `INSPECT_MAX_TOOL_OUTPUT` | int | 16384 | no | Global tool-output cap bytes (0 disables). |
+| `INSPECT_TOOL_OBS_TRUNCATE` | int | 200 | no | Max chars for string fields in tool logs. |
+| `INSPECT_TRACE_FILE` | path |  | no | Optional trace file path. |
+
+#### Providers & Models
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `DEEPAGENTS_MODEL_PROVIDER` | string | ollama | no | Model provider when model lacks explicit prefix (e.g., ollama, lm-studio, openai). |
+| `INSPECT_EVAL_MODEL` | string |  | no | Explicit Inspect model id (may include provider prefix). |
+
+#### Retries & Backoff
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_RETRY_DISABLE_TENACITY` | bool | False | no | Bypass Tenacity; use fallback retry loop. |
+| `INSPECT_RETRY_INITIAL_SECONDS` | float | 1.0 | no | Initial backoff seconds. |
+| `INSPECT_RETRY_JITTER` | float | 0.0 | no | Optional jitter seconds (>0 to enable). |
+| `INSPECT_RETRY_MAX_ATTEMPTS` | int | 6 | no | Max attempts including first call. |
+| `INSPECT_RETRY_MAX_SECONDS` | float | 60.0 | no | Max backoff seconds. |
+
+#### Tool Toggles
+| Env | Type | Default | Sensitive | Description |
+|---|---|---:|---:|---|
+| `INSPECT_ENABLE_EXEC` | bool | False | no | Enable bash() and python() tools (requires sandbox). |
+| `INSPECT_ENABLE_TEXT_EDITOR_TOOL` | bool | False | no | Expose text_editor() tool directly (FS tools already route to it in sandbox). |
+| `INSPECT_ENABLE_THINK` | bool | on when unset | no | Enable think() helper (lightweight; defaults to on when unset). |
+| `INSPECT_ENABLE_WEB_BROWSER` | bool | False | no | Enable web_browser() tools (requires sandbox + Playwright). |
+| `INSPECT_ENABLE_WEB_SEARCH` | bool | False | no | Enable web_search() tool (requires Tavily or Google CSE keys). |
+| `INSPECT_WEB_SEARCH_INTERNAL` | string |  | no | Prefer internal provider for web search augmentation (e.g., openai, anthropic). |
+<!-- END GENERATED: ENV_REFERENCE -->
+
+### Copy‑Paste Template Snippet
+
+<!-- BEGIN GENERATED: ENV_TEMPLATE -->
+```bash
+# GENERATED: do not edit by hand
+
+## Approvals & Policies
+# INSPECT_APPROVAL_PRESET=
+
+## Debug
+# INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN=0
+# INSPECT_MODEL_DEBUG=0
+# INSPECT_PRUNE_DEBUG=0
+
+## Filesystem & Sandbox
+# INSPECT_AGENTS_FS_MAX_BYTES=5000000
+# INSPECT_AGENTS_FS_MODE=store
+# INSPECT_AGENTS_FS_READ_ONLY=0
+# INSPECT_AGENTS_FS_ROOT=/repo
+# INSPECT_AGENTS_TOOL_TIMEOUT=15
+# INSPECT_AGENTS_TYPED_RESULTS=0
+# INSPECT_SANDBOX_LOG_PATHS=0
+# INSPECT_SANDBOX_PREFLIGHT=auto
+# INSPECT_SANDBOX_PREFLIGHT_TTL_SEC=300
+
+## Iterative Agent
+# INSPECT_ITERATIVE_MAX_STEPS=
+# INSPECT_ITERATIVE_TIME_LIMIT=
+# INSPECT_PER_MSG_TOKEN_CAP=0
+# INSPECT_PRODUCTIVE_TIME=0
+# INSPECT_PRUNE_AFTER_MESSAGES=120
+# INSPECT_PRUNE_KEEP_LAST=40
+# INSPECT_TRUNCATE_LAST_K=200
+
+## Observability
+# INSPECT_LIMIT_NEARING_THRESHOLD=0.8
+# INSPECT_LOG_DIR=.inspect/logs
+# INSPECT_MAX_TOOL_OUTPUT=16384
+# INSPECT_TOOL_OBS_TRUNCATE=200
+# INSPECT_TRACE_FILE=
+
+## Providers & Models
+# DEEPAGENTS_MODEL_PROVIDER=ollama
+# INSPECT_EVAL_MODEL=
+
+## Retries & Backoff
+# INSPECT_RETRY_DISABLE_TENACITY=0
+# INSPECT_RETRY_INITIAL_SECONDS=1.0
+# INSPECT_RETRY_JITTER=0.0
+# INSPECT_RETRY_MAX_ATTEMPTS=6
+# INSPECT_RETRY_MAX_SECONDS=60.0
+
+## Tool Toggles
+# INSPECT_ENABLE_EXEC=0
+# INSPECT_ENABLE_TEXT_EDITOR_TOOL=0
+# INSPECT_ENABLE_THINK=
+# INSPECT_ENABLE_WEB_BROWSER=0
+# INSPECT_ENABLE_WEB_SEARCH=0
+# INSPECT_WEB_SEARCH_INTERNAL=
+
+```bash<!-- END GENERATED: ENV_TEMPLATE -->
+
 ### When Settings Take Effect
 
 - Most environment flags are read at process start and/or when the relevant component is constructed. For example, standard tool toggles are applied when tools are built for an agent, and runner options are read when the runner starts.
