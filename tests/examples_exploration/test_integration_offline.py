@@ -64,14 +64,22 @@ async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pyt
 
     # Verify presence via ls tool
     listing = await ls()
-    files = getattr(listing, "files", []) if hasattr(listing, "files") else []
-    names = [f.get("path") if isinstance(f, dict) else getattr(f, "path", None) for f in files]
-    assert "plan.json" in set(names)
-    assert "question.txt" in set(names)
+    if isinstance(listing, list):
+        names = set(listing)
+    else:
+        names = set(getattr(listing, "files", []))
+    assert "plan.json" in names
+    assert "question.txt" in names
 
     # Verify JSON structure by reading back
     content = await read_file(file_path="plan.json", limit=2000)
-    text = content if isinstance(content, str) else "\n".join(getattr(content, "lines", []))
+    raw_lines = (
+        content.splitlines() if isinstance(content, str) else list(getattr(content, "lines", []))
+    )
+    # Strip legacy numbered prefixes like "   1\t" when typed results are disabled
+    import re as _re
+    clean_lines = [_re.sub(r"^\s*\d+\t", "", ln) for ln in raw_lines]
+    text = "\n".join(clean_lines)
     data = json.loads(text)
     assert isinstance(data, dict)
     assert len(data.get("queries", [])) <= cfg["max_queries"]
