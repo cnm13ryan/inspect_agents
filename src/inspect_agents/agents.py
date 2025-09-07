@@ -212,7 +212,7 @@ class SubAgentCfg(TypedDict):
 
 
 def build_subagents(
-    configs: list[SubAgentCfg], base_tools: list[object]
+    configs: list[SubAgentCfg], base_tools: list[object], *, default_model: object | None = None
 ) -> list[object]:
     """Create handoff/as_tool wrappers for configured sub-agents.
 
@@ -263,7 +263,7 @@ def build_subagents(
             description=desc,
             prompt=prompt,
             tools=selected_tools,
-            model=cfg.get("model"),
+            model=(cfg.get("model") if "model" in cfg else default_model),
             submit=True,
         )
 
