@@ -156,9 +156,7 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
     except Exception as exc:
         _SANDBOX_READY = False
         _SANDBOX_TS = now
-        _SANDBOX_WARN = str(exc) or (
-            "Sandbox service not available; falling back to Store-backed FS."
-        )
+        _SANDBOX_WARN = str(exc) or ("Sandbox service not available; falling back to Store-backed FS.")
 
         # Best-effort structured warning log matching prior payload shape, without importing .tools
         try:
@@ -181,6 +179,7 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
 
 
 # --- Symlink denial and root-confinement -------------------------------------
+
 
 async def deny_symlink(path: str) -> None:
     """Deny access to symlinks in sandbox mode.

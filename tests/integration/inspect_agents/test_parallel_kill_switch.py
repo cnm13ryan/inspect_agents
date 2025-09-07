@@ -6,13 +6,13 @@ import logging
 
 import pytest
 
-pytestmark = pytest.mark.kill_switch
-
 from tests.fixtures.helpers import (
     build_apply_shim,
     ensure_vendor_on_path,
     parse_tool_events,
 )
+
+pytestmark = pytest.mark.kill_switch
 
 
 def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog):
@@ -113,7 +113,9 @@ def test_kill_switch_escalates_when_handoff_present(monkeypatch, caplog):
     # Logs should show handoff_exclusive skipped, and not parallel_kill_switch
     events = parse_tool_events(caplog)
     assert any(e.get("tool") == "handoff_exclusive" and e.get("phase") == "skipped" for e in events)
-    assert not any(e.get("tool") == "parallel_kill_switch" for e in events), "Kill-switch should escalate; no skip logged"
+    assert not any(e.get("tool") == "parallel_kill_switch" for e in events), (
+        "Kill-switch should escalate; no skip logged"
+    )
 
     # Cleanup env
     monkeypatch.delenv("INSPECT_TOOL_PARALLELISM_DISABLE", raising=False)

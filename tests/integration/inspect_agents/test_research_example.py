@@ -66,9 +66,7 @@ def test_research_example_offline_smoke(monkeypatch, tmp_path):
 
     subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools)
 
-    sup = build_supervisor(
-        prompt="You are helpful.", tools=subagent_tools, attempts=1, model=toy_submit_model()
-    )
+    sup = build_supervisor(prompt="You are helpful.", tools=subagent_tools, attempts=1, model=toy_submit_model())
 
     result = asyncio.run(run_agent(sup, "Delegate research, then finish."))
 

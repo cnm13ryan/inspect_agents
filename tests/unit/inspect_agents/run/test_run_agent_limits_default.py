@@ -14,10 +14,12 @@ def _install_inspect_stub(monkeypatch, calls: list[dict]) -> None:
     """
 
     async def run(agent, input, limits=None, **_):  # type: ignore[no-untyped-def]
-        calls.append({
-            "id": id(limits),
-            "list": list(limits) if limits is not None else None,
-        })
+        calls.append(
+            {
+                "id": id(limits),
+                "list": list(limits) if limits is not None else None,
+            }
+        )
         if limits is not None:
             # Simulate framework mutation that would persist if caller reused
             # a shared default list between invocations.
@@ -28,6 +30,7 @@ def _install_inspect_stub(monkeypatch, calls: list[dict]) -> None:
     # Create package/module hierarchy: inspect_ai -> agent -> _run
     # Preserve vendored package path so other submodules (e.g., log._transcript) still import
     import pathlib
+
     pkg = types.ModuleType("inspect_ai")
     vendor_pkg_path = pathlib.Path(__file__).resolve().parents[4] / "external" / "inspect_ai" / "src" / "inspect_ai"
     try:

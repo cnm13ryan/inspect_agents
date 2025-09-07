@@ -24,7 +24,7 @@ async def test_planner_plan_can_be_persisted_with_files_tool() -> None:
     mod = _load_planner_module()
     planner = mod.planner_tool()
 
-    from inspect_agents.tools import write_file, read_file
+    from inspect_agents.tools import read_file, write_file
 
     wf = write_file()
     rf = read_file()
@@ -37,5 +37,4 @@ async def test_planner_plan_can_be_persisted_with_files_tool() -> None:
     # Assert: we can read it back and it contains the expected key
     content = await rf(file_path="plan.json")
     text = content if isinstance(content, str) else "\n".join(content.lines)
-    assert "\"queries\"" in text or "queries" in text
-
+    assert '"queries"' in text or "queries" in text

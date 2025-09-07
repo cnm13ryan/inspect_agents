@@ -22,7 +22,7 @@ from inspect_ai.tool._tool_call import ToolCall  # type: ignore  # noqa: E402
 
 
 def _load_module():
-    return importlib.import_module('inspect_agents.approval')
+    return importlib.import_module("inspect_agents.approval")
 
 
 class _Msg:
@@ -58,7 +58,11 @@ def test_kill_switch_allows_only_first_non_handoff(monkeypatch):
         # Fallback: structural search in transcript in case of class identity drift
         evs = getattr(transcript(), "events", [])
         for e in reversed(list(evs)):
-            if getattr(e, "event", None) == "tool" and getattr(e, "id", None) == "2" and getattr(e, "function", None) == "echo_b":
+            if (
+                getattr(e, "event", None) == "tool"
+                and getattr(e, "id", None) == "2"
+                and getattr(e, "function", None) == "echo_b"
+            ):
                 tev = e
                 break
 

@@ -23,9 +23,6 @@ def test_extra_field_code_matches():
 def test_unknown_and_parsing_codes():
     assert classify_tool_arg_error(None) == "UNKNOWN_SCHEMA_ERROR"
     assert (
-        classify_tool_arg_error(
-            "Error parsing the following tool call arguments:\n\n{bad}\n\nError details: ..."
-        )
+        classify_tool_arg_error("Error parsing the following tool call arguments:\n\n{bad}\n\nError details: ...")
         == "PARSING_ERROR"
     )
-

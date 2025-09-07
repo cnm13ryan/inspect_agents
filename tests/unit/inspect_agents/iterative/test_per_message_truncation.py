@@ -83,4 +83,3 @@ def test_tool_and_system_messages_untouched():
     out = truncate_conversation_tokens(msgs, max_tokens_per_msg=10, last_k=10, tokenizer=tok)
     assert out[0].content == "S" * 1000
     assert out[1].content == "Z" * 1000
-

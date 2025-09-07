@@ -1,6 +1,7 @@
 import asyncio
-import pytest
 import warnings
+
+import pytest
 
 
 def test_read_file_emits_deprecation_warning(monkeypatch):
@@ -25,12 +26,16 @@ def test_write_file_emits_deprecation_warning(monkeypatch):
 def test_edit_file_emits_deprecation_warning(monkeypatch):
     monkeypatch.delenv("INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN", raising=False)
     # Seed via unified tool to avoid extra wrapper warnings
-    from inspect_agents.tools_files import files_tool, FilesParams, WriteParams
     from inspect_agents.tools import edit_file
+    from inspect_agents.tools_files import FilesParams, WriteParams, files_tool
 
     f = files_tool()
     asyncio.run(
-        f(params=FilesParams(root=WriteParams(command="write", file_path="ed_warn.txt", content="hello", instance="warn")))
+        f(
+            params=FilesParams(
+                root=WriteParams(command="write", file_path="ed_warn.txt", content="hello", instance="warn")
+            )
+        )
     )
 
     t = edit_file()
@@ -48,13 +53,17 @@ def test_edit_file_emits_deprecation_warning(monkeypatch):
 
 def test_delete_file_emits_deprecation_warning(monkeypatch):
     monkeypatch.delenv("INSPECT_AGENTS_SUPPRESS_TOOL_WRAPPER_WARN", raising=False)
-    from inspect_agents.tools_files import files_tool, FilesParams, WriteParams
     from inspect_agents.tools import delete_file
+    from inspect_agents.tools_files import FilesParams, WriteParams, files_tool
 
     # Create a file via unified tool
     f = files_tool()
     asyncio.run(
-        f(params=FilesParams(root=WriteParams(command="write", file_path="del_warn.txt", content="bye", instance="warn")))
+        f(
+            params=FilesParams(
+                root=WriteParams(command="write", file_path="del_warn.txt", content="bye", instance="warn")
+            )
+        )
     )
 
     t = delete_file()

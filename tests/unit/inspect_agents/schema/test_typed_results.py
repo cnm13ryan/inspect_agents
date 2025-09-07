@@ -41,7 +41,7 @@ def clean_env():
 
 class TestTypedResults:
     """Test typed results functionality behind environment flag."""
-    
+
     def test_ls_typed_result(self):
         """Test ls tool returns FileListResult when flag is set."""
         _fresh_store()
@@ -56,9 +56,10 @@ class TestTypedResults:
         asyncio.run(_setup())
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
                 return await ls_tool()
-            
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, FileListResult)
             assert "a.txt" in result.files
@@ -67,7 +68,7 @@ class TestTypedResults:
         # Without flag, should return list
         async def _test_legacy():
             return await ls_tool()
-        
+
         result = asyncio.run(_test_legacy())
         assert isinstance(result, list)
         assert "a.txt" in result
@@ -81,15 +82,17 @@ class TestTypedResults:
 
         # Setup a file
         test_content = "line1\nline2\nline3"
+
         async def _setup():
             await write_tool(file_path="test.txt", content=test_content)
 
         asyncio.run(_setup())
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
                 return await read_tool(file_path="test.txt")
-            
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, FileReadResult)
             assert len(result.lines) == 3
@@ -102,7 +105,7 @@ class TestTypedResults:
         # Without flag, should return formatted string
         async def _test_legacy():
             return await read_tool(file_path="test.txt")
-        
+
         result = asyncio.run(_test_legacy())
         assert isinstance(result, str)
         assert "1\tline1" in result
@@ -121,9 +124,10 @@ class TestTypedResults:
         asyncio.run(_setup())
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
                 return await read_tool(file_path="empty.txt")
-            
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, FileReadResult)
             assert result.lines == []
@@ -135,9 +139,10 @@ class TestTypedResults:
         write_tool = write_file()
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
                 return await write_tool(file_path="new.txt", content="hello world")
-            
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, FileWriteResult)
             assert result.path == "new.txt"
@@ -146,7 +151,7 @@ class TestTypedResults:
         # Without flag, should return string
         async def _test_legacy():
             return await write_tool(file_path="legacy.txt", content="hello")
-        
+
         result = asyncio.run(_test_legacy())
         assert isinstance(result, str)
         assert "Updated file legacy.txt" in result
@@ -164,14 +169,10 @@ class TestTypedResults:
         asyncio.run(_setup())
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
-                return await edit_tool(
-                    file_path="edit.txt",
-                    old_string="hello",
-                    new_string="hi",
-                    replace_all=False
-                )
-            
+                return await edit_tool(file_path="edit.txt", old_string="hello", new_string="hi", replace_all=False)
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, FileEditResult)
             assert result.path == "edit.txt"
@@ -180,15 +181,11 @@ class TestTypedResults:
 
         # Test replace_all
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed_all():
                 await write_tool(file_path="edit2.txt", content="hello world hello")
-                return await edit_tool(
-                    file_path="edit2.txt",
-                    old_string="hello",
-                    new_string="hi",
-                    replace_all=True
-                )
-            
+                return await edit_tool(file_path="edit2.txt", old_string="hello", new_string="hi", replace_all=True)
+
             result = asyncio.run(_test_typed_all())
             assert isinstance(result, FileEditResult)
             assert result.replaced == 2
@@ -198,15 +195,13 @@ class TestTypedResults:
         _fresh_store()
         write_tool = write_todos()
 
-        todos = [
-            Todo(content="task1", status="pending"),
-            Todo(content="task2", status="completed")
-        ]
+        todos = [Todo(content="task1", status="pending"), Todo(content="task2", status="completed")]
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
                 return await write_tool(todos=todos)
-            
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, TodoWriteResult)
             assert result.count == 2
@@ -215,7 +210,7 @@ class TestTypedResults:
         # Without flag, should return string
         async def _test_legacy():
             return await write_tool(todos=todos)
-        
+
         result = asyncio.run(_test_legacy())
         assert isinstance(result, str)
         assert "Updated todo list" in result
@@ -227,20 +222,17 @@ class TestTypedResults:
         update_tool = update_todo_status()
 
         todos = [Todo(content="task1", status="pending")]
-        
+
         async def _setup():
             await write_tool(todos=todos)
 
         asyncio.run(_setup())
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
+
             async def _test_typed():
-                return await update_tool(
-                    todo_index=0,
-                    status="completed",
-                    allow_direct_complete=True
-                )
-            
+                return await update_tool(todo_index=0, status="completed", allow_direct_complete=True)
+
             result = asyncio.run(_test_typed())
             assert isinstance(result, TodoStatusResult)
             assert result.index == 0
@@ -250,17 +242,19 @@ class TestTypedResults:
 
         # Without flag, should return JSON string
         todos2 = [Todo(content="task2", status="pending")]
+
         async def _setup2():
             await write_tool(todos=todos2)
 
         asyncio.run(_setup2())
-        
+
         async def _test_legacy():
             return await update_todo_status(todo_index=0, status="in_progress")
-        
+
         result = asyncio.run(_test_legacy())
         assert isinstance(result, str)
         import json
+
         parsed = json.loads(result)
         assert parsed["ok"] is True
         assert "Updated todo[0] status to in_progress" in parsed["message"]
@@ -279,28 +273,29 @@ class TestTypedResults:
         # Test truthy values
         for val in ["1", "true", "TRUE", "yes", "YES", "on", "ON"]:
             with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": val}):
+
                 async def _test():
                     return await ls_tool()
-                
+
                 result = asyncio.run(_test())
                 assert isinstance(result, FileListResult), f"Failed for value: {val}"
 
         # Test falsy values
         for val in ["0", "false", "FALSE", "no", "NO", "off", "OFF", ""]:
             with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": val}):
+
                 async def _test():
                     return await ls_tool()
-                
+
                 result = asyncio.run(_test())
                 assert isinstance(result, list), f"Failed for value: {val}"
 
         # Test unset
         if "INSPECT_AGENTS_TYPED_RESULTS" in os.environ:
             del os.environ["INSPECT_AGENTS_TYPED_RESULTS"]
-        
+
         async def _test_unset():
             return await ls_tool()
-        
+
         result = asyncio.run(_test_unset())
         assert isinstance(result, list)
-

@@ -1,13 +1,13 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 log = logging.getLogger("mkdocs")
 
 
-def _filter_search_index(obj: Dict[str, Any]) -> Dict[str, Any]:
-    docs: List[Dict[str, Any]] = obj.get("docs", [])
+def _filter_search_index(obj: dict[str, Any]) -> dict[str, Any]:
+    docs: list[dict[str, Any]] = obj.get("docs", [])
     before = len(docs)
     filtered = [d for d in docs if not str(d.get("location", "")).startswith("backlog/")]
     removed = before - len(filtered)
@@ -35,4 +35,3 @@ def on_post_build(config, **_: object) -> None:  # type: ignore[no-redef]
                 log.warning("search: failed to post-process %s: %s", path, exc)
                 return
     log.info("search: no search_index.json found; skipping backlog exclusion")
-

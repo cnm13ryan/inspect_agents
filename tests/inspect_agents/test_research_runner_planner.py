@@ -23,4 +23,3 @@ def test_runner_exposes_planner_tool():
     assert tool_obj is not None, "planner tool failed to load"
     name = getattr(tool_obj, "name", None) or getattr(tool_obj, "__name__", None)
     assert name == "planner_tool"
-

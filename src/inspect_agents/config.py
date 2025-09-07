@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Any, Literal
 
 import yaml
@@ -96,7 +96,7 @@ def load_yaml(source: str | Path | dict[str, Any]) -> RootConfig:
                     repo_root = parent
                     break
             if repo_root is not None:
-                alt = (repo_root / src_path)
+                alt = repo_root / src_path
                 if alt.exists():
                     resolved_path = alt
 
@@ -117,9 +117,7 @@ def load_yaml(source: str | Path | dict[str, Any]) -> RootConfig:
 
         if not isinstance(loaded, dict):
             hint = f" at {resolved_path}" if resolved_path is not None else ""
-            raise ValueError(
-                f"Invalid config{hint}: expected a mapping at the root, got {type(loaded).__name__}"
-            )
+            raise ValueError(f"Invalid config{hint}: expected a mapping at the root, got {type(loaded).__name__}")
 
         data = loaded
 
@@ -175,9 +173,7 @@ def parse_limits(spec: list[Any] | None) -> list[Limit]:
         if isinstance(entry, dict):
             limits.append(_limit_from_dict(entry))
         else:
-            raise ValueError(
-                f"Invalid limit at index {i}: expected dict with 'type' and 'value'"
-            )
+            raise ValueError(f"Invalid limit at index {i}: expected dict with 'type' and 'value'")
     return limits
 
 

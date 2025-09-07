@@ -1,7 +1,5 @@
 import logging
 
-import pytest
-
 
 def test_final_fallback_logs_once(monkeypatch, caplog):
     # Ensure a clean env: no explicit model/provider/role mapping
@@ -21,4 +19,3 @@ def test_final_fallback_logs_once(monkeypatch, caplog):
     # Exactly one hint should be logged for the fallback
     matches = [r for r in caplog.records if "final_fallback_ollama" in r.getMessage()]
     assert len(matches) == 1
-

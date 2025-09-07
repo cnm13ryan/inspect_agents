@@ -21,11 +21,7 @@ def model_calls_todos_and_write():
                     {
                         "id": "1",
                         "function": "write_todos",
-                        "arguments": {
-                            "todos": [
-                                {"content": "do x", "status": "pending"}
-                            ]
-                        },
+                        "arguments": {"todos": [{"content": "do x", "status": "pending"}]},
                     },
                     {
                         "id": "2",
@@ -50,9 +46,7 @@ def test_create_deep_agent_minimal_flow():
     s = Store()
     init_subtask_store(s)
 
-    agent_obj = create_deep_agent(
-        tools=[], instructions="You are helpful.", model=model_calls_todos_and_write()
-    )
+    agent_obj = create_deep_agent(tools=[], instructions="You are helpful.", model=model_calls_todos_and_write())
 
     result = asyncio.run(agent_obj(AgentState(messages=[ChatMessageUser(content="start")])))
     assert "OK" in (result.output.completion or "")
@@ -65,4 +59,3 @@ def test_create_deep_agent_minimal_flow():
     # Verify todos updated in Store
     todos = store_as(Todos).get_todos()
     assert any(t.content == "do x" for t in todos)
-

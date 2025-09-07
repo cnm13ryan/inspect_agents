@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_LOG_DIR = ".inspect/logs"
-REDACT_KEYS = {"api_key", "authorization", "file_text", "content"}
+REDACT_KEYS: set[str] = {"api_key", "authorization", "file_text", "content"}
 
 
 def _ensure_dir(path: str) -> Path:
@@ -61,4 +61,3 @@ def write_transcript(log_dir: str | None = None) -> str:
 
 
 __all__ = ["write_transcript", "DEFAULT_LOG_DIR"]
-

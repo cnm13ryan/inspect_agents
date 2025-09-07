@@ -29,4 +29,3 @@ def test_redact_and_truncate_nested_payload():
 
     # Nested long strings remain unmodified by this helper
     assert not out["args"]["content"].endswith("chars]")
-

@@ -23,9 +23,7 @@ def toy_submit_model():
 
 def test_supervisor_runs_and_submits():
     # Build supervisor with toy model that always submits
-    agent = build_supervisor(
-        prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model()
-    )
+    agent = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
 
     # Kick off with a user message
     state = AgentState(messages=[ChatMessageUser(content="start")])
@@ -34,4 +32,3 @@ def test_supervisor_runs_and_submits():
 
     # Completion should include the submitted answer
     assert "DONE" in (result.output.completion or "")
-

@@ -1,6 +1,3 @@
-import os
-
-
 def _tool_names(tools: list[object]) -> set[str]:
     names: set[str] = set()
     for t in tools:
@@ -30,4 +27,3 @@ def test_standard_tools_excludes_bash_session(monkeypatch):
 
     names = _tool_names(standard_tools())
     assert "bash_session" not in names, "standard_tools() must never surface bash_session"
-

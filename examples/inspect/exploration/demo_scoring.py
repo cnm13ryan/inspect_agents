@@ -48,7 +48,8 @@ def _parse_dt(val: str | None) -> datetime | None:
 
 
 def _load_results_from_json(path: str) -> list[Result]:
-    data = json.loads(open(path, encoding="utf-8").read())
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
     out: list[Result] = []
     for item in data:
         out.append(

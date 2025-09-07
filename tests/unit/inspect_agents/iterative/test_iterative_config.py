@@ -1,4 +1,3 @@
-
 import pytest
 
 from inspect_agents.iterative_config import (
@@ -107,4 +106,3 @@ def test_truncation_last_k_env_overrides(monkeypatch):
     monkeypatch.setenv("INSPECT_TRUNCATE_LAST_K", "0")
     _, last_k2 = resolve_truncation(per_msg_token_cap=None, truncate_last_k=123)
     assert last_k2 == 123
-

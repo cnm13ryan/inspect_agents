@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,8 +32,8 @@ def _maybe_inject_src_path() -> None:
 _maybe_inject_src_path()
 
 from inspect_agents import (  # noqa: E402
-    resolve_model_explain,
     ResolveModelError,
+    resolve_model_explain,
 )
 
 
@@ -53,15 +52,7 @@ def print_table(final: str, trace) -> None:  # type: ignore[no-untyped-def]
     for i, s in enumerate(trace.steps):
         print(f"  [{i}] path={s.path} final={s.final_candidate}")
         print(
-            "      provider_arg=%r model_arg=%r role=%r role_env_model=%r role_env_provider=%r env_inspect_eval_model=%r"
-            % (
-                s.provider_arg,
-                s.model_arg,
-                s.role,
-                s.role_env_model,
-                s.role_env_provider,
-                s.env_inspect_eval_model,
-            )
+            f"      provider_arg={s.provider_arg!r} model_arg={s.model_arg!r} role={s.role!r} role_env_model={s.role_env_model!r} role_env_provider={s.role_env_provider!r} env_inspect_eval_model={s.env_inspect_eval_model!r}"
         )
 
 
@@ -78,12 +69,14 @@ def main(argv: list[str] | None = None) -> int:
     except ResolveModelError as e:
         if args.json:
             print(
-                as_json({
-                    "ok": False,
-                    "error": str(e),
-                    "final_step": e.final_step,
-                    "trace": e.trace,
-                })
+                as_json(
+                    {
+                        "ok": False,
+                        "error": str(e),
+                        "final_step": e.final_step,
+                        "trace": e.trace,
+                    }
+                )
             )
         else:
             print("Resolution failed:", str(e))
@@ -99,4 +92,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

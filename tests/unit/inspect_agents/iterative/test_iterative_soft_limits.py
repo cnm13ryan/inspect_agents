@@ -80,4 +80,3 @@ def test_soft_stop_token_limit_triggers_and_notes_reason():
     # Assert: final message explains the token stop
     assert isinstance(new_state.messages[-1], ChatMessageUser)
     assert "[limit] Token limit reached" in (new_state.messages[-1].content or "")
-

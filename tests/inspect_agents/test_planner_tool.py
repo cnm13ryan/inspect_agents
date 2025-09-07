@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -26,7 +25,7 @@ async def test_planner_tool_returns_expected_structure() -> None:
     mod = _load_local_module()
     tool = mod.planner_tool()
 
-    prompt = "Plan an exploration for \"Inspect-AI\" use cases"
+    prompt = 'Plan an exploration for "Inspect-AI" use cases'
     cfg = {"max_queries": 5, "breadth": 2, "depth": 2, "tags": ["unit"]}
 
     result = await tool(prompt=prompt, config=cfg)
@@ -48,4 +47,3 @@ async def test_planner_tool_returns_expected_structure() -> None:
         assert isinstance(item["depth"], int) and item["depth"] >= 1
         assert isinstance(item["tags"], list)
         assert all(isinstance(t, str) for t in item["tags"])
-

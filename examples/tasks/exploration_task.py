@@ -18,14 +18,15 @@ Environment
 from __future__ import annotations
 
 import os
-from typing import Any
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from typing import Any
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 
 from inspect_agents.model import resolve_model
+
 
 # Reuse the runner wiring to construct the agent
 def _load_runner_module():

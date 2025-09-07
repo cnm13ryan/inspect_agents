@@ -15,9 +15,9 @@ import asyncio
 
 import pytest
 
-pytestmark = pytest.mark.handoff
-
 from tests.fixtures.helpers import build_apply_shim, ensure_vendor_on_path
+
+pytestmark = pytest.mark.handoff
 
 
 def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
@@ -91,11 +91,15 @@ def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
 
     # 1) Exactly one successful handoff result message
     tool_msgs = [m for m in result.messages if isinstance(m, ChatMessageTool)]
-    handoff_success = [m for m in tool_msgs if m.function.startswith("transfer_to_") and getattr(m, "error", None) is None]
+    handoff_success = [
+        m for m in tool_msgs if m.function.startswith("transfer_to_") and getattr(m, "error", None) is None
+    ]
     assert len(handoff_success) == 1
 
     # 2) No other successful ChatMessageTool messages (skip errors)
-    extra_success = [m for m in tool_msgs if not m.function.startswith("transfer_to_") and getattr(m, "error", None) is None]
+    extra_success = [
+        m for m in tool_msgs if not m.function.startswith("transfer_to_") and getattr(m, "error", None) is None
+    ]
     assert len(extra_success) == 0
 
     # 3) Transcript should contain N standardized "skipped" ToolEvents emitted by policy

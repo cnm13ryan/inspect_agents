@@ -30,9 +30,7 @@ async def test_retry_fallback_accumulates_sleep(monkeypatch):
     from inspect_agents._model_retry import generate_with_retry_time
 
     model = _FlakyModel(fails=2)
-    out, sleep_s = await generate_with_retry_time(
-        model, input=[], tools=[], cache=False, config=None
-    )
+    out, sleep_s = await generate_with_retry_time(model, input=[], tools=[], cache=False, config=None)
     assert getattr(out, "message", None) is not None
     assert sleep_s >= 0.01  # at least one backoff step counted
 

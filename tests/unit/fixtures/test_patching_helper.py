@@ -1,4 +1,5 @@
 import importlib
+
 import pytest
 
 from tests.fixtures.patching import patch_use_site
@@ -23,4 +24,3 @@ def test_patch_use_site_signature_mismatch_raises_typeerror():
         mod = importlib.import_module("inspect_agents.approval")
         with pytest.raises(TypeError):
             mod.handoff_exclusive_policy()  # patched proxy enforces original signature
-

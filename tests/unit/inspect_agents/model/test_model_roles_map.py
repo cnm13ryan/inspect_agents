@@ -20,4 +20,3 @@ def test_role_env_mapping_openai_requires_key(monkeypatch):
     with pytest.raises(RuntimeError) as e:
         resolve_model(role="researcher")
     assert "OPENAI_API_KEY" in str(e.value)
-

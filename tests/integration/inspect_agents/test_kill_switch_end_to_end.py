@@ -14,6 +14,7 @@ import pytest
 
 pytestmark = pytest.mark.kill_switch
 
+
 def _ensure_vendor_on_path():
     vendor_src = "external/inspect_ai/src"
     if vendor_src not in sys.path:
@@ -51,10 +52,12 @@ def _ensure_apply_shim():
                 if approver:
                     break
         if approver is None:
+
             class _Approval:
                 decision = "approve"
                 modified = None
                 explanation = None
+
             return True, _Approval()
         view = viewer(call) if callable(viewer) else None
         approval = await approver(message, call, view, history)  # type: ignore[misc]

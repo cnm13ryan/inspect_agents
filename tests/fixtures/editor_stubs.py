@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import sys
 import types
-from typing import Any
 
 
 def install_editor_stub(monkeypatch, fs: dict[str, str]) -> None:
@@ -109,8 +108,8 @@ def install_slow_text_editor(monkeypatch) -> None:
 
     mod = types.ModuleType(mod_name)
 
-    from inspect_ai.tool._tool import Tool, tool
     import anyio
+    from inspect_ai.tool._tool import Tool, tool
 
     @tool()
     def text_editor() -> Tool:  # type: ignore[return-type]

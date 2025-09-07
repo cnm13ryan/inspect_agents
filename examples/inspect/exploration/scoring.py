@@ -7,14 +7,12 @@ embeddings. Designed to be plugged into planners or runners later.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import math
 import re
-from typing import List, Optional
+from datetime import datetime
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
-
 
 # -------------------------
 # Data Models
@@ -25,7 +23,7 @@ class Result(BaseModel):
     url: str
     title: str
     snippet: str
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
 
 
 class ScoringConfig(BaseModel):
@@ -33,10 +31,8 @@ class ScoringConfig(BaseModel):
     w_recency: float = 0.25
     w_topic: float = 0.30
     w_citation: float = 0.10
-    domain_whitelist: List[str] = Field(
-        default_factory=lambda: ["arxiv.org", "*.gov", "*.edu"]
-    )
-    domain_blacklist: List[str] = Field(default_factory=list)
+    domain_whitelist: list[str] = Field(default_factory=lambda: ["arxiv.org", "*.gov", "*.edu"])
+    domain_blacklist: list[str] = Field(default_factory=list)
     duplicate_title_jaccard: float = 0.90
 
 
@@ -113,7 +109,7 @@ def domain_authority(domain: str, cfg: ScoringConfig) -> float:
     return max(-1.0, min(1.0, score))
 
 
-def recency_weight(published_at: Optional[datetime], now: datetime, *, half_life_days: float = 365.0) -> float:
+def recency_weight(published_at: datetime | None, now: datetime, *, half_life_days: float = 365.0) -> float:
     """Exponential decay from 1.0 at now to ~0.5 at half-life.
 
     - If ``published_at`` is None, return neutral 0.0 (unknown recency).
@@ -196,16 +192,11 @@ def score(query: str, result: Result, cfg: ScoringConfig, now: datetime) -> floa
     topic = topical_similarity(query, f"{result.title} {result.snippet}")
     cite = citation_present(title=result.title, snippet=result.snippet)
 
-    s = (
-        cfg.w_authority * authority
-        + cfg.w_recency * recency
-        + cfg.w_topic * topic
-        + cfg.w_citation * cite
-    )
+    s = cfg.w_authority * authority + cfg.w_recency * recency + cfg.w_topic * topic + cfg.w_citation * cite
     return float(s)
 
 
-def rerank(query: str, results: List[Result], cfg: ScoringConfig, now: datetime) -> List[Result]:
+def rerank(query: str, results: list[Result], cfg: ScoringConfig, now: datetime) -> list[Result]:
     """Stable rerank by score (desc) with a duplicate-title penalty pass.
 
     The duplicate penalty is applied to later duplicates only; a single
@@ -250,12 +241,7 @@ def score_components(query: str, result: Result, cfg: ScoringConfig, now: dateti
     recency = recency_weight(result.published_at, now)
     topic = topical_similarity(query, f"{result.title} {result.snippet}")
     cite = citation_present(title=result.title, snippet=result.snippet)
-    weighted = (
-        cfg.w_authority * authority
-        + cfg.w_recency * recency
-        + cfg.w_topic * topic
-        + cfg.w_citation * cite
-    )
+    weighted = cfg.w_authority * authority + cfg.w_recency * recency + cfg.w_topic * topic + cfg.w_citation * cite
     return {
         "authority": float(authority),
         "recency": float(recency),
@@ -265,7 +251,7 @@ def score_components(query: str, result: Result, cfg: ScoringConfig, now: dateti
     }
 
 
-def rerank_with_scores(query: str, results: List[Result], cfg: ScoringConfig, now: datetime) -> List[ScoredResult]:
+def rerank_with_scores(query: str, results: list[Result], cfg: ScoringConfig, now: datetime) -> list[ScoredResult]:
     """Rerank and include component breakdowns and duplicate-title penalty.
 
     Each ScoredResult.components includes keys from score_components plus:

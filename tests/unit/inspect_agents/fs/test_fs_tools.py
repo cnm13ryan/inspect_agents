@@ -244,4 +244,3 @@ def test_delete_file_instance_isolation():
     assert "Deleted file shared_name.txt" in result
     assert "shared_name.txt" not in list_a_after
     assert "shared_name.txt" in list_b_after
-

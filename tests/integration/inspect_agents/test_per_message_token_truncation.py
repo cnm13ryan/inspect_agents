@@ -20,9 +20,7 @@ class FakeTokenizer:
 class NoToolModel(Model):
     async def generate(self, input, tools, config, cache: bool = False):  # noqa: ARG002
         # Return a small assistant message; we want to exercise the prune path
-        return ModelOutput.from_message(
-            ChatMessageAssistant(content="ok", source="generate")
-        )
+        return ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
 
 
 def _run(agent, state):

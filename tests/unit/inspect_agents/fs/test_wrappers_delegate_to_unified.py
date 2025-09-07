@@ -39,11 +39,12 @@ async def test_read_wrapper_parity_with_files_tool(caplog):
     # 2) Call unified files tool with equivalent params
     files = files_tool()
     before2 = len(caplog.records)
-    out_files = await files(params=FilesParams(root=ReadParams(command="read", file_path="parity.txt", offset=1, limit=1)))
+    out_files = await files(
+        params=FilesParams(root=ReadParams(command="read", file_path="parity.txt", offset=1, limit=1))
+    )
     files_events = _parse_tool_events(caplog.records[before2:])
     files_read_phases = [e["phase"] for e in files_events if e.get("tool") == "files:read"]
 
     # Assert result equality and identical phase sequence for the read operation
     assert out_wrapper == out_files
     assert files_read_phases == wrapper_read_phases == ["start", "end"]
-

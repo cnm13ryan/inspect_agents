@@ -35,6 +35,7 @@ from typing import Any
 # Optional tokenizer support (tiktoken). Import lazily to avoid hard dependency.
 _Tokenizer = Any  # alias for readability
 
+
 def _get_tokenizer() -> _Tokenizer | None:
     """Return a tokenizer compatible with OpenAI 200k windows if available.
 
@@ -88,7 +89,8 @@ def _assistant_tool_call_ids(msg: Any) -> set[str]:
     """Return set of tool_call ids from an assistant message, if any."""
     ids: set[str] = set()
     try:
-        for tc in getattr(msg, "tool_calls", []) or []:
+        tool_calls = getattr(msg, "tool_calls", None) or []
+        for tc in tool_calls:
             _id = getattr(tc, "id", None)
             if isinstance(_id, str) and _id:
                 ids.add(_id)
@@ -98,6 +100,7 @@ def _assistant_tool_call_ids(msg: Any) -> set[str]:
 
 
 def _collect_parented_tool_ids(messages: Iterable[Any]) -> set[str]:
+    """Collect tool_call ids that belong to assistant messages in a stream."""
     ids: set[str] = set()
     for m in messages:
         if _is_assistant(m):
@@ -276,15 +279,13 @@ def truncate_message_tokens(
             typ = None
             text_val = None
             try:
-                typ = (item.get("type") if isinstance(item, dict) else getattr(item, "type", None))
+                typ = item.get("type") if isinstance(item, dict) else getattr(item, "type", None)
             except Exception:
                 typ = None
             if typ == "text":
                 text_val = item.get("text") if isinstance(item, dict) else getattr(item, "text", "")
             elif typ == "reasoning":
-                text_val = (
-                    item.get("reasoning") if isinstance(item, dict) else getattr(item, "reasoning", "")
-                )
+                text_val = item.get("reasoning") if isinstance(item, dict) else getattr(item, "reasoning", "")
             if typ in ("text", "reasoning") and isinstance(text_val, str):
                 ids = _encode(tok, text_val)
                 token_lists.append(ids)
@@ -345,9 +346,7 @@ def truncate_message_tokens(
             if kind in ("text", "reasoning") and count > share >= 0:
                 text_val = item.get("text") if isinstance(item, dict) else getattr(item, "text", None)
                 if kind == "reasoning":
-                    text_val = (
-                        item.get("reasoning") if isinstance(item, dict) else getattr(item, "reasoning", None)
-                    )
+                    text_val = item.get("reasoning") if isinstance(item, dict) else getattr(item, "reasoning", None)
                 new_text, trimmed = _truncate_string(str(text_val or ""), share)
                 trimmed_total += trimmed
                 # write back preserving structure

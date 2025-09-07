@@ -129,4 +129,3 @@ def get_default_adapter() -> SandboxFsAdapter:
     """
 
     return SandboxFsAdapter()
-

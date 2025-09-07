@@ -1,12 +1,10 @@
 # test(fs): sandbox preflight TTL caches warnings
 
-import sys
-import types
-import time
-import logging
-
-import pytest
 import asyncio
+import logging
+import sys
+import time
+import types
 
 
 def test_sandbox_preflight_ttl_warn_once_within_ttl(monkeypatch, caplog, tool_modules_guard):
@@ -58,9 +56,7 @@ def test_sandbox_preflight_ttl_warn_once_within_ttl(monkeypatch, caplog, tool_mo
     assert ok2 is False
 
     # Filter for our structured tool_event warn payloads
-    warn_logs = [
-        rec for rec in caplog.records if "files:sandbox_preflight" in rec.getMessage()
-    ]
+    warn_logs = [rec for rec in caplog.records if "files:sandbox_preflight" in rec.getMessage()]
     assert len(warn_logs) == 1, "exactly one warning should be emitted within TTL"
 
     # Sanity: still within TTL window

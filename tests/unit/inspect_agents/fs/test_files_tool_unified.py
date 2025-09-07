@@ -2,7 +2,6 @@
 
 import asyncio
 from unittest.mock import AsyncMock, Mock, patch
-from tests.fixtures.patching import patch_use_site
 
 import pytest
 
@@ -20,6 +19,7 @@ from inspect_agents.tools_files import (
     WriteParams,
     files_tool,
 )
+from tests.fixtures.patching import patch_use_site
 
 
 class TestFilesToolUnified:
@@ -389,7 +389,7 @@ class TestFilesToolUnified:
                 assert result.lines == ["1\tline 1", "2\tline 2"]
                 assert "file_path" in result.summary
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_parameters_validation(self):
         """Test that parameters validation works correctly for all commands."""
         # Valid write
@@ -442,9 +442,7 @@ class TestByteCeilingEnforcement:
         ):
             # Create content that exceeds the 100-byte limit
             large_content = "x" * 150
-            params = FilesParams(
-                root=WriteParams(command="write", file_path="large.txt", content=large_content)
-            )
+            params = FilesParams(root=WriteParams(command="write", file_path="large.txt", content=large_content))
 
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)
@@ -478,11 +476,8 @@ class TestByteCeilingEnforcement:
                 autospec=False,
             ),
         ):
-
             small_content = "x" * 50  # Within limit
-            params = FilesParams(
-                root=WriteParams(command="write", file_path="small.txt", content=small_content)
-            )
+            params = FilesParams(root=WriteParams(command="write", file_path="small.txt", content=small_content))
 
             result = await self.tool(params)
             assert "Updated file small.txt" in result
@@ -504,9 +499,7 @@ class TestByteCeilingEnforcement:
             # Replace "world" with a very long string that makes result exceed limit
             long_replacement = "x" * 200
             params = FilesParams(
-                root=EditParams(
-                    command="edit", file_path="test.txt", old_string="world", new_string=long_replacement
-                )
+                root=EditParams(command="edit", file_path="test.txt", old_string="world", new_string=long_replacement)
             )
 
             with pytest.raises(Exception) as exc_info:
@@ -541,7 +534,6 @@ class TestByteCeilingEnforcement:
                 autospec=False,
             ),
         ):
-
             params = FilesParams(
                 root=EditParams(command="edit", file_path="test.txt", old_string="world", new_string="universe")
             )
@@ -573,7 +565,6 @@ class TestByteCeilingEnforcement:
                 autospec=False,
             ),
         ):
-
             params = FilesParams(root=ReadParams(command="read", file_path="large.txt"))
 
             with pytest.raises(Exception) as exc_info:
@@ -609,7 +600,6 @@ class TestByteCeilingEnforcement:
                 autospec=False,
             ),
         ):
-
             params = FilesParams(root=ReadParams(command="read", file_path="small.txt"))
 
             result = await self.tool(params)
@@ -618,18 +608,18 @@ class TestByteCeilingEnforcement:
     # Note: Sandbox mode tests are complex to mock due to symlink checks and multiple bash sessions
     # The store mode tests above provide sufficient coverage for the byte ceiling functionality
 
-    @pytest.mark.asyncio  
+    @pytest.mark.asyncio
     async def test_max_bytes_helper_function(self):
         """Test _max_bytes helper function with environment variable."""
         from inspect_agents.tools_files import _max_bytes
-        
+
         with patch.dict("os.environ", {"INSPECT_AGENTS_FS_MAX_BYTES": "1000000"}):
             assert _max_bytes() == 1000000
-            
+
         with patch.dict("os.environ", {}, clear=True):
             # Test default value when env var is not set
             assert _max_bytes() == 5000000
-            
+
         with patch.dict("os.environ", {"INSPECT_AGENTS_FS_MAX_BYTES": "invalid"}):
             # Test fallback to default when env var is invalid
             assert _max_bytes() == 5000000
@@ -650,9 +640,7 @@ class TestByteCeilingEnforcement:
         ):
             # Unicode content that's 2 characters but more bytes
             unicode_content = "🚀🚀"  # Each emoji is 4 bytes in UTF-8 = 8 bytes total
-            params = FilesParams(
-                root=WriteParams(command="write", file_path="unicode.txt", content=unicode_content)
-            )
+            params = FilesParams(root=WriteParams(command="write", file_path="unicode.txt", content=unicode_content))
 
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)

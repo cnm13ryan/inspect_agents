@@ -1,6 +1,7 @@
 import asyncio
 import importlib.util
 from pathlib import Path
+
 from tests.fixtures.patching import patch_use_site
 
 
@@ -24,6 +25,7 @@ def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
 
     async def fake_run_agent(agent, user_input, approval=None, limits=None, **kwargs):  # noqa: ANN001, D401
         captured["approval"] = approval
+
         # Minimal result-like object with .output.completion
         class _Out:
             completion = "ok"
@@ -35,15 +37,19 @@ def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
 
     # Patch inspect_agents hooks used by the runner
     # Patch modules at their use-site import paths with autospec enforcement
-    with patch_use_site(
-        "inspect_agents.approval.handoff_exclusive_policy",
-        new=lambda: ["EXCLUSIVE_SENTINEL"],
-    ), patch_use_site(
-        "inspect_agents.approval.approval_preset",
-        new=lambda preset: [],
-    ), patch_use_site(
-        "inspect_agents.run.run_agent",
-        new=fake_run_agent,
+    with (
+        patch_use_site(
+            "inspect_agents.approval.handoff_exclusive_policy",
+            new=lambda: ["EXCLUSIVE_SENTINEL"],
+        ),
+        patch_use_site(
+            "inspect_agents.approval.approval_preset",
+            new=lambda preset: [],
+        ),
+        patch_use_site(
+            "inspect_agents.run.run_agent",
+            new=fake_run_agent,
+        ),
     ):
         # Load the runner module and invoke _main with --approval ci
         run_local = _load_run_local_module()

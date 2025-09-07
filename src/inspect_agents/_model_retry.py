@@ -19,6 +19,9 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+# Type alias for readability
+RetryPredicate = Callable[[BaseException], bool]
+
 # Optional imports to avoid hard dependency at import time
 try:  # pragma: no cover - exercised in runtime, but defensive import
     from tenacity import (
@@ -28,6 +31,7 @@ try:  # pragma: no cover - exercised in runtime, but defensive import
         stop_after_attempt,
         wait_exponential_jitter,
     )
+
     _TENACITY_AVAILABLE = True
 except Exception:  # pragma: no cover
     RetryCallState = object  # type: ignore
@@ -93,15 +97,18 @@ def _default_retry_predicate(ex: BaseException) -> bool:
     try:  # pragma: no cover - only exercised when httpx is present
         import httpx  # type: ignore
 
-        if isinstance(ex, (
-            httpx.ConnectError,
-            httpx.ReadError,
-            httpx.WriteError,
-            httpx.ReadTimeout,
-            httpx.ConnectTimeout,
-            httpx.RemoteProtocolError,
-            httpx.NetworkError,
-        )):
+        if isinstance(
+            ex,
+            (
+                httpx.ConnectError,
+                httpx.ReadError,
+                httpx.WriteError,
+                httpx.ReadTimeout,
+                httpx.ConnectTimeout,
+                httpx.RemoteProtocolError,
+                httpx.NetworkError,
+            ),
+        ):
             return True
     except Exception:
         pass
@@ -135,7 +142,7 @@ async def generate_with_retry_time(
     # Force the fallback path (bypass tenacity) if True. When None, consult env
     # var INSPECT_RETRY_DISABLE_TENACITY. Defaults preserve auto-detect behavior.
     force_fallback: bool | None = None,
-    retry_predicate: Callable[[BaseException], bool] | None = None,
+    retry_predicate: RetryPredicate | None = None,
 ) -> tuple[Any, float]:
     """Call `model.generate(...)` with retries and report backoff time.
 
@@ -157,9 +164,7 @@ async def generate_with_retry_time(
 
     # Resolve each parameter: arg > env > default
     max_attempts_val = (
-        max(1, int(max_attempts))
-        if max_attempts is not None
-        else max(1, _int_env("INSPECT_RETRY_MAX_ATTEMPTS", 6))
+        max(1, int(max_attempts)) if max_attempts is not None else max(1, _int_env("INSPECT_RETRY_MAX_ATTEMPTS", 6))
     )
     initial = (
         max(0.0, float(initial_backoff_s))
@@ -167,25 +172,15 @@ async def generate_with_retry_time(
         else max(0.0, _float_env("INSPECT_RETRY_INITIAL_SECONDS", 1.0))
     )
     env_max_backoff = max(initial, _float_env("INSPECT_RETRY_MAX_SECONDS", 60.0))
-    wait_max = (
-        max(initial, float(max_backoff_s))
-        if max_backoff_s is not None
-        else env_max_backoff
-    )
-    jitter = (
-        max(0.0, float(jitter_s))
-        if jitter_s is not None
-        else max(0.0, _float_env("INSPECT_RETRY_JITTER", 0.0))
-    )
+    wait_max = max(initial, float(max_backoff_s)) if max_backoff_s is not None else env_max_backoff
+    jitter = max(0.0, float(jitter_s)) if jitter_s is not None else max(0.0, _float_env("INSPECT_RETRY_JITTER", 0.0))
 
     pred = retry_predicate or _default_retry_predicate
     retry_sleep_total = 0.0
 
     # Decide whether to use tenacity: kwarg > env > auto-detect
     disable_tenacity = (
-        bool(force_fallback)
-        if force_fallback is not None
-        else _bool_env("INSPECT_RETRY_DISABLE_TENACITY", False)
+        bool(force_fallback) if force_fallback is not None else _bool_env("INSPECT_RETRY_DISABLE_TENACITY", False)
     )
 
     # Tenacity path with before_sleep accumulation
@@ -207,9 +202,7 @@ async def generate_with_retry_time(
             before_sleep=_before_sleep,
         )
         async def _call() -> Any:
-            return await _call_generate(
-                model, input=input, tools=tools, cache=cache, config=config
-            )
+            return await _call_generate(model, input=input, tools=tools, cache=cache, config=config)
 
         out = await _call()
         retry_sleep_total = float(upcoming["sleep"])  # seconds

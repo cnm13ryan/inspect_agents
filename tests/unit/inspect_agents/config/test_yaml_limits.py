@@ -25,9 +25,7 @@ def test_yaml_message_limit_enforced():
         value: 1
     """
 
-    agent_obj, _tools, _approvals, limits = load_and_build(
-        yaml_txt, model=one_reply_agent()
-    )
+    agent_obj, _tools, _approvals, limits = load_and_build(yaml_txt, model=one_reply_agent())
 
     # Use Inspect's agent runner directly to observe limit errors
     from inspect_ai.agent._run import run as agent_run
@@ -40,4 +38,3 @@ def test_yaml_message_limit_enforced():
     from inspect_ai.util._limit import LimitExceededError
 
     assert isinstance(err, LimitExceededError)
-

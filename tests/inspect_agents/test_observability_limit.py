@@ -68,4 +68,3 @@ def test_limit_from_config_over_env(monkeypatch):
     limit, source = get_effective_tool_output_limit()
     assert limit == 4096
     assert source == "config"
-

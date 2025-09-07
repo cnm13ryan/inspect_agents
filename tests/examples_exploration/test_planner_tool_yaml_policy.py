@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 import pytest
 
 
 def _import_planner_and_tool():
-    import sys, importlib
+    import importlib
+    import sys
+
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
@@ -40,4 +41,3 @@ async def test_planner_tool_uses_yaml_policy(monkeypatch: pytest.MonkeyPatch) ->
     assert result.get("breadth") == policy["breadth"]
     assert result.get("depth") == policy["depth"]
     assert len(result.get("queries", [])) <= policy["max_queries"]
-

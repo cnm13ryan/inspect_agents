@@ -74,4 +74,3 @@ async def test_env_preset_ignored_when_explicit_approval_provided(monkeypatch):
     # Assert: engine ran and env preset was NOT activated
     assert out == "STATE"
     assert called == []
-

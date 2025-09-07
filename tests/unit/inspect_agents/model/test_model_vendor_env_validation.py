@@ -10,4 +10,3 @@ def test_openai_api_vendor_requires_api_key(monkeypatch):
     with pytest.raises(RuntimeError) as e:
         resolve_model(provider="openai-api/lm-studio", model="local-model")
     assert "LM_STUDIO_API_KEY" in str(e.value)
-

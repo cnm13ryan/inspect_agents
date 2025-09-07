@@ -16,9 +16,10 @@ import pytest
 
 pytestmark = pytest.mark.handoff
 
+
 def _ensure_vendor_on_path():
     # Prefer vendored Inspect-AI over any site-packages version
-    vendor_src = 'external/inspect_ai/src'
+    vendor_src = "external/inspect_ai/src"
     if vendor_src not in sys.path:
         sys.path.insert(0, vendor_src)
 
@@ -26,10 +27,10 @@ def _ensure_vendor_on_path():
 def _load_approval_module_symbols():
     # Load approval.py directly to avoid importing the entire package
     g: dict[str, object] = {}
-    with open('src/inspect_agents/approval.py', encoding='utf-8') as f:
+    with open("src/inspect_agents/approval.py", encoding="utf-8") as f:
         code = f.read()
     exec(code, g, g)
-    return g['handoff_exclusive_policy']  # type: ignore[index]
+    return g["handoff_exclusive_policy"]  # type: ignore[index]
 
 
 def test_policy_approver_enforces_exclusivity_on_mixed_batch():
@@ -47,23 +48,23 @@ def test_policy_approver_enforces_exclusivity_on_mixed_batch():
 
     # Compose assistant message with a mixed batch
     calls = [
-        ToolCall(id='1', function='transfer_to_researcher', arguments={}),
-        ToolCall(id='2', function='transfer_to_writer', arguments={}),
-        ToolCall(id='3', function='read_file', arguments={'file_path': 'README.md'}),
+        ToolCall(id="1", function="transfer_to_researcher", arguments={}),
+        ToolCall(id="2", function="transfer_to_writer", arguments={}),
+        ToolCall(id="3", function="read_file", arguments={"file_path": "README.md"}),
     ]
-    msg = ChatMessageAssistant(content='', tool_calls=calls)
+    msg = ChatMessageAssistant(content="", tool_calls=calls)
     history = [msg]
 
     # First handoff approved
-    ok1 = asyncio.run(approver('', calls[0], None, history))
-    assert getattr(ok1, 'decision', None) == 'approve'
+    ok1 = asyncio.run(approver("", calls[0], None, history))
+    assert getattr(ok1, "decision", None) == "approve"
 
     # Second handoff rejected due to exclusivity
-    ok2 = asyncio.run(approver('', calls[1], None, history))
-    assert getattr(ok2, 'decision', None) == 'reject'
-    assert 'exclusivity' in (getattr(ok2, 'explanation', '') or '')
+    ok2 = asyncio.run(approver("", calls[1], None, history))
+    assert getattr(ok2, "decision", None) == "reject"
+    assert "exclusivity" in (getattr(ok2, "explanation", "") or "")
 
     # Non-handoff rejected when a handoff is present in the batch
-    ok3 = asyncio.run(approver('', calls[2], None, history))
-    assert getattr(ok3, 'decision', None) == 'reject'
-    assert 'exclusivity' in (getattr(ok3, 'explanation', '') or '')
+    ok3 = asyncio.run(approver("", calls[2], None, history))
+    assert getattr(ok3, "decision", None) == "reject"
+    assert "exclusivity" in (getattr(ok3, "explanation", "") or "")

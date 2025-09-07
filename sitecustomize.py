@@ -43,10 +43,12 @@ class _InspectAIModelAttrLoader(_abc.Loader):
         self._inner.exec_module(module)
         try:
             import importlib as _importlib
+
             # Ensure parent package has `model` attribute
             parent = module
             if module.__name__ != "inspect_ai":
                 import sys as _sys
+
                 parent = _sys.modules.get("inspect_ai", parent)
             sub = _importlib.import_module("inspect_ai.model")
             if getattr(parent, "model", None) is None:
@@ -100,6 +102,7 @@ def _ensure_inspect_ai_approval_apply() -> None:
 
     async def apply_tool_approval(message, call, viewer, history):  # noqa: D401
         """Approve by default (shim)."""
+
         class _Approval:
             decision = "approve"
             modified = None

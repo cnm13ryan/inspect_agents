@@ -10,9 +10,7 @@ class SimpleModel:
         from inspect_ai.model._chat_message import ChatMessageAssistant
         from inspect_ai.model._model_output import ModelOutput
 
-        return ModelOutput.from_message(
-            ChatMessageAssistant(content="done now", source="generate")
-        )
+        return ModelOutput.from_message(ChatMessageAssistant(content="done now", source="generate"))
 
 
 @pytest.mark.asyncio
@@ -35,12 +33,11 @@ async def test_forward_retry_args(monkeypatch):
         from inspect_ai.model._chat_message import ChatMessageAssistant
         from inspect_ai.model._model_output import ModelOutput
 
-        out = ModelOutput.from_message(
-            ChatMessageAssistant(content="ok", source="generate")
-        )
+        out = ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
         return out, 0.0
 
     import inspect_agents._model_retry as retry_mod
+
     monkeypatch.setattr(retry_mod, "generate_with_retry_time", _stub_generate_with_retry_time, raising=True)
 
     from inspect_ai.agent._agent import AgentState
@@ -67,4 +64,3 @@ async def test_forward_retry_args(monkeypatch):
     assert captured["max_backoff_s"] == 0.5
     assert captured["jitter_s"] == 0.01
     assert callable(captured["retry_predicate"])  # function forwarded
-

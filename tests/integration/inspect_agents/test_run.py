@@ -15,9 +15,7 @@ def toy_submit_model():
         state.messages.append(
             ChatMessageAssistant(
                 content="",
-                tool_calls=[
-                    ToolCall(id="1", function="submit", arguments={"answer": "DONE"})
-                ],
+                tool_calls=[ToolCall(id="1", function="submit", arguments={"answer": "DONE"})],
             )
         )
         return state
@@ -26,9 +24,7 @@ def toy_submit_model():
 
 
 def _supervisor():
-    return build_supervisor(
-        prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model()
-    )
+    return build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
 
 
 def test_run_with_str_input_returns_state():

@@ -65,4 +65,3 @@ def test_effective_limit_uses_generate_config_without_env_source_default(caplog,
     assert len(obs_events) == 1
     assert obs_events[0].get("effective_tool_output_limit") == 2048
     assert obs_events[0].get("source") == "default"
-

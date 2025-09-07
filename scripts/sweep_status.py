@@ -33,10 +33,13 @@ CHECKBOX_RE = re.compile(r"^\s*- \[([ xX])\]\s+(.*)$")
 
 def discover_md(include: list[str] | None = None, exclude: list[str] | None = None) -> list[Path]:
     include = include or ["**/*.md"]
-    exclude = set(exclude or [
-        "guides/archive/**",
-        "adr/**",
-    ])
+    exclude = set(
+        exclude
+        or [
+            "guides/archive/**",
+            "adr/**",
+        ]
+    )
     out: list[Path] = []
     for pat in include:
         for p in DOCS.glob(pat):
@@ -178,7 +181,9 @@ def reconcile_todos_index() -> PlannedEdit | None:
     else:
         status = "TODO"
     repl: dict[int, str] = {}
-    pat = re.compile(r"^-\s+(DONE|PARTIAL|TODO)\s+—\s+Filesystem Sandbox & Safety Work Items.*`\./0004-sandbox-fs-todo\.md`")
+    pat = re.compile(
+        r"^-\s+(DONE|PARTIAL|TODO)\s+—\s+Filesystem Sandbox & Safety Work Items.*`\./0004-sandbox-fs-todo\.md`"
+    )
     for i, line in enumerate(text.splitlines()):
         m = pat.match(line.strip())
         if m and m.group(1) != status:
@@ -268,8 +273,11 @@ def show_or_apply(edits: Iterable[PlannedEdit], write: bool) -> int:
             e.path.write_text(e.after, encoding="utf-8")
         else:
             diff = difflib.unified_diff(
-                e.before.splitlines(), e.after.splitlines(),
-                fromfile=str(e.path) + " (current)", tofile=str(e.path) + " (expected)", lineterm="",
+                e.before.splitlines(),
+                e.after.splitlines(),
+                fromfile=str(e.path) + " (current)",
+                tofile=str(e.path) + " (expected)",
+                lineterm="",
             )
             print("\n".join(diff))
     return changes

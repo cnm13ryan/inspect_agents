@@ -7,11 +7,11 @@ agent builders (react supervisor and iterative supervisor).
 # Re-export builders from the unified agents surface for discoverability
 from .agents import build_basic_submit_agent, build_iterative_agent, build_supervisor
 from .model import (
+    ModelResolutionStep,
+    ModelResolutionTrace,
+    ResolveModelError,
     resolve_model,
     resolve_model_explain,
-    ResolveModelError,
-    ModelResolutionTrace,
-    ModelResolutionStep,
 )
 from .state import Files, Todo, Todos
 

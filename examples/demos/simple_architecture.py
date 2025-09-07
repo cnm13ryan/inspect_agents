@@ -103,8 +103,7 @@ async def _build_demo_agent() -> Any:
     sub_tools = build_subagents(configs=sub_cfgs, base_tools=base_universe)
 
     supervisor_prompt = (
-        "You are the supervisor.\n"
-        "Route to the 'researcher' when needed, then call submit with a final answer."
+        "You are the supervisor.\nRoute to the 'researcher' when needed, then call submit with a final answer."
     )
     # Offline-friendly default model: if no ambient model is configured via
     # INSPECT_EVAL_MODEL, use a tiny agent that immediately submits a stub.
@@ -145,6 +144,7 @@ async def main() -> None:
 
     # Run with approvals from env (INSPECT_APPROVAL_PRESET) if set.
     from inspect_agents.run import run_agent
+
     result = await run_agent(agent, args.query, return_limit_error=True)
 
     # Unpack when limits produce a (state, err) tuple; otherwise just state

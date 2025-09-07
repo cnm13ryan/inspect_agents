@@ -7,6 +7,7 @@ import pytest
 
 pytestmark = pytest.mark.model_flags
 
+
 def _repo_root(start: Path) -> Path:
     cur = start
     for _ in range(6):  # search upward a few levels

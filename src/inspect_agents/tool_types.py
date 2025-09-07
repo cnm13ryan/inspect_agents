@@ -26,9 +26,7 @@ class FilesToolParams(BaseModel):
     replace_all: bool = Field(False, description="Replace all occurrences for edit")
     expected_count: int | None = Field(
         default=None,
-        description=(
-            "Optional expected number of replacements for edit; when set, mismatches raise an error."
-        ),
+        description=("Optional expected number of replacements for edit; when set, mismatches raise an error."),
     )
     dry_run: bool = Field(
         default=False,

@@ -136,7 +136,7 @@ def test_preflight_logs_context_when_enabled(monkeypatch, caplog):
             events.append(msg)
 
     joined = "\n".join(events)
-    assert "\"tool\": \"files:sandbox_preflight\"" in joined
-    assert "\"ok\": false" in joined or "\"ok\": False" in joined
-    assert "\"fs_root\": \"/repo\"" in joined
-    assert "\"sandbox_tool\": \"editor\"" in joined  # context field
+    assert '"tool": "files:sandbox_preflight"' in joined
+    assert '"ok": false' in joined or '"ok": False' in joined
+    assert '"fs_root": "/repo"' in joined
+    assert '"sandbox_tool": "editor"' in joined  # context field

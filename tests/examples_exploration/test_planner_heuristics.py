@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -44,10 +43,9 @@ def test_plan_bounds_and_tags(prompt: str, expected_class: str) -> None:
     assert all(0 <= it.depth <= cfg.depth for it in items)
 
     # Diversity: at least min(3, breadth) distinct normalized queries
-    uniq = { _norm(it.query) for it in items }
+    uniq = {_norm(it.query) for it in items}
     assert len(uniq) >= min(3, cfg.breadth)
 
     # Classification tag appears on at least one item
     tags = {t for it in items for t in it.tags}
     assert expected_class in tags
-

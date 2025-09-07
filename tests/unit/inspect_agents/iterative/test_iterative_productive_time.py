@@ -29,9 +29,7 @@ class FlakyOncePerCallModel(Model):
         self._toggle = not self._toggle
         if self._toggle:
             raise RetryableGenerateError("retry me")
-        return ModelOutput.from_message(
-            ChatMessageAssistant(content="ok", source="generate")
-        )
+        return ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
 
 
 def _run(agent, state):
@@ -59,14 +57,18 @@ def test_productive_time_increases_steps(monkeypatch):
 
     # OFF (wall-clock only): no subtraction
     monkeypatch.delenv("INSPECT_PRODUCTIVE_TIME", raising=False)
-    agent_off = build_iterative_agent(model=FlakyOncePerCallModel(), max_steps=max_steps, real_time_limit_sec=time_budget)
+    agent_off = build_iterative_agent(
+        model=FlakyOncePerCallModel(), max_steps=max_steps, real_time_limit_sec=time_budget
+    )
     state_off = AgentState(messages=[])
     new_off = _run(agent_off, state_off)
     off_steps = _count_assistant(new_off.messages)
 
     # ON (productive-time): subtract retry waits
     monkeypatch.setenv("INSPECT_PRODUCTIVE_TIME", "1")
-    agent_on = build_iterative_agent(model=FlakyOncePerCallModel(), max_steps=max_steps, real_time_limit_sec=time_budget)
+    agent_on = build_iterative_agent(
+        model=FlakyOncePerCallModel(), max_steps=max_steps, real_time_limit_sec=time_budget
+    )
     state_on = AgentState(messages=[])
     new_on = _run(agent_on, state_on)
     on_steps = _count_assistant(new_on.messages)
@@ -97,4 +99,3 @@ def test_progress_logs_include_metrics(monkeypatch, caplog):
     # Verify at least one info log contains the metrics
     msgs = [rec.getMessage() for rec in caplog.records if rec.levelno == logging.INFO]
     assert any("iterative progress: elapsed=" in m and "retry=" in m and "productive=" in m for m in msgs)
-
