@@ -1,24 +1,46 @@
+# Exploration planner config (example)
+#
+# This file provides defaults for the examples/inspect/exploration/planner_tool.py
+# wrapper. When the tool is invoked with no `config` argument, it attempts to load
+# this YAML and will use the values under `policy:`. If the file is missing or
+# YAML parsing fails, the tool falls back to safe in-code defaults.
+#
+# Only the following keys under `policy` are used by the current tool wrapper:
+#   - max_queries (int): hard cap on number of queries to return (1..32)
+#   - breadth (int): number of breadth groups to seed (1..8)
+#   - depth (int): per-query depth hint (1..8)
+#   - tags (list[str]): default tags to attach to each query
+# Other keys are ignored by the wrapper, but kept here for future expansion.
+
+version: 1
+name: default-exploration
+description: Default exploration planner policy for examples
+
 policy:
-  name: exploration_v0
+  # Upper bound for generated queries (the tool may return fewer)
+  max_queries: 6
+
+  # Breadth groups (0 => broad seeds, >0 => more focused templates)
   breadth: 3
+
+  # Depth hint to pass along with each query
   depth: 2
-  max_queries: 12
-  convergence_delta: 0.05
-  synonym_expansion: true
-  site_hints: ["arxiv.org", "doi.org", "*.gov", "*.edu"]
 
-scoring:
-  w_authority: 0.35
-  w_recency: 0.25
-  w_topic: 0.30
-  w_citation: 0.10
-  domain_whitelist: ["arxiv.org", "*.gov", "*.edu"]
-  domain_blacklist: []
+  # Default tags added to each query (the tool also appends broad/deep)
+  tags:
+    - exploration
+    - planner
+    - default
 
-supervisor:
-  attempts: 3
-  prompts:
-    supervisor: "You are the orchestrator — plan with the planner tool, then execute."
-    research:   "You are a dedicated researcher — follow plan.json, cite sources."
-    critique:   "You are a detailed editor — improve clarity, coverage, citations."
+  # (Optional/ignored by current wrapper) Template hints for future planners
+  templates:
+    broad:
+      - "{topic} overview"
+      - "key concepts in {topic}"
+      - "recent developments in {topic}"
+    focused:
+      - "challenges and open questions in {topic}"
+      - "notable stakeholders and sources on {topic}"
+      - "measurement/benchmarks for {topic}"
+      - "risks and controversies around {topic}"
 
