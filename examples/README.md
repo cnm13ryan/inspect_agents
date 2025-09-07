@@ -17,6 +17,9 @@ Canonical guide for the research example: `docs/getting-started/research_example
   - `examples/runners/iterative_runner.py` — iterative agent runner (no submit).
   - `examples/runners/profiled_runner.py` — Tx.Hx.Nx profile selector for iterative runs.
 
+- debug/: Small utility scripts for diagnostics
+  - `examples/debug/show_limits.py` — prints the effective tool‑output truncation cap and its source.
+
 - demos/: Small, self‑contained demonstration scripts
   - `examples/demos/simple_arch_demo.py` — simple architecture demo (supervisor/iterative modes).
   - `examples/demos/subagent_approvals_demo.py` — handoff exclusivity + approvals demo (offline).
@@ -37,6 +40,11 @@ Canonical guide for the research example: `docs/getting-started/research_example
   - `uv run python examples/runners/research_runner.py --enable-web-search "Research LangGraph vs Inspect"`
   - `uv run python examples/runners/iterative_runner.py --time-limit 120 --max-steps 20 "List repo files and summarize"`
   - `uv run python examples/runners/profiled_runner.py --profile T1.H1.N1 "Curate arXiv papers by Quantinuum (2025)"`
+
+- Debugging helpers
+  - `uv run python examples/debug/show_limits.py`  → prints one line like `Tool-output cap: 16384 bytes (default)`.
+    - Sources: `config` (active GenerateConfig), `env` (`INSPECT_MAX_TOOL_OUTPUT`), `default` (16384 bytes).
+    - The main example runners also print this line at startup for quick visibility.
 
 - Demos
   - `uv run python examples/demos/simple_arch_demo.py --mode supervisor "Research topic..."`
