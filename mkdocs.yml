@@ -24,10 +24,13 @@ nav:
       - List: cli/inspect_list.md
       - Sandbox: cli/inspect_sandbox.md
       - Trace: cli/inspect_trace.md
+      - Model Resolver Explain: cli/model_explain.md
   - How-To:
       - Approvals & Policies: how-to/approvals.md
       - Filesystem Tools: how-to/filesystem.md
       - "Operations: Logging & Tracing": how-to/operations_logging_tracing.md
+      - Exploration Examples (Plan & Runner): how-to/exploration_examples.md
+      - Model Resolver Explain API: how-to/model_resolver_explain.md
   - Guides:
       - Stateless vs Stateful Tools — Harmonized: guides/stateless-vs-stateful-tools-harmonized.md
       - Canonical and Standard Tools — Umbrellas: guides/tool-umbrellas.md
@@ -60,6 +63,7 @@ nav:
   - Design:
       - Architecture: ARCHITECTURE.md
       - DeepAgents Implementation Prompts: design/deepagents_implementation_prompts.md
+      - Exploration Examples — Implementation Prompts: design/exploration_examples_prompts.md
       - Open Questions: design/open-questions.md
   - Decisions:
       - Overview: adr/README.md
