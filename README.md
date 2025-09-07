@@ -1,8 +1,7 @@
 # inspect_agents
 > Inspect‑AI–native, CLI‑first agents with typed state, tools, and rich traces. Ship agents in minutes, not days.
 
-<!-- Optional: replace with a 10s demo GIF of the Quickstart below -->
-<!-- ![Quick Demo](docs/assets/demo.gif) -->
+![Quick Demo](docs/assets/demo.gif)
 
 [![Build](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/ci.yml?branch=main)](https://github.com/cnm13ryan/inspect_agents/actions)
 [![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/tests.yml?label=tests&branch=main)](https://github.com/cnm13ryan/inspect_agents/actions)
@@ -12,6 +11,23 @@
 [![PyPI Downloads](https://img.shields.io/pypi/dm/inspect-agents)](https://pypi.org/project/inspect-agents/)
 [![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/inspect_agents/main)](https://github.com/cnm13ryan/inspect_agents/commits/main)
 [![Docs](https://img.shields.io/badge/docs-mkdocs%20material-0A7BBB)](https://cnm13ryan.github.io/inspect_agents)
+
+## Quickstart (Offline, 60 seconds)
+Works with zero API keys and no local model server. New here? Follow these three steps, then see the docs Home.
+
+Start Here
+- `uv sync`
+- `uv run python env_templates/configure.py`
+- `python scripts/quickstart_toy.py` → prints `Completion: DONE`
+
+```bash
+python scripts/quickstart_toy.py
+# Expected: Completion: DONE
+```
+
+[Next: Examples — Start Here →](examples/README.md#start-here)
+
+[Docs Home →](https://cnm13ryan.github.io/inspect_agents)
 
 ## Why Inspect Agents?
 Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. Inspect Agents removes the overhead with an Inspect-AI-native, CLI-first workflow: one command to run; typed state (todos/files); built-in tools; transcripts and traces by default. Ship in minutes, not days.
@@ -27,7 +43,6 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
 
 ## Table of Contents
-- Quickstart (offline, 60 seconds)
 - Installation
 - Usage (CLI and Python)
 - Logs & Inspect View
@@ -78,15 +93,31 @@ uv run python env_templates/configure.py
 
 This writes a `.env` at the repo root and `examples/inspect/.env`. You can also point runners to the file with `--env-file` or by exporting `INSPECT_ENV_FILE=path/to/.env`.
 
-## Quickstart (Offline, 60 seconds)
-Works with zero API keys and no local model server.
-
-```bash
-python scripts/quickstart_toy.py
-# Expected: Completion: DONE
-```
+<!-- Quickstart moved to top for faster TTFX -->
 
 ## Usage
+### Scaffold a new agent
+Generate a minimal agent module (and optional smoke test) in seconds.
+
+```bash
+# Create src/<pkg>/<name>.py and tests/<pkg>/test_<name>.py
+python scripts/scaffold_agent.py <name> \
+  --package inspect_agents \
+  --path . \
+  --include-test      # default; use --no-test to skip
+
+# Example
+python scripts/scaffold_agent.py my_helper
+
+# Run the generated smoke test (offline)
+CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q -k my_helper
+```
+
+Notes
+- Safe by default: refuses to overwrite existing files unless `--force` (or interactive confirmation in a TTY).
+- The template uses `build_iterative_agent(code_only=True)` so it runs without exec/search/browser tools.
+- Files are created under `src/<package>/` and `tests/<package>/`; missing `__init__.py` files are added automatically.
+
 ### CLI (Inspect)
 Basic evaluation with built-in tools:
 ```bash
@@ -195,7 +226,7 @@ flowchart LR
     AP --> SS[Stateful Tools]
     ST -.-> S
     SS -.-> S
-    
+
     subgraph "FS Path Modes (MODE=store|sandbox)"
       direction LR
       FST[FS Tools] -->|"store (default)"|VFS["(VFS)"]
@@ -206,7 +237,7 @@ flowchart LR
     VFS -.-> S
     SBX -.-> S
     HFS -.-> S
-    
+
     S -->|handoff| CG[Context Gate]
     CG <-->|iterate| SA[Sub-Agents]
     SA -.-> S
