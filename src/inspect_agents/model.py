@@ -20,6 +20,8 @@ strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 
 import logging
 import os
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
 
 LOCAL_DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL_NAME", "qwen3:4b-thinking-2507-q4_K_M")
 
@@ -79,6 +81,314 @@ def _resolve_role_mapping(role: str) -> tuple[str | None, str | None]:
     return (provider, raw)
 
 
+# ---------- Explain API: typed trace & error ----------
+
+@dataclass(slots=True)
+class ModelResolutionStep:
+    """One step in model resolution with key inputs and an optional candidate.
+
+    Fields mirror `_log_model_debug` payload for structured introspection.
+    """
+
+    path: str
+    provider_arg: Optional[str]
+    model_arg: Optional[str]
+    role: Optional[str]
+    role_env_model: Optional[str]
+    role_env_provider: Optional[str]
+    env_inspect_eval_model: Optional[str]
+    final_candidate: Optional[str] = None
+
+
+@dataclass(slots=True)
+class ModelResolutionTrace:
+    """Full trace of resolution steps and the final string."""
+
+    steps: List[ModelResolutionStep] = field(default_factory=list)
+    final: str | None = None
+
+
+class ResolveModelError(RuntimeError):
+    """Typed error carrying the resolution trace for programmatic use."""
+
+    def __init__(self, message: str, final_step: ModelResolutionStep, trace: ModelResolutionTrace):
+        super().__init__(message)
+        self.final_step: ModelResolutionStep = final_step
+        self.trace: ModelResolutionTrace = trace
+
+
+def _step(
+    *,
+    path: str,
+    provider_arg: Optional[str],
+    model_arg: Optional[str],
+    role: Optional[str],
+    role_env_model: Optional[str],
+    role_env_provider: Optional[str],
+    env_inspect_eval_model: Optional[str],
+    final_candidate: Optional[str] = None,
+) -> ModelResolutionStep:
+    return ModelResolutionStep(
+        path=path,
+        provider_arg=provider_arg,
+        model_arg=model_arg,
+        role=role,
+        role_env_model=role_env_model,
+        role_env_provider=role_env_provider,
+        env_inspect_eval_model=env_inspect_eval_model,
+        final_candidate=final_candidate,
+    )
+
+
+def resolve_model_explain(
+    provider: str | None = None,
+    model: str | None = None,
+    role: str | None = None,
+) -> tuple[str, ModelResolutionTrace]:
+    """Resolve model and return a structured trace alongside the final string.
+
+    This mirrors `resolve_model(...)` semantics without changing them. Errors
+    are raised as `ResolveModelError` with an attached trace.
+    """
+
+    trace = ModelResolutionTrace()
+    provider_arg = provider
+    model_arg = model
+    role_env_model: Optional[str] = None
+    role_env_provider: Optional[str] = None
+
+    # 1) Explicit model with provider prefix wins
+    if model and "/" in model:
+        step = _step(
+            path="explicit_model_with_provider",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=None,
+            role_env_provider=None,
+            env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
+            final_candidate=model,
+        )
+        trace.steps.append(step)
+        trace.final = model
+        return model, trace
+
+    # 2) Role-mapped resolution when role is provided and no explicit model
+    if model is None and role:
+        r_provider, r_model = _resolve_role_mapping(role)
+        role_env_provider = r_provider
+        role_env_model = r_model
+        if r_provider or r_model:
+            # Stash mapping and continue down provider chain
+            step = _step(
+                path="role_env_mapping",
+                provider_arg=provider_arg,
+                model_arg=model_arg,
+                role=role,
+                role_env_model=role_env_model,
+                role_env_provider=role_env_provider,
+                env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
+            )
+            trace.steps.append(step)
+            provider = r_provider or provider
+            model = r_model
+        else:
+            final = f"inspect/{role}"
+            step = _step(
+                path="role_inspect_indirection",
+                provider_arg=provider_arg,
+                model_arg=model_arg,
+                role=role,
+                role_env_model=None,
+                role_env_provider=None,
+                env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
+                final_candidate=final,
+            )
+            trace.steps.append(step)
+            trace.final = final
+            return final, trace
+
+    # 3) Env-specified full model via Inspect convention
+    env_inspect_model = os.getenv("INSPECT_EVAL_MODEL")
+    if (
+        model is None
+        and env_inspect_model
+        and "/" in env_inspect_model
+        and env_inspect_model.strip().lower() != "none/none"
+    ):
+        step = _step(
+            path="env_INSPECT_EVAL_MODEL",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+            final_candidate=env_inspect_model,
+        )
+        trace.steps.append(step)
+        trace.final = env_inspect_model
+        return env_inspect_model, trace
+
+    # 4) Determine provider: function arg > env > default (ollama)
+    provider = (provider or os.getenv("DEEPAGENTS_MODEL_PROVIDER") or "ollama").lower()
+
+    # 5) Provider-specific resolution
+    if provider in {"ollama"}:
+        tag = model or os.getenv("OLLAMA_MODEL_NAME") or LOCAL_DEFAULT_OLLAMA_MODEL
+        final = f"ollama/{tag}"
+        step = _step(
+            path="provider_ollama",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+            final_candidate=final,
+        )
+        trace.steps.append(step)
+        trace.final = final
+        return final, trace
+
+    if provider in {"lm-studio", "lmstudio"}:
+        tag = model or os.getenv("LM_STUDIO_MODEL_NAME") or "local-model"
+        final = f"openai-api/lm-studio/{tag}"
+        step = _step(
+            path="provider_lm_studio",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+            final_candidate=final,
+        )
+        trace.steps.append(step)
+        trace.final = final
+        return final, trace
+
+    remote_requires = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "mistral": "MISTRAL_API_KEY",
+        "perplexity": "PERPLEXITY_API_KEY",
+        "fireworks": "FIREWORKS_API_KEY",
+        "grok": "GROK_API_KEY",
+        "goodfire": "GOODFIRE_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+
+    if provider in remote_requires:
+        key_var = remote_requires[provider]
+        step_base = _step(
+            path=f"provider_{provider}",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+        )
+        if not os.getenv(key_var):
+            trace.steps.append(step_base)
+            raise ResolveModelError(
+                f"Provider '{provider}' requires {key_var} to be set.",
+                final_step=step_base,
+                trace=trace,
+            )
+        tag = model or os.getenv(f"{provider.upper()}_MODEL")
+        if not tag:
+            trace.steps.append(step_base)
+            raise ResolveModelError(
+                (
+                    f"Model not specified for provider '{provider}'. Set the 'model' argument "
+                    f"or {provider.upper()}_MODEL environment variable."
+                ),
+                final_step=step_base,
+                trace=trace,
+            )
+        final = f"{provider}/{tag}"
+        step = step_base
+        step.final_candidate = final
+        trace.steps.append(step)
+        trace.final = final
+        return final, trace
+
+    if provider.startswith("openai-api/"):
+        _, vendor = provider.split("/", 1)
+        env_prefix = vendor.upper().replace("-", "_")
+        key_var = f"{env_prefix}_API_KEY"
+        step_base = _step(
+            path=f"provider_openai_api_{vendor}",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+        )
+        if not os.getenv(key_var):
+            trace.steps.append(step_base)
+            raise ResolveModelError(
+                f"Provider '{provider}' requires {key_var} to be set.",
+                final_step=step_base,
+                trace=trace,
+            )
+        tag = model or os.getenv(f"{env_prefix}_MODEL")
+        if not tag:
+            trace.steps.append(step_base)
+            raise ResolveModelError(
+                (
+                    f"Model not specified for provider '{provider}'. Set the 'model' argument "
+                    f"or {env_prefix}_MODEL environment variable."
+                ),
+                final_step=step_base,
+                trace=trace,
+            )
+        final = f"openai-api/{vendor}/{tag}"
+        step = step_base
+        step.final_candidate = final
+        trace.steps.append(step)
+        trace.final = final
+        return final, trace
+
+    # Fallback: if model provided without slash (no provider), assume provider prefix
+    if model:
+        final = f"{provider}/{model}"
+        step = _step(
+            path="fallback_model_with_provider",
+            provider_arg=provider_arg,
+            model_arg=model_arg,
+            role=role,
+            role_env_model=role_env_model,
+            role_env_provider=role_env_provider,
+            env_inspect_eval_model=env_inspect_model,
+            final_candidate=final,
+        )
+        trace.steps.append(step)
+        trace.final = final
+        return final, trace
+
+    # Final fallback: prefer Ollama
+    final = f"ollama/{LOCAL_DEFAULT_OLLAMA_MODEL}"
+    step = _step(
+        path="final_fallback_ollama",
+        provider_arg=provider_arg,
+        model_arg=model_arg,
+        role=role,
+        role_env_model=role_env_model,
+        role_env_provider=role_env_provider,
+        env_inspect_eval_model=env_inspect_model,
+        final_candidate=final,
+    )
+    trace.steps.append(step)
+    trace.final = final
+    return final, trace
+
+
 def resolve_model(
     provider: str | None = None,
     model: str | None = None,
@@ -102,232 +412,42 @@ def resolve_model(
         RuntimeError: if a remote provider is selected without required keys.
     """
 
-    # Capture initial state for debug logging
-    provider_arg = provider
-    model_arg = model
-    role_env_model = None
-    role_env_provider = None
-    path = None
+    try:
+        final, trace = resolve_model_explain(provider=provider, model=model, role=role)
+    except ResolveModelError as err:
+        # Preserve previous external behavior (RuntimeError + message)
+        raise RuntimeError(str(err))
 
-    # 1) Explicit model with provider prefix wins (caller-originated only)
-    if model and "/" in model:
-        path = "explicit_model_with_provider"
-        final_result = model
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    # 2) Role-mapped resolution when role is provided and no explicit model
-    if model is None and role:
-        # Env-mapped provider/model for role, if any
-        r_provider, r_model = _resolve_role_mapping(role)
-        role_env_provider = r_provider
-        role_env_model = r_model
-        if r_provider or r_model:
-            # r_provider may be None (falls through to default provider chain)
-            provider = r_provider or provider
-            model = r_model
-            path = "role_env_mapping"
-        else:
-            # No mapping configured; return Inspect role indirection
-            path = "role_inspect_indirection"
-            final_result = f"inspect/{role}"
-            _log_model_debug(
-                role=role,
-                provider_arg=provider_arg,
-                model_arg=model_arg,
-                role_env_model=role_env_model,
-                role_env_provider=role_env_provider,
-                env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
-                final=final_result,
-                path=path,
+    # One-time operator hint for implicit local fallback
+    last_path = trace.steps[-1].path if trace.steps else None
+    if last_path == "final_fallback_ollama":
+        global _OLLAMA_FALLBACK_WARNED
+        if not _OLLAMA_FALLBACK_WARNED:
+            logger.info(
+                "Model resolver: %s -> using %s because no provider/model/role mapping was set. "
+                "To avoid implicit local fallback, set INSPECT_EVAL_MODEL or configure a provider via "
+                "DEEPAGENTS_MODEL_PROVIDER and <PROVIDER>_MODEL (e.g., OPENAI_MODEL).",
+                last_path,
+                final,
             )
-            return final_result
+            _OLLAMA_FALLBACK_WARNED = True
 
-    # 3) Env-specified full model via Inspect convention
-    env_inspect_model = os.getenv("INSPECT_EVAL_MODEL")
-    if (
-        model is None
-        and env_inspect_model
-        and "/" in env_inspect_model
-        and env_inspect_model.strip().lower() != "none/none"
-    ):
-        path = "env_INSPECT_EVAL_MODEL"
-        final_result = env_inspect_model
+    # Emit debug log mirroring previous payload (best-effort)
+    # Use the last step to populate fields
+    if trace.steps:
+        s = trace.steps[-1]
         _log_model_debug(
             role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=env_inspect_model,
-            final=final_result,
-            path=path,
+            provider_arg=s.provider_arg,
+            model_arg=s.model_arg,
+            role_env_model=s.role_env_model,
+            role_env_provider=s.role_env_provider,
+            env_inspect_eval_model=s.env_inspect_eval_model,
+            final=final,
+            path=s.path,
         )
-        return final_result
 
-    # 4) Determine provider: function arg > env > default (ollama)
-    provider = (provider or os.getenv("DEEPAGENTS_MODEL_PROVIDER") or "ollama").lower()
-
-    # 5) Provider-specific resolution
-    if provider in {"ollama"}:
-        # Resolve model (explicit argument or env or default)
-        tag = model or os.getenv("OLLAMA_MODEL_NAME") or LOCAL_DEFAULT_OLLAMA_MODEL
-        path = "provider_ollama"
-        final_result = f"ollama/{tag}"
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=env_inspect_model,
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    if provider in {"lm-studio", "lmstudio"}:
-        # LM Studio is OpenAI-compatible local server
-        tag = model or os.getenv("LM_STUDIO_MODEL_NAME") or "local-model"
-        path = "provider_lm_studio"
-        final_result = f"openai-api/lm-studio/{tag}"
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=env_inspect_model,
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    # Common remote providers that require API keys
-    if provider in {
-        "openai",
-        "anthropic",
-        "google",
-        "groq",
-        "mistral",
-        "perplexity",
-        "fireworks",
-        "grok",
-        "goodfire",
-        "openrouter",
-    }:
-        required_env = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-            "google": "GOOGLE_API_KEY",
-            "groq": "GROQ_API_KEY",
-            "mistral": "MISTRAL_API_KEY",
-            "perplexity": "PERPLEXITY_API_KEY",
-            "fireworks": "FIREWORKS_API_KEY",
-            "grok": "GROK_API_KEY",
-            "goodfire": "GOODFIRE_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
-        }[provider]
-        if not os.getenv(required_env):
-            raise RuntimeError(f"Provider '{provider}' requires {required_env} to be set.")
-        tag = model or os.getenv(f"{provider.upper()}_MODEL")
-        if not tag:
-            raise RuntimeError(
-                f"Model not specified for provider '{provider}'. Set the 'model' argument "
-                f"or {provider.upper()}_MODEL environment variable."
-            )
-        path = f"provider_{provider}"
-        final_result = f"{provider}/{tag}"
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=env_inspect_model,
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    # OpenAI compatible generic provider: provider like "openai-api/<vendor>"
-    if provider.startswith("openai-api/"):
-        # provider format 'openai-api/<vendor>'
-        _, vendor = provider.split("/", 1)
-        env_prefix = vendor.upper().replace("-", "_")
-        key_var = f"{env_prefix}_API_KEY"
-        if not os.getenv(key_var):
-            raise RuntimeError(f"Provider '{provider}' requires {key_var} to be set.")
-        tag = model or os.getenv(f"{env_prefix}_MODEL")
-        if not tag:
-            raise RuntimeError(
-                f"Model not specified for provider '{provider}'. Set the 'model' argument "
-                f"or {env_prefix}_MODEL environment variable."
-            )
-        path = f"provider_openai_api_{vendor}"
-        final_result = f"openai-api/{vendor}/{tag}"
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_inspect_eval_model=env_inspect_model,
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    # Fallback: if model was provided without slash (no provider), assume provider prefix
-    if model:
-        path = "fallback_model_with_provider"
-        final_result = f"{provider}/{model}"
-        _log_model_debug(
-            role=role,
-            provider_arg=provider_arg,
-            model_arg=model_arg,
-            role_env_model=role_env_model,
-            role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
-            final=final_result,
-            path=path,
-        )
-        return final_result
-
-    # Final fallback: prefer Ollama
-    path = "final_fallback_ollama"
-    final_result = f"ollama/{LOCAL_DEFAULT_OLLAMA_MODEL}"
-    # Emit a one-time operator hint so local-first fallback isn't silent
-    global _OLLAMA_FALLBACK_WARNED
-    if not _OLLAMA_FALLBACK_WARNED:
-        logger.info(
-            "Model resolver: %s -> using %s because no provider/model/role mapping was set. "
-            "To avoid implicit local fallback, set INSPECT_EVAL_MODEL or configure a provider via "
-            "DEEPAGENTS_MODEL_PROVIDER and <PROVIDER>_MODEL (e.g., OPENAI_MODEL).",
-            path,
-            final_result,
-        )
-        _OLLAMA_FALLBACK_WARNED = True
-    _log_model_debug(
-        role=role,
-        provider_arg=provider_arg,
-        model_arg=model_arg,
-        role_env_model=role_env_model,
-        role_env_provider=role_env_provider,
-        env_inspect_eval_model=env_inspect_model,
-        final=final_result,
-        path=path,
-    )
-    return final_result
+    return final
 
 
 def _log_model_debug(
