@@ -29,9 +29,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from pathlib import Path
 from typing import Any
 
+from examples.lib.exploration.config_loader import (
+    load_exploration_sections,
+)
 from inspect_agents.agents import build_subagents, build_supervisor
 from inspect_agents.approval import approval_preset
 from inspect_agents.model import resolve_model
@@ -64,50 +66,7 @@ except Exception:  # pragma: no cover - fallback for file-based import
     planner_tool = getattr(_mod, "planner_tool")
 
 
-def _load_exploration_config(
-    path: str | None,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
-    """Load optional exploration YAML.
-
-    Returns a tuple: (policy, scoring, supervisor) where each element is a
-    plain dict or None if missing/invalid.
-    """
-    if not path:
-        return None, None, None
-    p = Path(path)
-    if not p.exists():
-        return None, None, None
-    try:
-        import yaml  # type: ignore
-
-        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-        if not isinstance(data, dict):
-            return None, None, None
-
-        # Support both nested sections and flat policy-only docs
-        policy = data.get("policy") if isinstance(data.get("policy"), dict) else None
-        scoring = data.get("scoring") if isinstance(data.get("scoring"), dict) else None
-        supervisor = data.get("supervisor") if isinstance(data.get("supervisor"), dict) else None
-
-        if policy is None:
-            # If the file is a flat dict of planner fields, treat it as policy
-            # (legacy behavior)
-            non_nested = {k: v for k, v in data.items() if k not in {"scoring", "supervisor"}}
-            policy = non_nested or None
-
-        return (
-            dict(policy) if policy else None,
-            dict(scoring) if scoring else None,
-            dict(supervisor) if supervisor else None,
-        )
-    except Exception:
-        return None, None, None
-
-
-def _load_planner_config(path: str | None) -> dict[str, Any] | None:
-    """Legacy helper retained for compatibility (returns policy only)."""
-    pol, _, _ = _load_exploration_config(path)
-    return pol
+# Note: YAML loading is centralized in examples.lib.exploration.config_loader.
 
 
 def _supervisor_prompt(planner_cfg: dict[str, Any] | None, *, override_text: str | None = None) -> str:
@@ -213,7 +172,7 @@ async def _amain(args: argparse.Namespace) -> None:
     model_id = resolve_model()
 
     # Load optional exploration YAML (policy/scoring/supervisor)
-    planner_cfg, scoring_cfg, supervisor_cfg = _load_exploration_config(args.config)
+    planner_cfg, scoring_cfg, supervisor_cfg = load_exploration_sections(args.config)
 
     # Supervisor attempts: YAML override takes precedence over CLI flag if present
     yaml_attempts = None
