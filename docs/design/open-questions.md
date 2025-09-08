@@ -157,11 +157,11 @@ Decision Needed
 - Approve migration of `tools.py` to `fs` helpers.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: `src/inspect_agents/tools.py` still defines `_fs_mode()` / `_use_sandbox_fs()` locally and does not import these from `fs`.
-**Evidence**: See `src/inspect_agents/tools.py` `_fs_mode` and `_use_sandbox_fs` definitions at lines 73–85; no `inspect_agents.fs` import for these helpers appears elsewhere in the file.
-**Conclusion**: Migration not yet applied; proceed with Option A when ready to remove duplication.
+**Finding**: `tools.py` now delegates filesystem mode helpers to the unified `fs` module.
+**Evidence**: `src/inspect_agents/tools.py` imports `fs` and aliases its helpers: `_fs_mode = _fs.fs_mode` and `_use_sandbox_fs = _fs.use_sandbox_fs` (L102–L104). 【F:src/inspect_agents/tools.py‑ L102-L104】
+**Conclusion**: Option A implemented — duplication removed by delegating to `fs` within `tools.py`.
 
 </details>
 
@@ -226,11 +226,11 @@ Decision Needed
 - Approve doc updates in the next doc PR.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The core FS docs are updated, but the optional cross-link “Design Note” back to this section (mentioned in Proposed Direction) has not been added yet.
-**Evidence**: `docs/how-to/filesystem.md` and `docs/reference/environment.md` reflect consolidated FS behavior; no cross-link to this design page is present.
-**Conclusion**: Minor docs follow-up remains (add a short “Design Note” backlink). Otherwise, the documentation update is complete.
+**Finding**: Added a short “Design Note” backlink in the Filesystem How‑To pointing back to this design page.
+**Evidence**: `docs/how-to/filesystem.md` includes a note linking to Design → Open Questions above “See Also”. 【F:docs/how-to/filesystem.md‑ L119-L123】
+**Conclusion**: Cross-link present; documentation update complete.
 
 </details>
 
@@ -377,11 +377,11 @@ Acceptance Criteria
 - Define log fields/levels; add a test asserting a log entry in failure/fallback paths.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The helper swallows exceptions and does not emit debug logs when replay fails or fallbacks apply.
-**Evidence**: `src/inspect_agents/migration.py` wraps failures in `try/except` without logging.
-**Conclusion**: Decision pending on adding debug‑level logs and corresponding tests.
+**Finding**: Low‑noise debug logs are emitted for execute path selection/failure and fallback application.
+**Evidence**: `src/inspect_agents/migration.py` logs `side_effects.execute_tools_invoked/failed` and `side_effects.fallback_begin/done`. 【F:src/inspect_agents/migration.py‑ L24-L27】【F:src/inspect_agents/migration.py‑ L47-L60】【F:src/inspect_agents/migration.py‑ L66-L87】 Unit test asserts fallback logs via caplog. 【F:tests/unit/inspect_agents/migration/test_side_effect_helper_logging.py‑ L1-L27】【F:tests/unit/inspect_agents/migration/test_side_effect_helper_logging.py‑ L29-L45】
+**Conclusion**: Debug observability added without changing behavior; logs are under `inspect_agents.migration` at DEBUG level.
 
 </details>
 
@@ -401,11 +401,11 @@ Acceptance Criteria
 - Specify allowed fallback conditions; add tests simulating approval denials to ensure no Store mutation occurs.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Fallbacks do not currently distinguish approval denials from other failures.
-**Evidence**: `src/inspect_agents/migration.py` applies fallbacks whenever `execute_tools` path does not complete, with no policy check.
-**Conclusion**: Decision pending on making fallbacks policy‑aware.
+**Finding**: Fallbacks are now policy‑aware: when `execute_tools` fails due to approval denial, fallbacks are skipped.
+**Evidence**: `src/inspect_agents/migration.py` detects denial via `exc.type` or message keywords and logs `side_effects.approval_denied; skipping_fallback=true`. 【F:src/inspect_agents/migration.py‑ L66-L74】【F:src/inspect_agents/migration.py‑ L76-L86】 Unit test stubs `execute_tools` to raise an approval‑denied error and asserts no fallback writes occurred and the log marker is present. 【F:tests/unit/inspect_agents/migration/test_policy_aware_fallback.py‑ L1-L20】【F:tests/unit/inspect_agents/migration/test_policy_aware_fallback.py‑ L22-L46】
+**Conclusion**: Approval‑aware behavior implemented with low‑noise logging.
 
 </details>
 
@@ -421,11 +421,11 @@ Acceptance Criteria
 - Implement a success check and add tests to cover both branches.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The helper does not verify tool execution success before applying fallbacks, risking double application.
-**Evidence**: `src/inspect_agents/migration.py` does not inspect returned tool messages/results prior to fallbacks.
-**Conclusion**: Add a success/side‑effect detection to prevent double‑apply.
+**Finding**: The helper now inspects Store state after `execute_tools` and only applies fallbacks for calls still pending.
+**Evidence**: `src/inspect_agents/migration.py` computes a `pending` list by checking `Files.get_file(path)==content` for `write_file` and equality of `(content,status)` pairs for `write_todos`; only `pending` are applied. Logs include `fallback_begin count=<pending>` and `fallback_done wrote_files=... wrote_todos=...`. Test `test_execute_tools_success_skips_fallback` stubs `execute_tools` to apply changes and asserts `wrote_files=0 wrote_todos=0`. 【F:src/inspect_agents/migration.py‑ L90-L118】【F:src/inspect_agents/migration.py‑ L119-L138】【F:tests/unit/inspect_agents/migration/test_side_effect_helper_logging.py‑ L47-L88】
+**Conclusion**: Idempotency is addressed; fallbacks are skipped when side effects are already applied.
 
 </details>
 
@@ -444,11 +444,11 @@ Acceptance Criteria
 - Decide scoping; if parameterized, update callers and tests.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Fallbacks write to default Store instances; no per‑agent instance parameter is plumbed.
-**Evidence**: `src/inspect_agents/migration.py` uses `store_as(Files)` / `store_as(Todos)` without `instance`.
-**Conclusion**: Decision pending on scoping behavior.
+**Finding**: Migration fallback accepts an optional `instance` and writes to `Files`/`Todos` for that instance when provided.
+**Evidence**: `_apply_side_effect_calls(..., instance=...)` passes the instance to `store_as(Files|Todos, instance=...)` when inspecting/applying fallbacks. 【F:src/inspect_agents/migration.py‑ L100-L116】【F:src/inspect_agents/migration.py‑ L162-L171】【F:src/inspect_agents/migration.py‑ L187-L197】 Unit test asserts writes appear under the specified instance and not under the default. 【F:tests/unit/inspect_agents/migration/test_instance_scoping.py‑ L1-L20】【F:tests/unit/inspect_agents/migration/test_instance_scoping.py‑ L22-L40】
+**Conclusion**: Instance scoping supported (optional); default remains unchanged for back‑compat.
 
 </details>
 
@@ -464,11 +464,11 @@ Acceptance Criteria
 - Define the limit and behavior on exceed (clip vs. error); add tests.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Fallback writes do not enforce size ceilings comparable to tool paths.
-**Evidence**: `src/inspect_agents/migration.py` fallbacks call `Files.put_file(...)` and `Todos.set_todos(...)` without size checks; tool paths enforce byte limits.
-**Conclusion**: Decide on limits for fallbacks and implement.
+**Finding**: Fallback writes now enforce a byte ceiling consistent with tool paths; oversize writes are skipped with a DEBUG log.
+**Evidence**: `src/inspect_agents/migration.py` checks `len(content.encode('utf-8')) > fs.max_bytes()` and logs `side_effects.fallback_file_too_large` instead of writing. 【F:src/inspect_agents/migration.py‑ L96-L108】 Unit test asserts guard and absence of the file when over the limit. 【F:tests/unit/inspect_agents/migration/test_fallback_size_limit.py‑ L1-L20】【F:tests/unit/inspect_agents/migration/test_fallback_size_limit.py‑ L22-L46】
+**Conclusion**: Limits parity achieved for fallback writes with low‑noise observability.
 
 </details>
 
@@ -506,11 +506,11 @@ Decision Needed
 - Approve adding a supervisor subsection to the Iterative Agent reference.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No "Supervisor Runner" subsection is present in the Iterative Agent reference.
-**Evidence**: `docs/reference/iterative-agent-behavior.md` focuses on iterative runners; supervisor flags are documented elsewhere.
-**Conclusion**: Proceed per Proposed Direction (add compact subsection) or defer.
+**Finding**: A compact “Supervisor runner” subsection was added under CLI usage with core flags and an example.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` includes a Supervisor runner subsection listing provider/model and tool toggle flags with citations to the runner and utils (L98–L111). 【F:docs/reference/iterative-agent-behavior.md‑ L98-L111】
+**Conclusion**: Supervisor flags coverage is now present on the Iterative Agent reference page.
 
 </details>
 
@@ -536,11 +536,11 @@ Decision Needed
 - Approve adding the Getting Started card and link.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Getting Started does not yet include an iterative quick‑start card; examples link to the reference.
-**Evidence**: `docs/getting-started/inspect_agents_quickstart.md` focuses on supervisor/FS/approvals; iterative quick‑start not present.
-**Conclusion**: Add a minimal iterative snippet and link, if desired.
+**Finding**: Added an “Iterative Quick Start” snippet with a minimal command and tips.
+**Evidence**: `docs/getting-started/inspect_agents_quickstart.md` includes a new section with `uv run python examples/runners/iterative_runner.py --time-limit 300 --max-steps 20 ...` and notes on provider/model, limits, and tool flags.
+**Conclusion**: Quick-start card present; Getting Started now covers both supervisor and iterative flows.
 
 </details>
 
@@ -567,11 +567,11 @@ Decision Needed
 - Approve documentation standard of 300/20 and defer script changes.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: Script defaults remain at 600s/40 steps for the basic runner and 120s/20 steps for the profiled runner; docs do not uniformly standardize examples at 300/20.
-**Evidence**: `examples/runners/iterative_runner.py` defaults `--time-limit=600`, `--max-steps=40`; `examples/runners/profiled_runner.py` defaults `--time-limit=120`, `--max-steps=20`. Reference page lacks a blanket 300/20 standard.
-**Conclusion**: Proposed documentation standardization not applied; decision pending.
+**Finding**: Documentation now standardizes example budgets at `--time-limit 300` and `--max-steps 20` for quick runs.
+**Evidence**: Iterative reference includes a note recommending 300/20 (Quick Reference). 【F:docs/reference/iterative-agent-behavior.md‑ L21】 Getting Started adds an “Iterative Quick Start” using 300/20. 【F:docs/getting-started/inspect_agents_quickstart.md‑ L129-L137】
+**Conclusion**: Documentation standardization applied (scripts retain their original defaults).
 
 </details>
 
@@ -597,11 +597,11 @@ Decision Needed
 - Approve adding the docs‑only CI job.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No dedicated docs‑only CI job exists; current workflows run lint and unit tests universally.
-**Evidence**: `.github/workflows/ci.yml` and `tests.yml` define generic jobs; none are conditioned on docs‑only changes or run a link checker subset.
-**Conclusion**: Add a docs‑only job if desired (fast unit subset + link check), or document policy to skip.
+**Finding**: Docs‑only CI now runs a fast unit subset; the main test workflow skips on docs‑only PRs via path filters.
+**Evidence**: `.github/workflows/docs.yml` adds a `unit-subset` job for pull requests that runs `pytest -k "iterative or tools or logging"` with offline env. `.github/workflows/tests.yml` adds `paths-ignore` for `docs/**` and `mkdocs.yml` under `pull_request`. 【F:.github/workflows/docs.yml‑ L74-L96】【F:.github/workflows/tests.yml‑ L1-L12】
+**Conclusion**: Docs‑only CI policy implemented: docs build + fast unit subset; full tests skipped for docs‑only PRs.
 
 </details>
 
@@ -627,11 +627,11 @@ Decision Needed
 - Approve adding the quick‑reference table.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The Iterative Agent reference lacks a top‑of‑page quick‑reference table for flags.
-**Evidence**: `docs/reference/iterative-agent-behavior.md` contains prose and examples only; no compact table.
-**Conclusion**: Table not yet added; proceed per Proposed Direction if approved.
+**Finding**: A compact “Quick Reference” table was added near the top of the Iterative Agent reference summarizing key flags and env mappings.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` includes a table covering `--time-limit`, `--max-steps`, provider/model flags, and common env toggles. 【F:docs/reference/iterative-agent-behavior.md‑ L9-L16】
+**Conclusion**: Quick reference present; improves scanability for operators.
 
 </details>
 
@@ -657,11 +657,11 @@ Decision Needed
 - Approve adding the “See Also” links.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No dedicated “See Also” block exists in the Iterative Agent reference.
-**Evidence**: `docs/reference/iterative-agent-behavior.md` has sections for runners/tasks but no bottom “See Also”.
-**Conclusion**: Add concise backlinks if approved.
+**Finding**: Added a concise “See Also” block linking to Environment reference, Settings API, Supervisor guide, and tool umbrellas.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` now includes a “See Also” section with links. 【F:docs/reference/iterative-agent-behavior.md‑ L82-L88】
+**Conclusion**: Cross‑links present; navigation improved.
 
 </details>
 
@@ -687,11 +687,11 @@ Decision Needed
 - Approve adding the example to the Iterative Agent reference.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The reference mentions the env but does not include a concrete command‑line example with `INSPECT_MAX_TOOL_OUTPUT=...`.
-**Evidence**: `docs/reference/iterative-agent-behavior.md` “Tool‑Output Truncation” section describes behavior; no example invocation present.
-**Conclusion**: Add one illustrative command (with caution note) if approved.
+**Finding**: Added a concrete inline example to the Iterative Agent reference under “Tool‑Output Truncation”.
+**Evidence**: `docs/reference/iterative-agent-behavior.md` includes a command block setting `INSPECT_MAX_TOOL_OUTPUT=8192` and running the iterative runner (L27–L35). Environment reference still shows example exports (8192 and 0). 【F:docs/reference/iterative-agent-behavior.md‑ L27-L35】【F:docs/reference/environment.md‑ L588-L595】
+**Conclusion**: Completed — both Environment and Iterative references now include examples.
 
 </details>
 
@@ -775,11 +775,11 @@ Acceptance Criteria
 - Document label list; add a smoke test asserting label membership for common scenarios.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found (Partial)</summary>
 
-**Finding**: Labels like `provider_ollama`, `role_inspect_indirection`, etc., are emitted only via debug logs; no public constants or documented guarantee.
-**Evidence**: `src/inspect_agents/model.py` builds a `path` string passed to `_log_model_debug(...)`; there is no exported label enum or tests pinning label stability.
-**Conclusion**: Label set is informal today; decision needed to freeze as public or keep internal.
+**Finding**: A smoke test asserts that the final `trace.steps[-1].path` belongs to a known set of labels across common scenarios, providing guardrails without freezing the labels as public constants.
+**Evidence**: `tests/unit/inspect_agents/model/test_model_labels_smoke.py` defines `ALLOWED_LABELS` and exercises explicit model, role indirection, env override, default/fallback, vendor, and fallback-with-provider cases. 【F:tests/unit/inspect_agents/model/test_model_labels_smoke.py‑ L1-L22】【F:tests/unit/inspect_agents/model/test_model_labels_smoke.py‑ L24-L70】 Code sets these labels within `resolve_model_explain(...)` as previously cited in `src/inspect_agents/model.py`.
+**Conclusion**: Minimal stability guarantee via tests is in place; labels remain internal (not exported) unless a future decision elevates them to a public contract.
 
 </details>
 
@@ -798,11 +798,11 @@ Acceptance Criteria
 - Tests assert `*_source` values for arg/env/default/role-map branches.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No `*_source` keys are produced; only raw inputs and final path are logged when `INSPECT_MODEL_DEBUG` is set.
-**Evidence**: `src/inspect_agents/model.py` `_log_model_debug(...)` signature/usage lacks `provider_source`/`model_source` fields; tests do not assert them.
-**Conclusion**: Source-granularity fields not implemented.
+**Finding**: The explain trace now records `provider_source`, `model_source`, `role_source`, and `inspect_eval_source` (unset|sentinel|set).
+**Evidence**: `src/inspect_agents/model.py` extends `ModelResolutionTrace` with these fields and sets them in explicit, role-map, inspect-eval, provider, fallback, and final fallback branches. 【F:src/inspect_agents/model.py‑ L96-L112】【F:src/inspect_agents/model.py‑ L270-L283】【F:src/inspect_agents/model.py‑ L285-L306】【F:src/inspect_agents/model.py‑ L338-L362】【F:src/inspect_agents/model.py‑ L405-L410】【F:src/inspect_agents/model.py‑ L429-L443】 Smoke tests assert basic provenance in common scenarios. 【F:tests/unit/inspect_agents/model/test_model_sources.py‑ L1-L16】【F:tests/unit/inspect_agents/model/test_model_sources.py‑ L18-L36】
+**Conclusion**: Source-granularity fields implemented with initial test coverage; more scenarios can be added over time.
 
 </details>
 
@@ -821,11 +821,11 @@ Acceptance Criteria
 - Test that with `none/none`, `inspect_eval_disabled is True`, `env_inspect_eval_model is None`, and `*_raw == "none/none"`.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: `resolve_model(...)` ignores `INSPECT_EVAL_MODEL` when set to `"none/none"`, but no explicit `inspect_eval_disabled` or `*_raw` is surfaced (no explain dict implemented).
-**Evidence**: `src/inspect_agents/model.py` checks for `env_inspect_model.strip().lower() != "none/none"` and skips the env override; no structured signals are returned.
-**Conclusion**: Sentinel handling remains implicit; decision needed on explicit flags/keys.
+**Finding**: The explain trace now surfaces `inspect_eval_disabled` and `env_inspect_eval_model_raw` (normalized) alongside steps and final.
+**Evidence**: `src/inspect_agents/model.py` extends `ModelResolutionTrace` with these fields and sets them based on `INSPECT_EVAL_MODEL` (lowercased, stripped); sentinel `none/none` sets `inspect_eval_disabled=True`. 【F:src/inspect_agents/model.py‑ L103-L112】【F:src/inspect_agents/model.py‑ L211-L218】 Unit tests assert flags for multiple sentinel variants. 【F:tests/unit/inspect_agents/model/test_model_resolver_sentinel_flags.py‑ L1-L20】【F:tests/unit/inspect_agents/model/test_model_resolver_sentinel_flags.py‑ L22-L37】
+**Conclusion**: Sentinel handling is explicit and test‑backed while preserving existing resolver behavior.
 
 </details>
 
@@ -940,11 +940,11 @@ Context
 - Exit criteria: wrappers in place; iterative tests green with unchanged behavior.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: `iterative_config.py` still uses local `_parse_int_opt(...)`; no delegation to `settings.int_env` wrappers.
-**Evidence**: `src/inspect_agents/iterative_config.py` defines `_parse_int_opt` and calls it for time/step/pruning/truncation.
-**Conclusion**: Proposed wrappers not added yet.
+**Finding**: Time/step and truncation helpers now delegate env parsing to `settings.int_env` via a local `_pos_env()` wrapper that converts `<=0` to `None`.
+**Evidence**: `src/inspect_agents/iterative_config.py` imports `int_env` and implements `_pos_env(...)` (lines 14–26). `resolve_time_and_step_limits(...)` and `resolve_truncation(...)` call `_pos_env(...)` for `INSPECT_ITERATIVE_TIME_LIMIT`, `INSPECT_ITERATIVE_MAX_STEPS`, `INSPECT_PER_MSG_TOKEN_CAP`, and `INSPECT_TRUNCATE_LAST_K`. 【F:src/inspect_agents/iterative_config.py‑ L13-L26】【F:src/inspect_agents/iterative_config.py‑ L33-L41】【F:src/inspect_agents/iterative_config.py‑ L45-L53】【F:src/inspect_agents/iterative_config.py‑ L95-L103】【F:src/inspect_agents/iterative_config.py‑ L109-L116】
+**Conclusion**: Wrappers in place; semantics unchanged; unit tests for iterative_config pass.
 
 </details>
 
@@ -994,11 +994,11 @@ Context
 - Exit criteria: unified accessor in place; limit/truncation tests remain green.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No `settings.max_tool_output_env()` exists; env parsed ad‑hoc in `observability.py` and `iterative.py`.
-**Evidence**: `src/inspect_agents/observability.py` reads `INSPECT_MAX_TOOL_OUTPUT`; `src/inspect_agents/iterative.py` parses the same env locally.
-**Conclusion**: Central accessor not added; refactor pending.
+**Finding**: Central accessor implemented and adopted at both call sites.
+**Evidence**: `src/inspect_agents/settings.py` adds `max_tool_output_env()` returning `int|None` (non-negative, `0` allowed) (L61–L79, L83–L90). `src/inspect_agents/observability.py` now calls `_max_tool_output_env()` in both the one‑time emitter and the side‑effect‑free getter (L54–L56→refactored, L109–L117→refactored). `src/inspect_agents/iterative.py` uses `_max_tool_output_env()` for the early precedence merge (L336→refactored).
+**Conclusion**: Option implemented with no precedence changes; tests covering effective limit and gating should remain green.
 
 </details>
 
@@ -1009,11 +1009,11 @@ Context
 - Exit criteria: tests green offline; examples documented in `tests/README.md`.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No direct unit tests for `settings.py` helpers are present.
-**Evidence**: No `tests/unit/inspect_agents/config/test_settings.py`; repo tests import `resolve_model`, tools, fs, etc., but not settings helpers explicitly.
-**Conclusion**: Add the proposed test module to pin semantics.
+**Finding**: A dedicated unit test module validates settings helpers, including the new `max_tool_output_env()` accessor.
+**Evidence**: `tests/unit/inspect_agents/config/test_settings.py` covers `truthy`, `int_env` (min/max and invalid), `float_env`, `str_env` (empty vs unset), `typed_results_enabled`, `default_tool_timeout`, and `max_tool_output_env` edge cases. 【F:tests/unit/inspect_agents/config/test_settings.py‑ L1-L29】【F:tests/unit/inspect_agents/config/test_settings.py‑ L31-L90】
+**Conclusion**: Tests in place; semantics are pinned and offline‑safe.
 
 </details>
 
@@ -1039,11 +1039,11 @@ Context
 - Exit criteria: docs updated; code snippets use `settings.*`.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: The Environment reference is comprehensive, but it doesn’t surface `settings.py` as the canonical API for env parsing.
-**Evidence**: `docs/reference/environment.md` covers flags/behavior; no explicit “Environment & Settings API” section referencing `inspect_agents.settings`.
-**Conclusion**: Add the suggested doc section and cross‑links.
+**Finding**: The Environment reference now includes an “Environment & Settings API” section that points to the centralized helpers and API docs.
+**Evidence**: `docs/reference/environment.md` adds a section with guidance and a link to the API page (L177–L185). API page exists at `docs/api/settings.md` with autogenerated entries.
+**Conclusion**: Documentation touchpoint complete; code should prefer `inspect_agents.settings`.
 
 </details>
 
@@ -1059,11 +1059,11 @@ Context
 - Exit criteria: deprecation policy documented; env flag recognized; downstream repos migrate to `settings.truthy` or `fs.truthy`.
 
 <details>
-<summary>⚠️ Still Open — Requires Decision</summary>
+<summary>✅ Answer Found in Implementation</summary>
 
-**Finding**: No deprecation warnings or `INSPECT_SHOW_DEPRECATIONS` gating implemented for underscore aliases.
-**Evidence**: `src/inspect_agents/fs.py` and `src/inspect_agents/filters.py` provide silent aliases; repo lacks deprecation toggles.
-**Conclusion**: Decision/policy not yet encoded; implementation needed if desired.
+**Finding**: Opt‑in deprecation warnings are implemented for underscore aliases via `INSPECT_SHOW_DEPRECATIONS=1`, emitted once per alias per process.
+**Evidence**: `src/inspect_agents/fs.py` wraps `_fs_mode`, `_use_sandbox_fs`, etc., to call the non‑underscore variants and warn once when `INSPECT_SHOW_DEPRECATIONS` is truthy. `src/inspect_agents/filters.py` wraps `_truthy` similarly. 【F:src/inspect_agents/fs.py‑ L243-L287】【F:src/inspect_agents/filters.py‑ L25-L32】【F:src/inspect_agents/filters.py‑ L36-L56】 Unit test `test_deprecations_gating.py` asserts no warnings by default and single warnings when enabled. 【F:tests/unit/inspect_agents/config/test_deprecations_gating.py‑ L1-L16】【F:tests/unit/inspect_agents/config/test_deprecations_gating.py‑ L18-L35】
+**Conclusion**: Deprecation policy (opt‑in) is encoded; we can switch to default‑on warnings in a future cycle.
 
 </details>
 

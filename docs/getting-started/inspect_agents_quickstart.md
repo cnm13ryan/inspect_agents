@@ -315,3 +315,17 @@ uv run inspect eval examples/tasks/prompt_task.py \
   --display rich --log-dir logs --log-level info \
   -T 'prompt="Write a concise overview of LangGraph"'
 ```
+## Iterative Quick Start
+
+Run the iterative agent with small, bounded steps (no submit):
+
+```bash
+uv run python examples/runners/iterative_runner.py \
+  --time-limit 300 --max-steps 20 \
+  "List repository files and propose a small refactor plan"
+```
+
+Notes
+- Use `--provider/--model` (or env) to select your model (defaults prefer local providers).
+- Optional: cap tool outputs globally with `INSPECT_MAX_TOOL_OUTPUT=8192`.
+- Enable extra tools via env flags, e.g., `INSPECT_ENABLE_EXEC=1` for bash/python.

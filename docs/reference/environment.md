@@ -174,6 +174,16 @@ The blocks below are generated from a single machine‑readable spec to avoid dr
 
 - Truthy booleans — unless stated otherwise, boolean flags interpret the following values as true (case-insensitive): `1`, `true`, `yes`, `on`. Unset, empty, or any other value is treated as false.
 
+## Environment & Settings API
+
+- Prefer the centralized helpers in `inspect_agents.settings` when reading environment variables in code: `truthy`, `int_env`, `float_env`, and `str_env`.
+- These helpers ensure consistent parsing and defaults across modules and reduce drift with docs and examples.
+- The Settings API also exposes `typed_results_enabled()` and `default_tool_timeout()` used by tools and FS utilities.
+
+References
+- API docs: ../api/settings.md
+- Code examples in this repo use `from inspect_agents import settings as s` and then `s.truthy(os.getenv("FLAG"))`, or `s.int_env("VAR", default=10, minimum=1)`, etc.
+
 
 ## Providers & Models (Role Mapping, Precedence)
 

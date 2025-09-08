@@ -6,6 +6,20 @@ This document describes how the iterative agent in this repository terminates an
 - Agent: `build_iterative_agent(...)` in `src/inspect_agents/iterative.py` returns an Inspect‑AI agent that performs small, tool‑driven steps with an ephemeral “continue” nudge each iteration. The nudge is not persisted; assistant replies and tool results are. 〖F:src/inspect_agents/iterative.py†L77-L90〗 〖F:src/inspect_agents/iterative.py†L490-L494〗
 - Defaults: safe Files/Todos tools with optional standard tools enabled via env flags (exec, search, browser). 〖F:src/inspect_agents/iterative.py†L45-L56〗 〖F:src/inspect_agents/tools.py†L206-L229〗
 
+## Quick Reference
+
+| Option | Purpose | Default | Env | Notes |
+|---|---|---|---|---|
+| `--time-limit <sec>` | Real‑time budget | unset | `INSPECT_ITERATIVE_TIME_LIMIT` | Example runner flag. 〖F:examples/runners/iterative_runner.py†L52-L56〗 |
+| `--max-steps <n>` | Max reasoning/tool steps | unset | `INSPECT_ITERATIVE_MAX_STEPS` | Example runner flag. 〖F:examples/runners/iterative_runner.py†L52-L56〗 |
+| `--provider` / `--model` | Provider and model selection | provider=`ollama`; model unset | `DEEPAGENTS_MODEL_PROVIDER`, `INSPECT_EVAL_MODEL` | Applies to example runners. 〖F:examples/_utils.py†L168-L186〗 |
+| `INSPECT_MAX_TOOL_OUTPUT` | Global tool‑output cap (bytes) | 16384 | `INSPECT_MAX_TOOL_OUTPUT` | Applies via GenerateConfig; set before first tool call. |
+| `INSPECT_ENABLE_EXEC` | Enable `bash()`/`python()` tools | 0 | `INSPECT_ENABLE_EXEC` | Use with sandbox. 〖F:src/inspect_agents/tools.py†L194-L200〗 |
+| `INSPECT_ENABLE_WEB_SEARCH` | Enable `web_search()` tool | auto (keys) | `INSPECT_ENABLE_WEB_SEARCH` | Requires Tavily/Google keys. 〖F:src/inspect_agents/tools.py†L166-L173〗 |
+| `INSPECT_ENABLE_WEB_BROWSER` | Enable browser tools | 0 | `INSPECT_ENABLE_WEB_BROWSER` | Heavy; optional. 〖F:src/inspect_agents/tools.py†L201-L206〗 |
+
+Note: Documentation examples standardize on `--time-limit 300` and `--max-steps 20` for quick runs; adjust as needed for your workload.
+
 ## Termination Conditions
 - Real‑time limit: When `real_time_limit_sec` (or env `INSPECT_ITERATIVE_TIME_LIMIT`) is set, the loop exits once elapsed time since start meets the limit (optionally subtracting retry wait; see below). 〖F:src/inspect_agents/iterative.py†L315-L323〗
 - Max steps: When `max_steps` (or env `INSPECT_ITERATIVE_MAX_STEPS`) is set, the loop exits once `step > max_steps`. 〖F:src/inspect_agents/iterative.py†L324-L326〗
@@ -23,6 +37,16 @@ Per‑call timeouts: To avoid overruns, each model `generate(...)` call receives
 ### Tool‑Output Truncation
 - Effective global limit: The env var `INSPECT_MAX_TOOL_OUTPUT` (bytes) can set `active_generate_config.max_tool_output` once on first tool invocation via the tools layer; otherwise a 16 KiB default applies. 〖F:src/inspect_agents/tools.py†L80-L115〗 〖F:src/inspect_agents/tools.py†L106-L115〗
 - Note: This is applied by our tool wrappers (Files/Todos). Standard tools from Inspect (e.g., `bash`, `python`) have their own behavior; if you want a guaranteed global cap for them too, set `INSPECT_MAX_TOOL_OUTPUT` in the environment before any tool calls or configure the active GenerateConfig in your runner.
+
+Example
+
+```bash
+# Limit tool outputs to 8 KiB for this run
+INSPECT_MAX_TOOL_OUTPUT=8192 \
+  uv run python examples/runners/iterative_runner.py \
+  --time-limit 120 --max-steps 10 \
+  "Summarize the repo structure in 120 words"
+```
 
 ## Differences vs PaperBench `basic_agent_iterative`
 - Retry‑time accounting: PaperBench always subtracts provider backoff/retry time from the time budget. Our implementation does this when `INSPECT_PRODUCTIVE_TIME=1`, and uses wall‑clock only when the flag is unset. 〖F:external/paperbench/paperbench/agents/aisi-basic-agent/_basic_agent_iterative.py†L209-L216〗 〖F:src/inspect_agents/iterative.py†L300-L323〗
@@ -68,6 +92,13 @@ Use a single profile (Tx.Hx.Nx) and fine‑tune with flags:
 - `--profile T{0|1|2}.H{0|1|2|3}.N{0|1|2}`: tooling/host/network profile. 〖F:examples/runners/profiled_runner.py†L69-L77〗
 - `--time-limit <sec>` / `--max-steps <n>`: pass through to the agent. 〖F:examples/runners/profiled_runner.py†L76-L77〗 〖F:examples/runners/profiled_runner.py†L111-L114〗
 - `--enable-browser`, `--enable-web-search`: opt‑in heavy tools as needed. 〖F:examples/runners/profiled_runner.py†L78-L84〗 〖F:examples/runners/profiled_runner.py†L96-L103〗
+
+### See Also
+
+- Environment Flags Reference: ../reference/environment.md
+- Settings API (`inspect_agents.settings`): ../api/settings.md
+- Supervisor limits & observability guide: ../guides/supervisor-limits.md
+- Tool umbrellas and guidance: ../guides/tool-umbrellas.md
 - `--approval {ci,dev,prod}`: select an approvals preset. 〖F:examples/runners/profiled_runner.py†L75〗 〖F:examples/runners/profiled_runner.py†L116-L123〗
 
 Example:
@@ -76,6 +107,20 @@ python examples/runners/profiled_runner.py \
   --profile T1.H1.N1 --approval dev \
   --time-limit 120 --max-steps 20 \
   "Curate a list of arXiv papers that Quantinuum published in 2025"
+```
+
+### Supervisor runner (`examples/runners/supervisor_runner.py`)
+
+Flags:
+- `--provider` / `--model`: choose provider and model id (overrides env). 〖F:examples/runners/supervisor_runner.py†L47-L52】【F:examples/_utils.py†L168-L186】
+- `--enable-exec` / `--enable-web-search` / `--enable-web-browser` / `--enable-text-editor-tool`: opt‑in standard tool umbrellas. 〖F:examples/runners/supervisor_runner.py†L49-L51】【F:examples/_utils.py†L189-L207】
+- `--env-file <path>`: load a specific env file before start (template available under `env_templates/inspect.env`). 〖F:examples/runners/supervisor_runner.py†L76-L85】
+
+Example:
+```bash
+uv run python examples/runners/supervisor_runner.py \
+  --env-file env_templates/inspect.env \
+  --enable-web-search "Summarize latest project status"
 ```
 
 ### Inspect CLI task (`examples/tasks/iterative_task.py`)
