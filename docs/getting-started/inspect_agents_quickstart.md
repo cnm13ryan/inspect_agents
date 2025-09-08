@@ -1,3 +1,8 @@
+---
+search:
+  boost: 2
+---
+
 # Inspect Agents (Inspect‑AI) Quickstart
 
 This repository includes an Inspect‑AI–native path (`inspect_agents`) alongside the LangGraph/LangChain path. Use it when you want:

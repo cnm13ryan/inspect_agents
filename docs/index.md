@@ -1,3 +1,8 @@
+---
+search:
+  boost: 2
+---
+
 # Inspect Agents
 
 Build, run, and evaluate reliable multi‑step LLM agents on top of Inspect‑AI — with safe defaults, rich tools, and a fast path from “hello world” to production.
