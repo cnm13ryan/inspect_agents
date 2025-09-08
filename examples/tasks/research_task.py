@@ -23,18 +23,9 @@ from pathlib import Path
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 
-from inspect_agents.agents import build_subagents, build_supervisor
+from examples.lib.builders import build_research_supervisor
 from inspect_agents.config import load_and_build
 from inspect_agents.model import resolve_model
-from inspect_agents.tools import (
-    edit_file,
-    ls,
-    read_file,
-    standard_tools,
-    update_todo_status,
-    write_file,
-    write_todos,
-)
 
 
 def _load_examples_utils():
@@ -62,18 +53,7 @@ def _load_examples_utils():
 
 # Local helper to load the examples planner tool via import_by_path to avoid
 # collisions with any site-packages module named "examples".
-def _load_planner_tool():
-    try:
-        _utils = _load_examples_utils()
-        if _utils is None:
-            return None
-        mod_path = Path(__file__).resolve().parents[1] / "inspect" / "exploration" / "planner_tool.py"
-        if not mod_path.exists():  # optional component
-            return None
-        mod = _utils.import_by_path("_examples_planner_tool", mod_path)
-        return getattr(mod, "planner_tool")()
-    except Exception:
-        return None
+# (Note): planner tool inclusion is handled by the shared builder
 
 
 @task
@@ -135,50 +115,11 @@ def research_task(
         # Accept any future extensions by using starred unpacking.
         agent, *_ = load_and_build(config, model=model_id)
     else:
-        # Build base tools and sub-agents inline (same as the local runner)
-        builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
-        base_tools = builtins + standard_tools()
-
-        sub_research_prompt = (
-            "You are a dedicated researcher. Your job is to conduct research based on the user's question.\n\n"
-            "Conduct thorough research and then reply with a detailed answer."
-        )
-        sub_critique_prompt = (
-            "You are a dedicated editor tasked to critique a report.\n\n"
-            "The report is in `final_report.md`; the question is in `question.txt`.\n"
-            "Respond with a detailed critique and concrete improvements."
-        )
-
-        sub_configs = [
-            {
-                "name": "research-agent",
-                "description": (
-                    "Used to research more in-depth questions. Only give this researcher one topic at a time."
-                ),
-                "prompt": sub_research_prompt,
-                "tools": ["web_search", "read_file", "write_file", "ls"],
-                "mode": "handoff",
-            },
-            {
-                "name": "critique-agent",
-                "description": "Used to critique the final report.",
-                "prompt": sub_critique_prompt,
-                "tools": ["web_search", "read_file", "write_file", "ls"],
-                "mode": "handoff",
-            },
-        ]
-
-        subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools, default_model=model_id)
-
-        # Expose planner tool to the supervisor (not to sub-agents)
-        _planner = _load_planner_tool()
-        extra_tools = [_planner] if _planner is not None else []
-
-        agent = build_supervisor(
-            prompt="You are a helpful researcher.",
-            tools=subagent_tools + extra_tools,
-            attempts=attempts,
+        # Use shared builder (prompts/tool lists preserved, include planner tool)
+        agent = build_research_supervisor(
             model=model_id,
+            attempts=attempts,
+            include_planner=True,
         )
 
     return Task(
