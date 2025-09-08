@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import os
 
+from .settings import int_env as _int_env
 
-def _parse_int_opt(v: str | None) -> int | None:
+
+def _pos_env(name: str) -> int | None:
+    """Read a positive integer from env or return None.
+
+    Delegates parsing to settings.int_env with a neutral default (0) and then
+    converts values <= 0 to None.
+    """
     try:
-        if v is None or str(v).strip() == "":
-            return None
-        iv = int(str(v).strip())
-        return iv if iv > 0 else None
+        v = int(_int_env(name, 0))
     except Exception:
-        return None
+        v = 0
+    return v if v > 0 else None
 
 
 def resolve_time_and_step_limits(
@@ -33,18 +38,12 @@ def resolve_time_and_step_limits(
     # Time limit
     time_limit: int | None = real_time_limit_sec
     if time_limit is None:
-        try:
-            time_limit = _parse_int_opt(os.getenv("INSPECT_ITERATIVE_TIME_LIMIT"))
-        except Exception:
-            time_limit = None
+        time_limit = _pos_env("INSPECT_ITERATIVE_TIME_LIMIT")
 
     # Step limit
     step_limit: int | None = max_steps
     if step_limit is None:
-        try:
-            step_limit = _parse_int_opt(os.getenv("INSPECT_ITERATIVE_MAX_STEPS"))
-        except Exception:
-            step_limit = None
+        step_limit = _pos_env("INSPECT_ITERATIVE_MAX_STEPS")
 
     return time_limit, step_limit
 
@@ -104,11 +103,11 @@ def resolve_truncation(
     """
     eff_cap: int | None = per_msg_token_cap
     if eff_cap is None:
-        eff_cap = _parse_int_opt(os.getenv("INSPECT_PER_MSG_TOKEN_CAP"))
+        eff_cap = _pos_env("INSPECT_PER_MSG_TOKEN_CAP")
 
     eff_last_k: int = truncate_last_k
     try:
-        env_last_k = _parse_int_opt(os.getenv("INSPECT_TRUNCATE_LAST_K"))
+        env_last_k = _pos_env("INSPECT_TRUNCATE_LAST_K")
         if env_last_k is not None:
             eff_last_k = int(env_last_k)
     except Exception:
