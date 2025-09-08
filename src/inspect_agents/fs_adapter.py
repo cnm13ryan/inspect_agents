@@ -162,6 +162,39 @@ class SandboxFsAdapter:
         except Exception:
             return
 
+    async def trash(self, src: str, dst: str) -> None:
+        """Move a path into a trash location, creating parents as needed.
+
+        This is a convenience that ensures the destination directory exists
+        before delegating to a regular move operation. Prefer bash when
+        available; otherwise fall back to create+copy semantics as in move().
+        """
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            import os as _os
+
+            trash_dir = _os.path.dirname(dst)
+            with anyio.fail_after(_fs.default_tool_timeout()):
+                await bash(action="run", command=f"mkdir -p {shlex.quote(trash_dir)}")
+                await bash(action="run", command=f"mv {shlex.quote(src)} {shlex.quote(dst)}")
+            return
+        except Exception:
+            pass
+
+        # Fallback behavior mirrors move(): copy via editor then rely on best-effort
+        try:
+            text = await self.view(src, 1, -1)
+            # Ensure parent via mkdir (best-effort)
+            try:
+                await self.mkdir(dst.rsplit("/", 1)[0])
+            except Exception:
+                pass
+            await self.create(dst, text)
+        except Exception:
+            return
+
     async def stat(self, path: str) -> tuple[bool, bool, int | None]:
         """Return (exists, is_dir, size_bytes|None) using bash or editor fallback."""
         # Prefer bash test + wc -c

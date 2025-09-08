@@ -96,6 +96,14 @@ class FileDeleteResult(BaseModel):
     summary: str
 
 
+class FileTrashResult(BaseModel):
+    """Typed result for trash operations (audited delete)."""
+
+    src: str
+    dst: str
+    summary: str
+
+
 class FileListResult(BaseModel):
     """Typed result for ls operations."""
 
@@ -181,6 +189,7 @@ class EditParams(BaseFileParams):
     old_string: str = Field(description="String to replace")
     new_string: str = Field(description="Replacement string")
     replace_all: bool = Field(False, description="Replace all occurrences if true")
+    dry_run: bool = Field(False, description="When true, compute result without persisting changes")
     expected_count: int | None = Field(
         None,
         description=(
@@ -224,11 +233,26 @@ class DeleteParams(BaseFileParams):
     file_path: str = Field(description="Path to delete")
 
 
+class TrashParams(BaseFileParams):
+    """Parameters for trash command (audited delete)."""
+
+    command: Literal["trash"] = "trash"
+    file_path: str = Field(description="Path to move into trash")
+
+
 class FilesParams(RootModel):
     """Discriminated union of all file operation parameters."""
 
     root: Annotated[
-        LsParams | ReadParams | WriteParams | EditParams | DeleteParams | MkdirParams | MoveParams | StatParams,
+        LsParams
+        | ReadParams
+        | WriteParams
+        | EditParams
+        | DeleteParams
+        | TrashParams
+        | MkdirParams
+        | MoveParams
+        | StatParams,
         Discriminator("command"),
     ]
 
@@ -639,12 +663,19 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
                     # Write temp file via editor (consistent code path)
                     await adapter.create(tmp_path, params.content)
 
-                    # If bash session is available, atomically move into place
+                    # If bash session is available, try atomic move into place
                     if _bash_session is not None and await adapter.preflight("bash session"):
                         bash = _bash_session()
                         cmd = f"mv {_shlex.quote(tmp_path)} {_shlex.quote(validated_path)}"
-                        with anyio.fail_after(_default_tool_timeout()):
-                            await bash(action="run", command=cmd)
+                        try:
+                            with anyio.fail_after(_default_tool_timeout()):
+                                await bash(action="run", command=cmd)  # type: ignore[misc]
+                        except TypeError:
+                            # Unsupported signature (no `run(command=...)`).
+                            await adapter.create(validated_path, params.content)
+                        except Exception:
+                            # Any runtime failure → fallback to non-atomic write.
+                            await adapter.create(validated_path, params.content)
                     else:
                         # Fallback: write directly (non-atomic)
                         await adapter.create(validated_path, params.content)
@@ -876,8 +907,20 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                 if _bash_session is not None and await adapter.preflight("bash session"):
                     bash = _bash_session()
                     cmd = f"mv {_shlex.quote(tmp_path)} {_shlex.quote(validated_path)}"
-                    with anyio.fail_after(_default_tool_timeout()):
-                        await bash(action="run", command=cmd)
+                    # Some environments expose a bash_session that does not
+                    # support a generic `run(command=...)` interface. Feature
+                    # detect at call-time and fall back to editor create on
+                    # signature/type errors.
+                    try:
+                        with anyio.fail_after(_default_tool_timeout()):
+                            await bash(action="run", command=cmd)  # type: ignore[misc]
+                    except TypeError:
+                        # Unsupported signature (e.g., expects `input` arg or
+                        # lacks `run`). Fall back to non-atomic replacement.
+                        await adapter.create(validated_path, updated_text)
+                    except Exception:
+                        # Any other failure: prefer best-effort fallback.
+                        await adapter.create(validated_path, updated_text)
                 else:
                     # Fallback: non-atomic editor replacement
                     await adapter.create(validated_path, updated_text)
@@ -947,67 +990,66 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         )
         raise
 
-        # Count replacements for accurate reporting
-        if params.replace_all:
-            replacement_count = content.count(params.old_string)
-            updated = content.replace(params.old_string, params.new_string)
-        else:
-            replacement_count = 1
-            updated = content.replace(params.old_string, params.new_string, 1)
+    # Count replacements for accurate reporting
+    if params.replace_all:
+        replacement_count = content.count(params.old_string)
+        updated = content.replace(params.old_string, params.new_string)
+    else:
+        replacement_count = 1
+        updated = content.replace(params.old_string, params.new_string, 1)
 
-        # Validate expected_count when provided
-        if params.expected_count is not None:
-            expected = int(params.expected_count)
-            actual = replacement_count if params.replace_all else 1
-            if expected != actual:
-                _log_tool_event(
-                    name="files:edit",
-                    phase="error",
-                    extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
-                    t0=_t0,
-                )
-                raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
-
-        # Enforce byte ceiling on the updated content
-        updated_bytes = len(updated.encode("utf-8"))
-        max_bytes = _max_bytes()
-        if updated_bytes > max_bytes:
+    # Validate expected_count when provided
+    if params.expected_count is not None:
+        expected = int(params.expected_count)
+        actual = replacement_count if params.replace_all else 1
+        if expected != actual:
             _log_tool_event(
                 name="files:edit",
                 phase="error",
-                extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
+                extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
                 t0=_t0,
             )
-            raise ToolException(
-                f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
-                f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
-            )
+            raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
 
-        # If dry_run, do not persist changes
-        if params.dry_run:
-            to_report = replacement_count if params.replace_all else 1
-            summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
-            if _use_typed_results():
-                _log_tool_event(
-                    name="files:edit",
-                    phase="end",
-                    extra={"ok": True, "replaced": to_report, "dry_run": True},
-                    t0=_t0,
-                )
-                return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
+    # Enforce byte ceiling on the updated content
+    updated_bytes = len(updated.encode("utf-8"))
+    max_bytes = _max_bytes()
+    if updated_bytes > max_bytes:
+        _log_tool_event(
+            name="files:edit",
+            phase="error",
+            extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
+            t0=_t0,
+        )
+        raise ToolException(
+            f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
+            f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
+        )
+
+    # If dry_run, do not persist changes
+    if params.dry_run:
+        to_report = replacement_count if params.replace_all else 1
+        summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
+        if _use_typed_results():
             _log_tool_event(
                 name="files:edit",
                 phase="end",
                 extra={"ok": True, "replaced": to_report, "dry_run": True},
                 t0=_t0,
             )
-            return summary
+            return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
+        _log_tool_event(
+            name="files:edit",
+            phase="end",
+            extra={"ok": True, "replaced": to_report, "dry_run": True},
+            t0=_t0,
+        )
+        return summary
 
-        # Atomic swap under the same lock
-        tmp_key = f"{params.file_path}.tmp-{_uuid.uuid4().hex}"
-        files.put_file(tmp_key, updated)
+    # Single write in store mode
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
         files.put_file(params.file_path, updated)
-        files.delete_file(tmp_key)
 
     summary = f"Updated file {params.file_path}"
     to_report = replacement_count if params.replace_all else 1
@@ -1057,6 +1099,18 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
         raise ToolException("SandboxUnsupported")
 
     # Store-backed with timeout guard
+    # Policy check (store) — enforce before deletion
+    try:
+        _check_policy(os.path.join(_fs_root(), params.file_path), "delete")
+    except ToolException:
+        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.file_path))
+        _log_tool_event(
+            name="files:delete",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+            t0=_t0,
+        )
+        raise
     with anyio.fail_after(_default_tool_timeout()):
         files = store_as(Files, instance=params.instance)
         # Check if file exists before deletion for proper messaging
@@ -1075,11 +1129,126 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
     return summary
 
 
+async def execute_trash(params: TrashParams) -> str | FileTrashResult:
+    """Execute trash command (audited delete → move into .trash).
+
+    Behavior:
+    - Sandbox: validate and deny symlink for source; move to
+      fs_root()/.trash/<ts>/<rel_path> creating parents. Uses bash when
+      available via the sandbox adapter.
+    - Store: re-key the in-memory file to .trash/<ts>/<rel_path>.
+
+    Notes:
+    - Hard delete in sandbox remains disabled; this provides a reversible
+      alternative that keeps an audit trail via logs and path.
+    """
+    import time as _time
+
+    from inspect_ai.util._store_model import store_as
+
+    _t0 = _log_tool_event(
+        name="files:trash",
+        phase="start",
+        args={"file_path": params.file_path, "instance": params.instance},
+    )
+
+    root = _fs_root()
+    ts = str(int(_time.time()))
+
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        try:
+            if await adapter.preflight("bash session"):
+                # Validate and guard source path inside sandbox root
+                src_abs = adapter.validate(params.file_path)
+                await adapter.deny_symlink(src_abs)
+                # Policy: treat as destructive op on source path
+                try:
+                    _check_policy(src_abs, "trash")
+                except ToolException:
+                    kind, rule = _match_path_policy(src_abs)
+                    _log_tool_event(
+                        name="files:trash",
+                        phase="error",
+                        extra={
+                            "ok": False,
+                            "error": "PolicyDenied",
+                            "policy_rule": rule,
+                            "path": params.file_path,
+                        },
+                        t0=_t0,
+                    )
+                    raise
+
+                # Compute destination under .trash/<ts>/<rel_path>
+                try:
+                    import os as _os
+
+                    rel = _os.path.relpath(src_abs, root)
+                except Exception:
+                    rel = params.file_path.lstrip("/")
+                dst_abs = _os.path.join(root, ".trash", ts, rel)
+                # Ensure parent and move
+                await adapter.trash(src_abs, dst_abs)
+                # Verify destination exists (best-effort)
+                existed, _, _ = await adapter.stat(dst_abs)
+                if existed:
+                    summary = f"Trashed {params.file_path} -> {dst_abs}"
+                    _log_tool_event(
+                        name="files:trash",
+                        phase="end",
+                        extra={"ok": True, "action": "trash", "src": params.file_path, "dst": dst_abs},
+                        t0=_t0,
+                    )
+                    if _use_typed_results():
+                        return FileTrashResult(src=params.file_path, dst=dst_abs, summary=summary)
+                    return summary
+        except Exception:
+            # Fallback to store-mode implementation
+            pass
+
+    # Store-mode trash: move key under .trash/<ts>/
+    # Policy check (store) — destructive on source
+    try:
+        _check_policy(os.path.join(root, params.file_path), "trash")
+    except ToolException:
+        kind, rule = _match_path_policy(os.path.join(root, params.file_path))
+        _log_tool_event(
+            name="files:trash",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+            t0=_t0,
+        )
+        raise
+
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
+        content = files.get_file(params.file_path)
+        if content is None:
+            _log_tool_event(name="files:trash", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
+            raise ToolException(f"File '{params.file_path}' not found")
+        # Compute destination key
+        dst_key = f".trash/{ts}/{params.file_path.lstrip('/')}"
+        files.put_file(dst_key, content)
+        files.delete_file(params.file_path)
+
+    summary = f"Trashed {params.file_path} -> {dst_key}"
+    _log_tool_event(
+        name="files:trash",
+        phase="end",
+        extra={"ok": True, "action": "trash", "src": params.file_path, "dst": dst_key},
+        t0=_t0,
+    )
+    if _use_typed_results():
+        return FileTrashResult(src=params.file_path, dst=dst_key, summary=summary)
+    return summary
+
+
 # The main files tool
 def files_tool():  # -> Tool
     """Unified files tool using discriminated union for commands.
 
-    Supports commands: ls, read, write, edit, delete.
+    Supports commands: ls, read, write, edit, delete, trash.
 
     Sandbox vs store:
     - Sandbox (INSPECT_AGENTS_FS_MODE=sandbox): routes reads/writes/edits via
@@ -1104,7 +1273,15 @@ def files_tool():  # -> Tool
     def _factory() -> Tool:
         async def execute(
             params: FilesParams,
-        ) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult | FileDeleteResult:
+        ) -> (
+            str
+            | FileListResult
+            | FileReadResult
+            | FileWriteResult
+            | FileEditResult
+            | FileDeleteResult
+            | FileTrashResult
+        ):
             # Add Pydantic validation layer for early error detection
             try:
                 from .tool_types import FilesToolParams
@@ -1153,6 +1330,8 @@ def files_tool():  # -> Tool
                             "to delete from the in-memory Files store"
                         )
                     raise
+            elif isinstance(command_params, TrashParams):
+                return await execute_trash(command_params)
             else:
                 raise ToolException(f"Unknown command type: {type(command_params)}")
 
@@ -1165,7 +1344,7 @@ def files_tool():  # -> Tool
             execute,
             name="files",
             description=(
-                "Unified file operations tool (ls, read, write, edit, delete). Delete disabled in sandbox mode."
+                "Unified file operations tool (ls, read, write, edit, delete, trash). Delete disabled in sandbox mode."
             ),
             parameters=params,
         ).as_tool()

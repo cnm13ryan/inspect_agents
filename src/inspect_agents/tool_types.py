@@ -22,11 +22,15 @@ class FilesToolParams(BaseModel):
         "write",
         "edit",
         "delete",
+        "trash",
         "mkdir",
         "move",
         "stat",
     ] = Field(description="File operation command")
-    file_path: str | None = Field(None, description="Path to file (required for read, write, edit, delete)")
+    file_path: str | None = Field(
+        None,
+        description="Path to file (required for read, write, edit, delete, trash)",
+    )
     content: str | None = Field(None, description="File content (required for write)")
     offset: int = Field(0, description="Line offset for read (0-based)")
     limit: int = Field(2000, description="Max lines to return for read")
