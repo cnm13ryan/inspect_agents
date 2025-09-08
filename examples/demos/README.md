@@ -30,7 +30,3 @@ Common Environment Flags
 Notes
 - Standard tools (`think`, `web_search`, `bash`, `python`, browser) are enabled strictly by env; see docs/reference/environment.md.
 - Per‑agent limits can be applied via env, e.g., `INSPECT_LIMIT_MESSAGES__researcher=8`.
-
-Legacy paths
-- `examples/demos/simple_architecture.py` and `examples/demos/simple_arch_demo.py` now print redirects to the new simple_arch/ files.
-- `examples/demos/subagent_approvals_demo.py` prints a redirect to `examples/demos/approvals/subagent.py`.
