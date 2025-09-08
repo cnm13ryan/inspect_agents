@@ -18,6 +18,7 @@ nav:
       - Exploration examples (Plan & Runner): how-to/exploration_examples.md
       - Model resolver explain API: how-to/model_resolver_explain.md
   - Reference:
+      - CLI: reference/cli.md
       - Environment variables: reference/environment.md
       - API:
           - Approval: api/approval.md
@@ -45,7 +46,7 @@ nav:
           - Delete file: tools/delete_file.md
           - Write todos: tools/write_todos.md
           - Update todo status: tools/update_todo_status.md
-      - CLI:
+      - CLI (curated):
           - Index: cli/README.md
           - View: cli/inspect_view.md
           - Log: cli/inspect_log.md
@@ -134,6 +135,7 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:mermaid2.fence_mermaid
   - attr_list
+  - mkdocs-click
   - md_in_html
   - toc:
       permalink: true
