@@ -193,4 +193,56 @@ def test_prod_preset_terminates_web_browser_go_with_redacted_args(monkeypatch):
     assert "[REDACTED]" in text and "SECRET_TOKEN" not in text
 
 
+def test_dev_preset_escalates_files_write_then_rejects(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
+
+    policies = approval_preset("dev")
+    approver = policy_approver(policies)
+    # files tool: write mutation should be gated
+    args = {"params": {"command": "write", "file_path": "x.txt", "content": "SECRET"}}
+    approval = asyncio.run(approver("", ToolCall(id="1", function="files", arguments=args), None, []))
+    ok = getattr(approval, "decision", None) in ("approve", "modify")
+    assert ok is False
+    assert getattr(approval, "decision", None) == "reject"
+
+
+def test_prod_preset_terminates_files_write_with_redacted_args(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
+
+    policies = approval_preset("prod")
+    approver = policy_approver(policies)
+    # Include secrets-like fields to ensure redaction
+    args = {
+        "params": {
+            "command": "write",
+            "file_path": "x.txt",
+            "content": "SECRET",
+            "authorization": "Bearer SECRET_TOKEN",
+        }
+    }
+    approval = asyncio.run(approver("", ToolCall(id="1", function="files", arguments=args), None, []))
+    ok = getattr(approval, "decision", None) in ("approve", "modify")
+    assert ok is False
+    assert getattr(approval, "decision", None) == "terminate"
+    text = getattr(approval, "explanation", "")
+    assert "[REDACTED]" in text and "SECRET" not in text and "SECRET_TOKEN" not in text
+
+
+def test_prod_preset_terminates_files_move_with_redacted_args(monkeypatch):
+    _install_apply_shim_with_policy(monkeypatch)
+    from inspect_ai.approval._policy import policy_approver  # import after shim
+
+    policies = approval_preset("prod")
+    approver = policy_approver(policies)
+    args = {"params": {"command": "move", "src_path": "a.txt", "dst_path": "b.txt", "token": "XYZ"}}
+    approval = asyncio.run(approver("", ToolCall(id="1", function="files", arguments=args), None, []))
+    ok = getattr(approval, "decision", None) in ("approve", "modify")
+    assert ok is False
+    assert getattr(approval, "decision", None) == "terminate"
+    text = getattr(approval, "explanation", "")
+    assert "[REDACTED]" in text and "XYZ" not in text
+
+
 pytestmark = pytest.mark.approvals
