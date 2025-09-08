@@ -16,9 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: "pages"
@@ -56,18 +54,54 @@ jobs:
           ENABLED_HTMLPROOFER: "true"
         run: uv run mkdocs build --strict
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
+  deploy-mike:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 10
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv (with cache)
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            **/pyproject.toml
+            **/uv.lock
+
+      - name: Sync docs deps (includes mike)
+        run: uv sync --extra docs
+
+      - name: Configure git user for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve version from pyproject.toml
+        id: version
+        run: |
+          DOCS_VERSION=$(python - <<'PY'
+import tomllib
+with open('pyproject.toml','rb') as f:
+    print(tomllib.load(f)['project']['version'])
+PY
+          )
+          echo "version=$DOCS_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy versioned docs with mike
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Deploying docs for version: $VERSION"
+          uv run mike deploy --update-aliases "$VERSION" latest -b gh-pages --remote origin --push
+          uv run mike set-default latest -b gh-pages --remote origin --push
