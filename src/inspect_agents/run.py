@@ -6,6 +6,7 @@ import os
 from typing import Any
 
 from .observability import log_tool_event
+from .profiles import resolve_profile_from_env
 
 
 async def run_agent(
@@ -52,6 +53,18 @@ async def run_agent(
             except Exception:
                 # Safe no-op if approval wiring is unavailable in the environment
                 pass
+
+    # Resolve optional sandboxing profile from env (INSPECT_PROFILE=T?.H?.N?)
+    # Applies tool toggles as defaults and emits an audit event. If a profile is
+    # present, also set INSPECT_EVAL_SANDBOX=<provider> as a convenience for
+    # upstream CLI paths; programmatic callers should still pass Task(..., sandbox=...).
+    try:
+        prof = resolve_profile_from_env()
+        if prof is not None:
+            os.environ.setdefault("INSPECT_EVAL_SANDBOX", prof.sandbox)
+    except Exception:
+        # Profiles are advisory; never fail the run if parsing or logging fails.
+        pass
 
     # Guard: some tests install a minimal inspect_ai.approval._apply stub that
     # lacks `have_tool_approval` expected by newer Inspect. Patch it in before
