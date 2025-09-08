@@ -46,53 +46,15 @@ async def _main() -> int:
 
     parser = argparse.ArgumentParser(description="Run the Inspect Agents supervisor.")
     parser.add_argument("prompt", nargs="*", help="User prompt text")
-    parser.add_argument(
-        "--provider",
-        default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "lm-studio"),
-        help="Model provider (ollama, lm-studio, openai, ...)",
-    )
-    parser.add_argument(
-        "--model",
-        default=os.getenv("INSPECT_EVAL_MODEL"),
-        help="Explicit model name (optional; provider prefix allowed)",
-    )
-    # Optional standard tool toggles (map to env for simplicity)
-    parser.add_argument("--enable-think", action="store_true", help="Enable think() tool")
-    parser.add_argument(
-        "--enable-web-search",
-        action="store_true",
-        help="Enable web_search() tool (requires Tavily or Google CSE keys)",
-    )
-    parser.add_argument(
-        "--enable-exec",
-        action="store_true",
-        help="Enable bash() and python() tools (requires sandbox)",
-    )
-    parser.add_argument(
-        "--enable-web-browser",
-        action="store_true",
-        help="Enable web_browser() tools (requires sandbox + Playwright)",
-    )
-    parser.add_argument(
-        "--enable-text-editor-tool",
-        action="store_true",
-        help="Expose text_editor() directly (optional; FS tools already route to it in sandbox mode)",
-    )
+    # Common flags across runners
+    _utils.add_common_model_flags(parser)
+    _utils.add_common_tool_flags(parser)
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv("PROMPT", "Write a short overview of LangGraph")
 
-    # Reflect flags into env before building agent
-    if args.enable_think:
-        os.environ["INSPECT_ENABLE_THINK"] = "1"
-    if args.enable_web_search:
-        os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
-    if args.enable_exec:
-        os.environ["INSPECT_ENABLE_EXEC"] = "1"
-    if args.enable_web_browser:
-        os.environ["INSPECT_ENABLE_WEB_BROWSER"] = "1"
-    if args.enable_text_editor_tool:
-        os.environ["INSPECT_ENABLE_TEXT_EDITOR_TOOL"] = "1"
+    # Reflect flags into env uniformly before building agent
+    _utils.apply_tool_env_from_args(args)
 
     # Debug: show effective tool-output cap once
     try:
