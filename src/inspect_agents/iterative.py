@@ -29,6 +29,8 @@ import time
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from .settings import max_tool_output_env as _max_tool_output_env
+
 # Bind transcript and error types at import time to avoid order-dependent
 # re-import issues in test environments that stub inspect_ai submodules.
 try:  # pragma: no cover - import-time binding
@@ -333,7 +335,7 @@ def build_iterative_agent(
                     except Exception:
                         return None
 
-                _env_limit = _parse_int(os.getenv("INSPECT_MAX_TOOL_OUTPUT"))
+                _env_limit = _max_tool_output_env()
                 if active_generate_config and set_active_generate_config:
                     cfg = active_generate_config()
                     if max_tool_output_bytes is not None:
