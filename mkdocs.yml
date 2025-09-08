@@ -136,6 +136,7 @@ markdown_extensions:
           format: !!python/name:mermaid2.fence_mermaid
   - attr_list
   - mkdocs-click
+  - pymdownx.tabbed
   - md_in_html
   - toc:
       permalink: true
