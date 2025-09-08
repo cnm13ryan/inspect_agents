@@ -78,6 +78,8 @@ docs = [
     "mkdocs-redirects>=1.2.1",
     "mkdocs-exclude-search>=0.6.5",
     "mkdocs-minify-plugin",
+    # Image lightbox support
+    "mkdocs-glightbox>=0.3.4",
     # Git last updated dates
     "mkdocs-git-revision-date-localized-plugin",
     # Optional link checker for CI (not wired here yet)
