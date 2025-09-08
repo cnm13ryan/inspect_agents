@@ -102,10 +102,22 @@ class ModelResolutionStep:
 
 @dataclass(slots=True)
 class ModelResolutionTrace:
-    """Full trace of resolution steps and the final string."""
+    """Full trace of resolution steps and the final string.
+
+    Added fields:
+    - env_inspect_eval_model_raw: normalized raw value of INSPECT_EVAL_MODEL (lowercased, stripped),
+      when present. Useful for detecting the sentinel "none/none" explicitly.
+    - inspect_eval_disabled: True when INSPECT_EVAL_MODEL is set to the sentinel "none/none".
+    """
 
     steps: list[ModelResolutionStep] = field(default_factory=list)
     final: str | None = None
+    env_inspect_eval_model_raw: str | None = None
+    inspect_eval_disabled: bool = False
+    provider_source: str | None = None  # arg|env|role-map|inspect-eval|default
+    model_source: str | None = None  # arg|env|role-map|inspect-eval|default
+    role_source: str | None = None  # arg|unset
+    inspect_eval_source: str = "unset"  # unset|sentinel|set
 
 
 class ResolveModelError(RuntimeError):
@@ -157,6 +169,10 @@ def resolve_model_explain(
     role_env_model: str | None = None
     role_env_provider: str | None = None
 
+    # Record role source when provided
+    if role is not None:
+        trace.role_source = "arg"
+
     # 1) Explicit model with provider prefix wins
     if model and "/" in model:
         step = _step(
@@ -171,6 +187,13 @@ def resolve_model_explain(
         )
         trace.steps.append(step)
         trace.final = model
+        trace.model_source = "arg"
+        try:
+            prov = model.split("/", 1)[0]
+            if prov:
+                trace.provider_source = trace.provider_source or "arg"
+        except Exception:
+            pass
         return model, trace
 
     # 2) Role-mapped resolution when role is provided and no explicit model
@@ -192,6 +215,10 @@ def resolve_model_explain(
             trace.steps.append(step)
             provider = r_provider or provider
             model = r_model
+            if r_provider:
+                trace.provider_source = "role-map"
+            if r_model:
+                trace.model_source = "role-map"
         else:
             final = f"inspect/{role}"
             step = _step(
@@ -210,6 +237,17 @@ def resolve_model_explain(
 
     # 3) Env-specified full model via Inspect convention
     env_inspect_model = os.getenv("INSPECT_EVAL_MODEL")
+    try:
+        if env_inspect_model is not None:
+            norm_env = env_inspect_model.strip().lower()
+            trace.env_inspect_eval_model_raw = norm_env
+            if norm_env == "none/none":
+                trace.inspect_eval_disabled = True
+                trace.inspect_eval_source = "sentinel"
+            else:
+                trace.inspect_eval_source = "set"
+    except Exception:
+        pass
     if (
         model is None
         and env_inspect_model
@@ -228,14 +266,26 @@ def resolve_model_explain(
         )
         trace.steps.append(step)
         trace.final = env_inspect_model
+        trace.provider_source = "inspect-eval"
+        trace.model_source = "inspect-eval"
         return env_inspect_model, trace
 
     # 4) Determine provider: function arg > env > default (ollama)
-    provider = (provider or os.getenv("DEEPAGENTS_MODEL_PROVIDER") or "ollama").lower()
+    if provider is not None:
+        trace.provider_source = trace.provider_source or "arg"
+        provider = provider.lower()
+    else:
+        env_provider = os.getenv("DEEPAGENTS_MODEL_PROVIDER")
+        provider = (env_provider or "ollama").lower()
+        if env_provider:
+            trace.provider_source = trace.provider_source or "env"
+        else:
+            trace.provider_source = trace.provider_source or "default"
 
     # 5) Provider-specific resolution
     if provider in {"ollama"}:
-        tag = model or os.getenv("OLLAMA_MODEL_NAME") or LOCAL_DEFAULT_OLLAMA_MODEL
+        tag_env = os.getenv("OLLAMA_MODEL_NAME")
+        tag = model or tag_env or LOCAL_DEFAULT_OLLAMA_MODEL
         final = f"ollama/{tag}"
         step = _step(
             path="provider_ollama",
@@ -249,6 +299,10 @@ def resolve_model_explain(
         )
         trace.steps.append(step)
         trace.final = final
+        if model is not None:
+            trace.model_source = trace.model_source or "arg"
+        else:
+            trace.model_source = trace.model_source or ("env" if tag_env else "default")
         return final, trace
 
     if provider in {"lm-studio", "lmstudio"}:
@@ -266,6 +320,7 @@ def resolve_model_explain(
         )
         trace.steps.append(step)
         trace.final = final
+        trace.model_source = trace.model_source or "arg"
         return final, trace
 
     remote_requires = {
@@ -299,7 +354,8 @@ def resolve_model_explain(
                 final_step=step_base,
                 trace=trace,
             )
-        tag = model or os.getenv(f"{provider.upper()}_MODEL")
+        env_tag = os.getenv(f"{provider.upper()}_MODEL")
+        tag = model or env_tag
         if not tag:
             trace.steps.append(step_base)
             raise ResolveModelError(
@@ -315,6 +371,7 @@ def resolve_model_explain(
         step.final_candidate = final
         trace.steps.append(step)
         trace.final = final
+        trace.model_source = trace.model_source or ("arg" if model is not None else "env")
         return final, trace
 
     if provider.startswith("openai-api/"):
@@ -337,7 +394,8 @@ def resolve_model_explain(
                 final_step=step_base,
                 trace=trace,
             )
-        tag = model or os.getenv(f"{env_prefix}_MODEL")
+        env_tag = os.getenv(f"{env_prefix}_MODEL")
+        tag = model or env_tag
         if not tag:
             trace.steps.append(step_base)
             raise ResolveModelError(
@@ -353,6 +411,7 @@ def resolve_model_explain(
         step.final_candidate = final
         trace.steps.append(step)
         trace.final = final
+        trace.model_source = trace.model_source or ("arg" if model is not None else "env")
         return final, trace
 
     # Fallback: if model provided without slash (no provider), assume provider prefix
@@ -386,6 +445,7 @@ def resolve_model_explain(
     )
     trace.steps.append(step)
     trace.final = final
+    trace.model_source = trace.model_source or ("env" if os.getenv("OLLAMA_MODEL_NAME") else "default")
     return final, trace
 
 
