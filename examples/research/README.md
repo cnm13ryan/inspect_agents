@@ -10,3 +10,8 @@ This folder now points to a single canonical guide for the research example.
 - Iterative agent reference (termination/pruning): `../../docs/reference/iterative-agent-behavior.md`
 
 Use the examples index for a quick map of tasks/runners: `../README.md`.
+
+## Related: Exploration
+
+- Exploration runner: `examples/runners/exploration_runner.py`
+- Planner API (examples-only): import from `examples.lib.exploration.planner`.
