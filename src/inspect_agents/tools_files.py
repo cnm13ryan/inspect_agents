@@ -791,92 +791,92 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                 )
                 return summary
 
-    # Store-backed with timeout guard
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        content = files.get_file(params.file_path)
-    if content is None:
-        _log_tool_event(
-            name="files:edit",
-            phase="error",
-            extra={"ok": False, "error": "FileNotFound"},
-            t0=_t0,
-        )
-        raise ToolException(  # noqa: N806
-            f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
-        )
-
-    if params.old_string not in content:
-        _log_tool_event(
-            name="files:edit",
-            phase="error",
-            extra={"ok": False, "error": "StringNotFound"},
-            t0=_t0,
-        )
-        raise ToolException(
-            f"String '{params.old_string}' not found in file '{params.file_path}'. "
-            f"Please check the exact text to replace."
-        )
-
-    # Count replacements for accurate reporting
-    if params.replace_all:
-        replacement_count = content.count(params.old_string)
-        updated = content.replace(params.old_string, params.new_string)
-    else:
-        replacement_count = 1
-        updated = content.replace(params.old_string, params.new_string, 1)
-
-    # Validate expected_count when provided
-    if params.expected_count is not None:
-        expected = int(params.expected_count)
-        actual = replacement_count if params.replace_all else 1
-        if expected != actual:
+    # Store-backed: perform the full read-modify-write under a per-path lock
+    lock = _get_lock(params.file_path, params.instance)
+    async with lock:
+        with anyio.fail_after(_default_tool_timeout()):
+            files = store_as(Files, instance=params.instance)
+            content = files.get_file(params.file_path)
+        if content is None:
             _log_tool_event(
                 name="files:edit",
                 phase="error",
-                extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
+                extra={"ok": False, "error": "FileNotFound"},
                 t0=_t0,
             )
-            raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
+            raise ToolException(  # noqa: N806
+                f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
+            )
 
-    # Enforce byte ceiling on the updated content
-    updated_bytes = len(updated.encode("utf-8"))
-    max_bytes = _max_bytes()
-    if updated_bytes > max_bytes:
-        _log_tool_event(
-            name="files:edit",
-            phase="error",
-            extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
-            t0=_t0,
-        )
-        raise ToolException(
-            f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
-            f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
-        )
+        if params.old_string not in content:
+            _log_tool_event(
+                name="files:edit",
+                phase="error",
+                extra={"ok": False, "error": "StringNotFound"},
+                t0=_t0,
+            )
+            raise ToolException(
+                f"String '{params.old_string}' not found in file '{params.file_path}'. "
+                f"Please check the exact text to replace."
+            )
 
-    # If dry_run, do not persist changes
-    if params.dry_run:
-        to_report = replacement_count if params.replace_all else 1
-        summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
-        if _use_typed_results():
+        # Count replacements for accurate reporting
+        if params.replace_all:
+            replacement_count = content.count(params.old_string)
+            updated = content.replace(params.old_string, params.new_string)
+        else:
+            replacement_count = 1
+            updated = content.replace(params.old_string, params.new_string, 1)
+
+        # Validate expected_count when provided
+        if params.expected_count is not None:
+            expected = int(params.expected_count)
+            actual = replacement_count if params.replace_all else 1
+            if expected != actual:
+                _log_tool_event(
+                    name="files:edit",
+                    phase="error",
+                    extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
+                    t0=_t0,
+                )
+                raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
+
+        # Enforce byte ceiling on the updated content
+        updated_bytes = len(updated.encode("utf-8"))
+        max_bytes = _max_bytes()
+        if updated_bytes > max_bytes:
+            _log_tool_event(
+                name="files:edit",
+                phase="error",
+                extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
+                t0=_t0,
+            )
+            raise ToolException(
+                f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
+                f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
+            )
+
+        # If dry_run, do not persist changes
+        if params.dry_run:
+            to_report = replacement_count if params.replace_all else 1
+            summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
+            if _use_typed_results():
+                _log_tool_event(
+                    name="files:edit",
+                    phase="end",
+                    extra={"ok": True, "replaced": to_report, "dry_run": True},
+                    t0=_t0,
+                )
+                return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
             _log_tool_event(
                 name="files:edit",
                 phase="end",
                 extra={"ok": True, "replaced": to_report, "dry_run": True},
                 t0=_t0,
             )
-            return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
-        _log_tool_event(
-            name="files:edit",
-            phase="end",
-            extra={"ok": True, "replaced": to_report, "dry_run": True},
-            t0=_t0,
-        )
-        return summary
+            return summary
 
-    # Store-backed atomic swap under per-path lock
-    lock = _get_lock(params.file_path, params.instance)
-    async with lock:
+        # Atomic swap under the same lock
         tmp_key = f"{params.file_path}.tmp-{_uuid.uuid4().hex}"
         files.put_file(tmp_key, updated)
         files.put_file(params.file_path, updated)
@@ -892,12 +892,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             t0=_t0,
         )
         return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
-    _log_tool_event(
-        name="files:edit",
-        phase="end",
-        extra={"ok": True, "replaced": to_report},
-        t0=_t0,
-    )
+    _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": to_report}, t0=_t0)
     return summary
 
 
