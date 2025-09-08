@@ -121,6 +121,79 @@ class SandboxFsAdapter:
         except Exception:
             return []
 
+    # --- New directory/metadata helpers ------------------------------------
+    async def mkdir(self, path: str) -> None:
+        """Create a directory (parents as needed) via bash when available.
+
+        Falls back to a no-op if neither bash nor editor can approximate it.
+        """
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            escaped = shlex.quote(path)
+            with anyio.fail_after(_fs.default_tool_timeout()):
+                await bash(action="run", command=f"mkdir -p {escaped}")
+        except Exception:
+            # No-op fallback; directory presence is inferred by file paths
+            return
+
+    async def move(self, src: str, dst: str) -> None:
+        """Move/rename a file or directory using bash when available.
+
+        Falls back to read+create for files when editor is available.
+        """
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            s = shlex.quote(src)
+            d = shlex.quote(dst)
+            with anyio.fail_after(_fs.default_tool_timeout()):
+                await bash(action="run", command=f"mv {s} {d}")
+            return
+        except Exception:
+            pass
+
+        # Fallback: file-only best-effort move via editor (copy semantics)
+        try:
+            text = await self.view(src, 1, -1)
+            await self.create(dst, text)
+        except Exception:
+            return
+
+    async def stat(self, path: str) -> tuple[bool, bool, int | None]:
+        """Return (exists, is_dir, size_bytes|None) using bash or editor fallback."""
+        # Prefer bash test + wc -c
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            p = shlex.quote(path)
+            with anyio.fail_after(_fs.default_tool_timeout()):
+                kind = await bash(
+                    action="run",
+                    command=f"bash -lc 'if [ -d {p} ]; then echo DIR; elif [ -f {p} ]; then echo FILE; else echo MISSING; fi'",
+                )
+            label = str(getattr(kind, "stdout", "")).strip()
+            if label == "DIR":
+                return True, True, None
+            if label == "FILE":
+                size = await self.wc_bytes(path)
+                return True, False, size
+        except Exception:
+            pass
+
+        # Fallback via editor view: file existence only
+        try:
+            raw = await self.view(path, 1, -1)
+            if raw is not None:
+                size = len(str(raw).encode("utf-8"))
+                return True, False, size
+        except Exception:
+            pass
+        return False, False, None
+
 
 def get_default_adapter() -> SandboxFsAdapter:
     """Return the default adapter instance.

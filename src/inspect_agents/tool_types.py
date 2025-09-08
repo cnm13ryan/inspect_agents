@@ -16,7 +16,16 @@ class FilesToolParams(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    command: Literal["ls", "read", "write", "edit", "delete"] = Field(description="File operation command")
+    command: Literal[
+        "ls",
+        "read",
+        "write",
+        "edit",
+        "delete",
+        "mkdir",
+        "move",
+        "stat",
+    ] = Field(description="File operation command")
     file_path: str | None = Field(None, description="Path to file (required for read, write, edit, delete)")
     content: str | None = Field(None, description="File content (required for write)")
     offset: int = Field(0, description="Line offset for read (0-based)")
@@ -33,6 +42,11 @@ class FilesToolParams(BaseModel):
         description="When true, validate/count but do not modify the file (edit)",
     )
     instance: str | None = Field(None, description="Optional Files instance for isolation")
+    # New fields for directory/metadata operations
+    dir_path: str | None = Field(None, description="Directory path for mkdir")
+    src_path: str | None = Field(None, description="Source path for move")
+    dst_path: str | None = Field(None, description="Destination path for move")
+    path: str | None = Field(None, description="Path to stat")
 
 
 class TodoItem(BaseModel):
