@@ -105,3 +105,31 @@ PY
           echo "Deploying docs for version: $VERSION"
           uv run mike deploy --update-aliases "$VERSION" latest -b gh-pages --remote origin --push
           uv run mike set-default latest -b gh-pages --remote origin --push
+
+  unit-subset:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install minimal test deps
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -e '.[testing]'
+
+      - name: Run fast unit subset for docs PRs
+        env:
+          CI: '1'
+          NO_NETWORK: '1'
+          PYTHONHASHSEED: '0'
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONWARNINGS: default
+          PYTHONPATH: src:external/inspect_ai/src
+        run: pytest -q tests/unit/inspect_agents -k "iterative or tools or logging" --maxfail=1
