@@ -146,6 +146,9 @@ plugins:
   - autorefs
   - redirects
   - glightbox
+  - exclude-search:
+      exclude:
+        - backlog/**
   - git-revision-date-localized:
       fallback_to_build_date: false
       enable_creation_date: false
@@ -176,6 +179,5 @@ plugins:
       skip_downloads: True           # avoid fetching remote content
       raise_error_after_finish: True # report all bad links, then fail
 
-# Local hook (no extra deps): removes backlog/* from search index after build
-hooks:
-  - scripts/hooks.py
+# Removed custom search-index post-processing hook in favor of
+# mkdocs-exclude-search plugin (see plugins above)
