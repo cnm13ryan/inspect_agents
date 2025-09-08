@@ -8,6 +8,8 @@ import os
 import time
 from typing import Any
 
+from .settings import max_tool_output_env as _max_tool_output_env
+
 # Public exports
 __all__ = [
     "log_tool_event",
@@ -23,6 +25,10 @@ _EFFECTIVE_LIMIT_LOGGED = False
 
 
 def _parse_int(env_val: str | None) -> int | None:
+    """Deprecated internal parser; kept for compatibility if needed.
+
+    Prefer `settings.max_tool_output_env()` for INSPECT_MAX_TOOL_OUTPUT.
+    """
     try:
         if env_val is None:
             return None
@@ -51,8 +57,8 @@ def maybe_emit_effective_tool_output_limit_log() -> None:
     if _EFFECTIVE_LIMIT_LOGGED:
         return
 
-    env_raw = os.getenv("INSPECT_MAX_TOOL_OUTPUT")
-    env_limit = _parse_int(env_raw)
+    # Centralized accessor: returns None when unset/invalid; 0 allowed
+    env_limit = _max_tool_output_env()
 
     source = "default"
     effective = 16 * 1024
@@ -134,7 +140,7 @@ def get_effective_tool_output_limit() -> tuple[int, str]:
         pass
 
     # Next, environment
-    env_limit = _parse_int(os.getenv("INSPECT_MAX_TOOL_OUTPUT"))
+    env_limit = _max_tool_output_env()
     if env_limit is not None:
         return env_limit, "env"
 
