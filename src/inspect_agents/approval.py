@@ -121,8 +121,20 @@ REDACT_KEYS = {"api_key", "authorization", "token", "password", "file_text", "co
 
 
 def _redact_value(key: str, value: Any) -> Any:
+    # If the field name itself is sensitive, redact entirely (preserve shape not required)
     if key in REDACT_KEYS:
         return "[REDACTED]"
+    # Recurse into nested structures to catch sensitive fields under params/root
+    if isinstance(value, dict):
+        return {k: _redact_value(k, v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        out: list[Any] = []
+        for item in value:
+            if isinstance(item, dict):
+                out.append({k: _redact_value(k, v) for k, v in item.items()})
+            else:
+                out.append(item)
+        return out
     return value
 
 
@@ -153,14 +165,55 @@ def approval_preset(preset: str) -> list[Any]:
 
     sensitive = re.compile(r"^(write_file|text_editor|bash|python|web_browser_)")
 
+    def _as_dict(obj: Any) -> dict[str, Any]:
+        try:
+            if isinstance(obj, dict):
+                return obj
+            if isinstance(obj, str):
+                return json.loads(obj)
+        except Exception:
+            pass
+        return {}
+
+    # Files tool subcommands that mutate the filesystem and should be
+    # approval-gated in sandbox/dev/prod (read/ls/stat remain allowed).
+    _fs_mutation_cmds = {"write", "edit", "trash", "mkdir", "move"}
+
+    def _is_sensitive_fs_mutation(call: Any) -> bool:
+        try:
+            if getattr(call, "function", "") != "files":
+                return False
+            args = _as_dict(getattr(call, "arguments", {}))
+            params = args.get("params") if isinstance(args.get("params"), (dict, str)) else args
+            if isinstance(params, str):
+                try:
+                    params = json.loads(params)
+                except Exception:
+                    params = {}
+            # Accept either flat {command: ...} or nested {root: {command: ...}}
+            if isinstance(params, dict):
+                cmd = params.get("command")
+                if cmd is None and isinstance(params.get("root"), dict):
+                    cmd = params.get("root", {}).get("command")  # type: ignore[assignment]
+                return cmd in _fs_mutation_cmds
+        except Exception:
+            return False
+        return False
+
     async def approve_all(message, call: ToolCall, view, history):  # type: ignore
         return Approval(decision="approve")
 
     registry_tag(lambda: None, approve_all, RegistryInfo(type="approver", name="preset/approve_all"))
 
     async def dev_gate(message, call: ToolCall, view, history):  # type: ignore
-        if sensitive.match(call.function):
-            return Approval(decision="escalate", explanation="dev: escalate sensitive tool")
+        if sensitive.match(call.function) or _is_sensitive_fs_mutation(call):
+            # Include redacted args for files ops to aid debugging while preserving secrets
+            expl = (
+                json.dumps(redact_arguments(_as_dict(call.arguments)))
+                if getattr(call, "function", "") == "files"
+                else "dev: escalate sensitive tool"
+            )
+            return Approval(decision="escalate", explanation=expl)
         return Approval(decision="approve")
 
     registry_tag(lambda: None, dev_gate, RegistryInfo(type="approver", name="preset/dev_gate"))
@@ -171,9 +224,9 @@ def approval_preset(preset: str) -> list[Any]:
     registry_tag(lambda: None, reject_all, RegistryInfo(type="approver", name="preset/reject_all"))
 
     async def prod_gate(message, call: ToolCall, view, history):  # type: ignore
-        if sensitive.match(call.function):
-            # include redacted args in explanation
-            red = redact_arguments(call.arguments)
+        if sensitive.match(call.function) or _is_sensitive_fs_mutation(call):
+            # include redacted args in explanation (works for files as well)
+            red = redact_arguments(_as_dict(call.arguments))
             return Approval(decision="terminate", explanation=json.dumps(red))
         return Approval(decision="approve")
 
