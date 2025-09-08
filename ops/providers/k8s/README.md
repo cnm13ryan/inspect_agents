@@ -43,3 +43,8 @@ Notes on N1/N2 profiles
 - Domain-based allowlists require an egress proxy or L7 enforcement.
   Populate the proxy IPs in `networkPolicy.egressCIDRs` or implement
   proxy-aware policies. Prefer Kubernetes for N1/N2 profiles.
+
+Example NetworkPolicy for N1
+- See `policies/networkpolicy-n1-proxy-egress.yaml` for a policy that
+  allows egress only to kube-dns and a labeled in-namespace proxy. Apply
+  it after deploying the sandbox and ensure your proxy enforces domains.
