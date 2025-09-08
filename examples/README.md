@@ -76,6 +76,19 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
   - `uv run python examples/demos/subagent_approvals_demo.py --preset dev`
   - `uv run python examples/demos/exploration_demo.py --breadth 2 --depth 2 --max-queries 6 "Explore Inspect‑AI agent patterns"`
 
+## Deprecation notice: examples/inspect/*
+
+The `examples/inspect/*` namespace is deprecated in favor of
+`examples/lib/*` (libraries) and `examples/runners/*` (entrypoints).
+Shims remain temporarily and emit `DeprecationWarning` to aid migration.
+
+- Effective: 2025-09-08
+- Window: shims remain for one minor release after the effective date;
+  they will be removed in the first minor release following that window.
+- Migrate to:
+  - Planner API: `examples.lib.exploration.planner`
+  - Exploration runner: `examples/runners/exploration_runner.py`
+
 ## Exploration Planner (examples)
 
 - Direct API (pure‑Python, deterministic):
