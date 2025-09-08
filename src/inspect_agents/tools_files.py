@@ -7,6 +7,8 @@ using a discriminated union for commands: ls, read, write, edit.
 from __future__ import annotations
 
 import os
+import shlex as _shlex
+import uuid as _uuid
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import anyio
@@ -75,6 +77,27 @@ class FileListResult(BaseModel):
     """Typed result for ls operations."""
 
     files: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Per-path async locks to prevent torn writes and overlapping edits
+# ---------------------------------------------------------------------------
+_FILE_LOCKS: dict[str, anyio.Lock] = {}
+
+
+def _lock_key(path: str, instance: str | None) -> str:
+    mode = "sandbox" if _use_sandbox_fs() else "store"
+    ns = (instance or "default") if mode == "store" else "global"
+    return f"{mode}:{ns}:{path}"
+
+
+def _get_lock(path: str, instance: str | None) -> anyio.Lock:
+    key = _lock_key(path, instance)
+    lock = _FILE_LOCKS.get(key)
+    if lock is None:
+        lock = anyio.Lock()
+        _FILE_LOCKS[key] = lock
+    return lock
 
 
 # Parameter schemas for each command
@@ -524,21 +547,47 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
             validated_path = adapter.validate(params.file_path)
             await adapter.deny_symlink(validated_path)
 
-            try:
-                await adapter.create(validated_path, params.content)
+            # Serialize writes per-path and prefer atomic temp+rename when bash is available
+            lock = _get_lock(validated_path, params.instance)
+            async with lock:
+                try:
+                    try:
+                        from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
+                    except Exception:
+                        _bash_session = None  # type: ignore
 
-                if _use_typed_results():
+                    tmp_path = f"{validated_path}.tmp-{_uuid.uuid4().hex}"
+                    # Write temp file via editor (consistent code path)
+                    await adapter.create(tmp_path, params.content)
+
+                    # If bash session is available, atomically move into place
+                    if _bash_session is not None and await adapter.preflight("bash session"):
+                        bash = _bash_session()
+                        cmd = f"mv {_shlex.quote(tmp_path)} {_shlex.quote(validated_path)}"
+                        with anyio.fail_after(_default_tool_timeout()):
+                            await bash(action="run", command=cmd)
+                    else:
+                        # Fallback: write directly (non-atomic)
+                        await adapter.create(validated_path, params.content)
+
+                    if _use_typed_results():
+                        _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
+                        return FileWriteResult(path=params.file_path, summary=summary + " (sandbox mode)")
                     _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-                    return FileWriteResult(path=params.file_path, summary=summary + " (sandbox mode)")
-                _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-                return summary
-            except Exception:
-                pass
+                    return summary
+                except Exception:
+                    pass
 
     # Store-backed with timeout guard
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        files.put_file(params.file_path, params.content)
+    # Store-backed with timeout + per-path lock; simulate atomic swap via temp key
+    lock = _get_lock(params.file_path, params.instance)
+    async with lock:
+        with anyio.fail_after(_default_tool_timeout()):
+            files = store_as(Files, instance=params.instance)
+            tmp_key = f"{params.file_path}.tmp-{_uuid.uuid4().hex}"
+            files.put_file(tmp_key, params.content)
+            files.put_file(params.file_path, params.content)
+            files.delete_file(tmp_key)
 
     if _use_typed_results():
         _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
@@ -590,7 +639,9 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             # Deny symlinks for security
             await adapter.deny_symlink(validated_path)
 
-            try:
+            # Serialize edits per-path and prefer atomic temp+rename using bash when possible
+            lock = _get_lock(validated_path, params.instance)
+            async with lock:
                 # Preflight: actual byte size via wc -c when available
                 current_bytes = await adapter.wc_bytes(validated_path)
                 max_bytes = _max_bytes()
@@ -672,36 +723,57 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                     )
                     return summary
 
-                # Estimate new size using counted occurrences when available
-                replace_multiplier = (
-                    (counted_occurrences if params.replace_all else 1)
-                    if counted_occurrences is not None
-                    else (1 if not params.replace_all else 1)
-                )
-                if current_bytes is not None:
-                    old_bytes = len(params.old_string.encode("utf-8"))
-                    new_bytes = len(params.new_string.encode("utf-8"))
-                    estimated_new_bytes = current_bytes + (new_bytes - old_bytes) * replace_multiplier
-                    if estimated_new_bytes > max_bytes:
-                        _log_tool_event(
-                            name="files:edit",
-                            phase="error",
-                            extra={
-                                "ok": False,
-                                "error": "FileSizeExceeded",
-                                "estimated_bytes": estimated_new_bytes,
-                                "max_bytes": max_bytes,
-                            },
-                            t0=_t0,
-                        )
-                        raise ToolException(
-                            f"Edit would result in file exceeding maximum size limit: ~{estimated_new_bytes:,} bytes > {max_bytes:,} bytes. "
-                            f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
-                        )
+                # Compute updated content for atomic swap
+                try:
+                    raw_all = await adapter.view(validated_path, 1, -1)
+                except Exception:
+                    raw_all = ""
+                text_all = "" if raw_all is None else str(raw_all)
+                if params.replace_all:
+                    replacement_count = text_all.count(params.old_string)
+                    updated_text = text_all.replace(params.old_string, params.new_string)
+                else:
+                    replacement_count = 1 if params.old_string in text_all else 0
+                    updated_text = text_all.replace(params.old_string, params.new_string, 1)
 
-                await adapter.str_replace(validated_path, params.old_string, params.new_string)
+                # Byte ceiling on updated text
+                updated_bytes = len(updated_text.encode("utf-8"))
+                if updated_bytes > max_bytes:
+                    _log_tool_event(
+                        name="files:edit",
+                        phase="error",
+                        extra={
+                            "ok": False,
+                            "error": "FileSizeExceeded",
+                            "actual_bytes": updated_bytes,
+                            "max_bytes": max_bytes,
+                        },
+                        t0=_t0,
+                    )
+                    raise ToolException(
+                        f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
+                        f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
+                    )
 
-                replaced = (counted_occurrences if params.replace_all else 1) if counted_occurrences is not None else 1
+                # Atomic write: temp create then mv into place when bash is available
+                try:
+                    from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
+                except Exception:
+                    _bash_session = None  # type: ignore
+
+                tmp_path = f"{validated_path}.tmp-{_uuid.uuid4().hex}"
+                await adapter.create(tmp_path, updated_text)
+
+                if _bash_session is not None and await adapter.preflight("bash session"):
+                    bash = _bash_session()
+                    cmd = f"mv {_shlex.quote(tmp_path)} {_shlex.quote(validated_path)}"
+                    with anyio.fail_after(_default_tool_timeout()):
+                        await bash(action="run", command=cmd)
+                else:
+                    # Fallback: non-atomic editor replacement
+                    await adapter.create(validated_path, updated_text)
+
+                replaced = replacement_count if params.replace_all else (1 if replacement_count > 0 else 0)
                 summary = f"Updated file {params.file_path} (sandbox mode)"
                 if _use_typed_results():
                     _log_tool_event(
@@ -718,8 +790,6 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                     t0=_t0,
                 )
                 return summary
-            except Exception:
-                pass
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
@@ -804,7 +874,13 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         )
         return summary
 
-    files.put_file(params.file_path, updated)
+    # Store-backed atomic swap under per-path lock
+    lock = _get_lock(params.file_path, params.instance)
+    async with lock:
+        tmp_key = f"{params.file_path}.tmp-{_uuid.uuid4().hex}"
+        files.put_file(tmp_key, updated)
+        files.put_file(params.file_path, updated)
+        files.delete_file(tmp_key)
 
     summary = f"Updated file {params.file_path}"
     to_report = replacement_count if params.replace_all else 1
