@@ -19,6 +19,13 @@
 
 replicaCount: 1
 
+# Network isolation preset for this sandbox instance.
+# Options:
+# - N0: full egress
+# - N1: allow-list via proxy/IPs (see networkPolicy.egressCIDRs)
+# - N2: zero external egress (default deny)
+netPreset: N2
+
 image:
   repository: ubuntu
   tag: "22.04"
@@ -92,10 +99,15 @@ tolerations: []
 
 networkPolicy:
   enabled: true
-  # Deny all egress by default; opt-in allowances below
+  # Deny all egress by default; override below for N0/N1
   defaultDenyEgress: true
+  # When preset is set, charts may translate it into policy rules. If your
+  # chart does not auto-map, treat these as documentation-driven toggles.
+  preset: auto  # auto|N0|N1|N2
   allowDNS: true
-  # Egress allowlist via CIDRs or namespaceSelectors. Domain-level
-  # restrictions require an egress proxy; pair with proxy IPs here.
+  # Egress allow-list for N1 via CIDRs (e.g., proxies, artifact mirrors).
+  # Domain-level allowlists require an egress proxy or L7 policy; populate
+  # the proxy Pod/Service CIDRs here.
   egressCIDRs: []
+  # Optional additional policy snippets your chart may support.
   additionalPolicies: []

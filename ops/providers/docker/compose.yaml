@@ -52,7 +52,7 @@ services:
 
     # Network isolation: attach to a dedicated network by default
     networks:
-      - sandbox_net
+      - sandbox_net  # For N2, consider switching to sandbox_net_internal
 
     environment:
       - INSPECT_SANDBOX=1
@@ -61,6 +61,31 @@ services:
 networks:
   sandbox_net:
     driver: bridge
+    # For N2 (no external egress), uncomment the following line to make the
+    # network internal-only. Note this blocks all outbound internet access.
+    # internal: true
+
+  # sandbox_net_internal:
+  #   driver: bridge
+  #   internal: true  # hard N2: no outbound internet
+
+# N1 pattern (domain allow-list via proxy):
+# - Run an explicit egress proxy on a separate network and set
+#   HTTP(S)_PROXY env vars on the sandbox. Restrict outbound to the
+#   proxy container IP using a firewall on the host, or attach the
+#   sandbox only to an internal network and connect the proxy to a
+#   managed egress network.
+#
+# Example (sketch only — choose a hardened proxy image in practice):
+# services:
+#   egress_proxy:
+#     image: ghcr.io/zncxxx/tinyproxy:latest
+#     networks:
+#       - sandbox_net
+#   sandbox:
+#     environment:
+#       - HTTP_PROXY=http://egress_proxy:8888
+#       - HTTPS_PROXY=http://egress_proxy:8888
 
 volumes:
   # Named volumes can be used instead of bind mounts above if preferred
