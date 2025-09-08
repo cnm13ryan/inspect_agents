@@ -39,11 +39,16 @@ from .tools_files import (
     FileDeleteResult,
     FileEditResult,
     FileListResult,
+    FileMoveResult,
     FileReadResult,
     FilesParams,
+    FileStatResult,
     FileWriteResult,
     LsParams,
+    MkdirParams,
+    MoveParams,
     ReadParams,
+    StatParams,
     WriteParams,
     files_tool,
 )
@@ -507,7 +512,7 @@ def read_file():  # -> Tool
                 return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
-                if hasattr(e, "message"):
+                if hasattr(e, "message") and e.message:
                     raise ToolException(e.message)
                 else:
                     raise ToolException(str(e))
@@ -617,7 +622,7 @@ def edit_file():  # -> Tool
                 return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
-                if hasattr(e, "message"):
+                if hasattr(e, "message") and e.message:
                     raise ToolException(e.message)
                 else:
                     raise ToolException(str(e))
@@ -678,7 +683,7 @@ def delete_file():  # -> Tool
                 return await files(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
-                if hasattr(e, "message"):
+                if hasattr(e, "message") and e.message:
                     raise ToolException(e.message)
                 else:
                     raise ToolException(str(e))
@@ -696,5 +701,94 @@ def delete_file():  # -> Tool
             description="Delete a file from the virtual store (store mode only).",
             parameters=params,
         ).as_tool()
+
+    return _factory()
+
+
+def mkdir():  # -> Tool
+    """Create a directory (sandbox: mkdir; store: no-op) in the Files space.
+
+    This is a thin wrapper around `files_tool()` with command='mkdir'.
+    """
+    from inspect_ai.tool._tool import tool
+    from inspect_ai.tool._tool_def import ToolDef
+    from inspect_ai.tool._tool_params import ToolParams
+    from inspect_ai.util._json import json_schema
+
+    @tool
+    def _factory() -> Tool:  # type: ignore[override]
+        async def execute(dir_path: str, instance: str | None = None) -> str:
+            params = MkdirParams(command="mkdir", dir_path=dir_path, instance=instance)
+            files = files_tool()
+            return await files(params=FilesParams(root=params))
+
+        params = ToolParams()
+        params.properties["dir_path"] = json_schema(str)
+        params.properties["dir_path"].description = "Directory path to create"
+        params.properties["instance"] = json_schema(str)
+        params.properties["instance"].description = "Optional Files instance for isolation"
+        params.required.append("dir_path")
+
+        return ToolDef(execute, name="mkdir", description="Create a directory", parameters=params).as_tool()
+
+    return _factory()
+
+
+def move_file():  # -> Tool
+    """Move/rename a file within the Files space.
+
+    Wrapper over `files_tool()` with command='move'.
+    """
+    from inspect_ai.tool._tool import tool
+    from inspect_ai.tool._tool_def import ToolDef
+    from inspect_ai.tool._tool_params import ToolParams
+    from inspect_ai.util._json import json_schema
+
+    @tool
+    def _factory() -> Tool:  # type: ignore[override]
+        async def execute(src_path: str, dst_path: str, instance: str | None = None) -> str | FileMoveResult:
+            params = MoveParams(command="move", src_path=src_path, dst_path=dst_path, instance=instance)
+            files = files_tool()
+            return await files(params=FilesParams(root=params))
+
+        params = ToolParams()
+        params.properties["src_path"] = json_schema(str)
+        params.properties["src_path"].description = "Source path"
+        params.properties["dst_path"] = json_schema(str)
+        params.properties["dst_path"].description = "Destination path"
+        params.properties["instance"] = json_schema(str)
+        params.properties["instance"].description = "Optional Files instance for isolation"
+        params.required.extend(["src_path", "dst_path"])
+
+        return ToolDef(execute, name="move_file", description="Move or rename a file", parameters=params).as_tool()
+
+    return _factory()
+
+
+def stat_file():  # -> Tool
+    """Get basic path metadata (exists, type, size) in the Files space.
+
+    Wrapper over `files_tool()` with command='stat'.
+    """
+    from inspect_ai.tool._tool import tool
+    from inspect_ai.tool._tool_def import ToolDef
+    from inspect_ai.tool._tool_params import ToolParams
+    from inspect_ai.util._json import json_schema
+
+    @tool
+    def _factory() -> Tool:  # type: ignore[override]
+        async def execute(path: str, instance: str | None = None) -> str | FileStatResult:
+            params = StatParams(command="stat", path=path, instance=instance)
+            files = files_tool()
+            return await files(params=FilesParams(root=params))
+
+        params = ToolParams()
+        params.properties["path"] = json_schema(str)
+        params.properties["path"].description = "Path to stat"
+        params.properties["instance"] = json_schema(str)
+        params.properties["instance"].description = "Optional Files instance for isolation"
+        params.required.append("path")
+
+        return ToolDef(execute, name="stat_file", description="Stat a path", parameters=params).as_tool()
 
     return _factory()
