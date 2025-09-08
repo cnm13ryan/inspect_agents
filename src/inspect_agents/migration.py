@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
+
+from . import fs as _fs
 
 
 def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
@@ -19,7 +22,12 @@ def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
     return [name_to_ctor[n]() for n in selected if n in name_to_ctor]
 
 
-async def _apply_side_effect_calls(messages: list[Any], tools: Sequence[object]) -> None:
+logger = logging.getLogger(__name__)
+
+
+async def _apply_side_effect_calls(
+    messages: list[Any], tools: Sequence[object], *, instance: str | None = None
+) -> None:
     """Apply side-effecting tool calls when `submit` appears in same turn.
 
     Mirrors the inline logic previously embedded in `create_deep_agent`.
@@ -52,8 +60,43 @@ async def _apply_side_effect_calls(messages: list[Any], tools: Sequence[object])
                     from inspect_ai.model._call_tools import execute_tools
 
                     await execute_tools(msgs, list(tools))
-                except Exception:
-                    pass
+                    try:
+                        logger.debug(
+                            "side_effects.execute_tools_invoked count=%d",
+                            len(calls),
+                        )
+                    except Exception:
+                        pass
+                except Exception as exc:
+                    try:
+                        logger.debug(
+                            "side_effects.execute_tools_failed count=%d error=%s",
+                            len(calls),
+                            str(exc) or exc.__class__.__name__,
+                        )
+                    except Exception:
+                        pass
+
+                    # Policy-aware fallback: skip when failure indicates an approval denial
+                    try:
+                        kind = getattr(exc, "type", None)
+                        msg = str(getattr(exc, "message", "") or str(exc)).lower()
+                        is_denial = (
+                            (isinstance(kind, str) and kind.lower() in {"approval_denied", "approval-denied"})
+                            or ("approvaldenied" in msg)
+                            or ("approval denied" in msg)
+                            or ("denied by approval" in msg)
+                        )
+                    except Exception:
+                        is_denial = False
+
+                    if is_denial:
+                        try:
+                            logger.debug("side_effects.approval_denied; skipping_fallback=true")
+                        except Exception:
+                            pass
+                        return
+
                 # Defensive fallback: if tools didn't execute (e.g., due to
                 # stubbed environments), apply side-effects for common calls.
                 try:
@@ -61,14 +104,85 @@ async def _apply_side_effect_calls(messages: list[Any], tools: Sequence[object])
 
                     from inspect_agents.state import Files, Todo, Todos
 
+                    wrote_files = 0
+                    wrote_todos = 0
+                    # Compute pending items by inspecting Store after execute_tools
+                    pending: list[Any] = []
+                    try:
+                        files_state = store_as(Files, instance=instance) if instance else store_as(Files)
+                        todos_state = store_as(Todos, instance=instance) if instance else store_as(Todos)
+                    except Exception:
+                        files_state = None  # type: ignore
+                        todos_state = None  # type: ignore
+
                     for c in calls:
                         fn = getattr(c, "function", "")
                         args = getattr(c, "arguments", {}) or {}
+                        try:
+                            if fn == "write_file" and files_state is not None:
+                                path = args.get("file_path")
+                                content = args.get("content")
+                                already = (
+                                    isinstance(path, str)
+                                    and isinstance(content, str)
+                                    and files_state.get_file(path) == content
+                                )
+                                if not already:
+                                    pending.append(c)
+                                continue
+                            if fn == "write_todos" and todos_state is not None:
+                                raw_items = args.get("todos") or []
+                                items: list[Todo] = []
+                                for t in raw_items:
+                                    try:
+                                        items.append(Todo(**t))
+                                    except Exception:
+                                        pass
+                                desired = [(t.content, t.status) for t in items]
+                                current = [(t.content, t.status) for t in (todos_state.get_todos() or [])]
+                                already = bool(items) and desired == current
+                                if not already:
+                                    pending.append(c)
+                                continue
+                        except Exception:
+                            pending.append(c)
+                    if files_state is None and todos_state is None:
+                        pending = list(calls)
+
+                    try:
+                        logger.debug("side_effects.fallback_begin count=%d", len(pending))
+                    except Exception:
+                        pass
+                    for c in pending:
+                        fn = getattr(c, "function", "")
+                        args = getattr(c, "arguments", {}) or {}
                         if fn == "write_file" and "file_path" in args and "content" in args:
-                            files = store_as(Files)
-                            files.put_file(args["file_path"], args["content"])
+                            try:
+                                content = args["content"]
+                                content_bytes = len(str(content).encode("utf-8"))
+                                max_bytes = _fs.max_bytes()
+                                if content_bytes > max_bytes:
+                                    logger.debug(
+                                        "side_effects.fallback_file_too_large path=%s actual_bytes=%d max_bytes=%d",
+                                        args.get("file_path"),
+                                        content_bytes,
+                                        max_bytes,
+                                    )
+                                    # Skip oversize write to mirror tool limits behavior
+                                else:
+                                    files = store_as(Files, instance=instance) if instance else store_as(Files)
+                                    files.put_file(args["file_path"], content)
+                                    wrote_files += 1
+                            except Exception:
+                                # On any error, conservatively attempt write to avoid data loss
+                                try:
+                                    files = store_as(Files, instance=instance) if instance else store_as(Files)
+                                    files.put_file(args["file_path"], args["content"])
+                                    wrote_files += 1
+                                except Exception:
+                                    pass
                         elif fn == "write_todos" and "todos" in args:
-                            todos = store_as(Todos)
+                            todos = store_as(Todos, instance=instance) if instance else store_as(Todos)
                             items = []
                             for t in args["todos"]:
                                 try:
@@ -77,6 +191,15 @@ async def _apply_side_effect_calls(messages: list[Any], tools: Sequence[object])
                                     pass
                             if items:
                                 todos.set_todos(items)
+                                wrote_todos += len(items)
+                    try:
+                        logger.debug(
+                            "side_effects.fallback_done wrote_files=%d wrote_todos=%d",
+                            wrote_files,
+                            wrote_todos,
+                        )
+                    except Exception:
+                        pass
                 except Exception:
                     pass
     except Exception:
