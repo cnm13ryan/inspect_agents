@@ -108,6 +108,24 @@ Set `INSPECT_AGENTS_TYPED_RESULTS=1` to receive structured results:
 - `write_file` → `{ path: string, summary: string }`
 - `edit_file` → `{ path: string, replaced: int, summary: string }`
 
+## Concurrency & Atomicity
+
+- Per‑path async locks: write/edit operations acquire an in‑process,
+  per‑path lock to serialize modifications and prevent torn writes when
+  multiple tasks act on the same file concurrently.
+- Atomic writes:
+  - Store mode: operations stage content to a temporary key and swap it
+    in under the same lock.
+  - Sandbox mode: operations create a temporary file via the text
+    editor and, when a shell is available, atomically `mv` it into
+    place; otherwise they fall back to a direct editor write. Symlink
+    denial and size caps still apply.
+- Implications:
+  - Two concurrent edits on non‑overlapping regions both persist
+    deterministically (last writer wins without interleaving).
+  - Timeouts still bound each operation; adjust
+    `INSPECT_AGENTS_TOOL_TIMEOUT` if tasks routinely hit the limit.
+
 ## Examples
 ```bash
 # Sandbox mode with timeouts and typed results
@@ -115,6 +133,9 @@ export INSPECT_AGENTS_FS_MODE=sandbox
 export INSPECT_AGENTS_TOOL_TIMEOUT=20
 export INSPECT_AGENTS_TYPED_RESULTS=1
 ```
+
+!!! note "Design Note"
+    For background on filesystem/sandbox consolidation and related decisions (helper locations, read‑only mode, limits), see [Design → Open Questions](../design/open-questions.md).
 
 ## See Also
 - Reference: ../reference/environment.md
