@@ -27,13 +27,17 @@ import os
 from pathlib import Path
 from types import ModuleType as _ModuleType  # noqa: F401
 
-# Robustly import local examples/_utils.py even if a site-packages "examples" exists
-_UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
-_spec = _il.spec_from_file_location("_examples_utils_local", str(_UTILS_PATH))
-if _spec is None or _spec.loader is None:  # pragma: no cover - defensive
-    raise ImportError(f"Unable to load utils from {_UTILS_PATH}")
-_utils = _il.module_from_spec(_spec)
-_spec.loader.exec_module(_utils)
+# Robustly import local examples/_utils.py even if a site-packages "examples" exists.
+# Prefer normal import first; fall back to path-based import when necessary.
+try:
+    from examples import _utils as _utils  # type: ignore
+except Exception:  # pragma: no cover - defensive path-based fallback
+    _UTILS_PATH = Path(__file__).resolve().parents[1] / "_utils.py"
+    _spec = _il.spec_from_file_location("_examples_utils_local", str(_UTILS_PATH))
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"Unable to load utils from {_UTILS_PATH}")
+    _utils = _il.module_from_spec(_spec)
+    _spec.loader.exec_module(_utils)
 
 # Prefer local repo sources over any installed wheel
 _utils.ensure_repo_src_on_path()
