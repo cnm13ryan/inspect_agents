@@ -27,6 +27,13 @@ from inspect_ai.dataset import Sample
 
 from inspect_agents.model import resolve_model
 
+# TODO(migration): Replace path-based runner import and wrapper calls with
+# examples.lib.builders.build_exploration_supervisor. This task should mirror
+# the exploration runner by delegating to the shared builder and dropping the
+# bespoke _load_runner_module()+build_runner_agent path once remaining tests
+# and callers are updated. Preserve current prompts/tool lists and YAML
+# override behavior when migrating.
+
 
 # Reuse the runner wiring to construct the agent
 def _load_runner_module():
