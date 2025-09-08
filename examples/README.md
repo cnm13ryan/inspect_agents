@@ -32,6 +32,7 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
 
 - debug/: Small utility scripts for diagnostics
   - `examples/debug/show_limits.py` — prints the effective tool‑output truncation cap and its source.
+  - `examples/debug/model_explain.py` — explains how provider/model was resolved (table or JSON).
 
 - demos/: Small, self‑contained demonstration scripts
   - `examples/demos/simple_arch_demo.py` — simple architecture demo (supervisor/iterative modes).
