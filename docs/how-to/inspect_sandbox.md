@@ -63,6 +63,19 @@ Quick fixes
         --sandbox k8s -T prompt="..."
       ```
 
+  - Network isolation presets (N1/N2)
+    - Kubernetes (recommended):
+      - In `ops/providers/k8s/values.yaml`, set `netPreset: N1` (or `N2`)
+        and, for N1, add `networkPolicy.egressCIDRs` pointing to your
+        egress proxy or allowlisted services. Domain-level control
+        requires a proxy; NetworkPolicy alone operates on IPs.
+    - Docker/Compose:
+      - N2: mark the network `internal: true` in the Compose file to
+        block all external egress.
+      - N1: run an egress proxy service and set `HTTP_PROXY` and
+        `HTTPS_PROXY` for the sandbox container; ensure the sandbox
+        cannot attach to a non-internal network that bypasses the proxy.
+
 Minimal repro → resolution
 1) Repro (no sandbox):
    ```bash
