@@ -100,6 +100,45 @@ This repo includes hardened provider templates you can use out of the box:
 See the READMEs under `ops/providers/docker/` and `ops/providers/k8s/` for
 host prerequisites and customization guidance.
 
+### Network presets (N1/N2)
+
+Kubernetes (H2)
+
+- Prefer K8s for N1/N2. The hardened values file exposes a simple
+  preset plus policy toggles:
+
+```yaml
+# ops/providers/k8s/values.yaml
+netPreset: N2           # N0|N1|N2 (default N2)
+networkPolicy:
+  enabled: true
+  preset: auto         # auto|N0|N1|N2
+  allowDNS: true
+  # For N1: list egress proxy or allowlisted service CIDRs
+  egressCIDRs: ["10.42.0.0/16"]
+```
+
+- For domain allow-lists (N1), run an egress proxy that enforces
+  domains and add its Pod/Service CIDR(s) to `egressCIDRs`. Domain
+  granularity requires a proxy or L7 enforcement.
+
+Docker/Compose (H1)
+
+- N2 (no external egress): use an internal-only bridge network.
+
+```yaml
+# ops/providers/docker/compose.yaml
+networks:
+  sandbox_net:
+    driver: bridge
+    internal: true  # blocks all outbound internet
+```
+
+- N1 (domain allow-list): route all egress through a proxy container
+  and set `HTTP_PROXY`/`HTTPS_PROXY` in the sandbox. Configure the proxy
+  to allow only the required domains. On the host, ensure the sandbox
+  cannot bypass the proxy (internal-only network or firewall rules).
+
 ## Approvals (required for sensitive tools)
 
 Attach approval policies to each Task via `approval=...`:
