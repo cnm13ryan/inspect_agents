@@ -13,12 +13,24 @@ Build, run, and evaluate reliable multi‑step LLM agents on top of Inspect‑AI
 
 ## Quickstart
 
-Copy/paste the three commands below to install, configure env files, and launch the docs locally.
+Choose your setup and run the commands below to install,
+configure env files, and launch the docs locally.
+
+=== "uv"
 
 ```bash
 uv sync
 uv run python env_templates/configure.py
 uv run mkdocs serve
+```
+
+=== "pip"
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e .
+python env_templates/configure.py
+mkdocs serve
 ```
 
 Then open http://127.0.0.1:8000. Project docs live under `docs/` and the site is configured via `mkdocs.yml`.

@@ -13,6 +13,16 @@ This repository includes an Inspect‑AI–native path (`inspect_agents`) alongs
 
 ## Install
 
+Choose a path:
+
+=== "uv"
+
+```bash
+uv sync
+```
+
+=== "pip"
+
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e .
