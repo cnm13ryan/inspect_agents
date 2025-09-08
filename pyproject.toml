@@ -84,6 +84,8 @@ docs = [
     "mkdocs-htmlproofer-plugin>=1.2.0",
     # API documentation
     "mkdocstrings[python]>=0.21",
+    # Versioned docs deployment
+    "mike>=2.0.0",
     # Docstring coverage
     "interrogate",
 ]
