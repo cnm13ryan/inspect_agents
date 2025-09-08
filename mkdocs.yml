@@ -145,6 +145,9 @@ plugins:
       version: 10.6.1
   - autorefs
   - redirects
+  - git-revision-date-localized:
+      fallback_to_build_date: false
+      enable_creation_date: false
   - minify:
       minify_html: true
       minify_js: true
