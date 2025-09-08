@@ -37,21 +37,40 @@ from inspect_agents.tools import (
 )
 
 
-# Local helper to load the examples planner tool via path-based import to avoid
-# collisions with any site-packages module named "examples".
-def _load_planner_tool():
-    try:
-        import importlib.util as _il
-        from pathlib import Path as _Path
+def _load_examples_utils():
+    """Best-effort import of examples._utils with path fallback.
 
-        mod_path = _Path(__file__).resolve().parents[1] / "inspect" / "exploration" / "planner_tool.py"
-        if not mod_path.exists():  # optional component
-            return None
-        spec = _il.spec_from_file_location("_examples_planner_tool", str(mod_path))
-        if spec is None or spec.loader is None:
+    Uses repository-local examples/_utils.py to avoid collisions with any
+    site-packages module named "examples". Returns the loaded module or None.
+    """
+    try:  # Prefer normal import when the local package layout is active
+        from examples import _utils as _utils_mod  # type: ignore
+
+        return _utils_mod
+    except Exception:
+        # Fallback to path-based import to avoid site-packages collisions
+        import importlib.util as _il
+
+        util_path = Path(__file__).resolve().parents[1] / "_utils.py"
+        spec = _il.spec_from_file_location("_examples_utils_local", str(util_path))
+        if spec is None or spec.loader is None:  # pragma: no cover - defensive
             return None
         mod = _il.module_from_spec(spec)
         spec.loader.exec_module(mod)  # type: ignore[arg-type]
+        return mod  # type: ignore[return-value]
+
+
+# Local helper to load the examples planner tool via import_by_path to avoid
+# collisions with any site-packages module named "examples".
+def _load_planner_tool():
+    try:
+        _utils = _load_examples_utils()
+        if _utils is None:
+            return None
+        mod_path = Path(__file__).resolve().parents[1] / "inspect" / "exploration" / "planner_tool.py"
+        if not mod_path.exists():  # optional component
+            return None
+        mod = _utils.import_by_path("_examples_planner_tool", mod_path)
         return getattr(mod, "planner_tool")()
     except Exception:
         return None
@@ -81,36 +100,32 @@ def research_task(
     # Optional: pre-plan and write plan.json using the examples planner (offline, deterministic)
     if write_plan:
         try:
-            # Load planner API by path to avoid site-packages name conflicts
-            import importlib.util as _il
-
+            # Load planner API by path using centralized helper
+            _utils = _load_examples_utils()
+            if _utils is None:
+                raise RuntimeError("Unable to load examples._utils")
             base = Path(__file__).resolve().parents[1] / "inspect" / "exploration"
-            spec_p = _il.spec_from_file_location("_examples_planner", str(base / "planner.py"))
-            spec_c = _il.spec_from_file_location("_examples_cfg_loader", str(base / "config_loader.py"))
-            if spec_p and spec_p.loader and spec_c and spec_c.loader:
-                mod_p = _il.module_from_spec(spec_p)
-                spec_p.loader.exec_module(mod_p)  # type: ignore[arg-type]
-                mod_c = _il.module_from_spec(spec_c)
-                spec_c.loader.exec_module(mod_c)  # type: ignore[arg-type]
-                cfg = mod_c.load_exploration_config(None)
-                items = mod_p.plan(prompt, cfg)
-                # Build JSON like planner_tool (filter out seeds depth<1)
-                q = []
-                for it in items:
-                    d = int(getattr(it, "depth", 0))
-                    if d < 1:
-                        continue
-                    q.append(
-                        {
-                            "query": getattr(it, "query", ""),
-                            "depth": d,
-                            "tags": list(getattr(it, "tags", []) or []),
-                        }
-                    )
-                    if len(q) >= int(getattr(cfg, "max_queries", len(items))):
-                        break
-                result = {"breadth": int(cfg.breadth), "depth": int(cfg.depth), "queries": q}
-                Path(plan_out).write_text(json.dumps(result, indent=2))
+            mod_p = _utils.import_by_path("_examples_planner", base / "planner.py")
+            mod_c = _utils.import_by_path("_examples_cfg_loader", base / "config_loader.py")
+            cfg = mod_c.load_exploration_config(None)
+            items = mod_p.plan(prompt, cfg)
+            # Build JSON like planner_tool (filter out seeds depth<1)
+            q = []
+            for it in items:
+                d = int(getattr(it, "depth", 0))
+                if d < 1:
+                    continue
+                q.append(
+                    {
+                        "query": getattr(it, "query", ""),
+                        "depth": d,
+                        "tags": list(getattr(it, "tags", []) or []),
+                    }
+                )
+                if len(q) >= int(getattr(cfg, "max_queries", len(items))):
+                    break
+            result = {"breadth": int(cfg.breadth), "depth": int(cfg.depth), "queries": q}
+            Path(plan_out).write_text(json.dumps(result, indent=2))
         except Exception:
             # Best-effort: ignore planning errors so the task still runs
             pass
