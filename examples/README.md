@@ -36,8 +36,8 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
   - `examples/debug/model_explain.py` — explains how provider/model was resolved (table or JSON).
 
 - demos/: Small, self‑contained demonstration scripts
-  - `examples/demos/simple_arch_demo.py` — simple architecture demo (supervisor/iterative modes).
-  - `examples/demos/subagent_approvals_demo.py` — handoff exclusivity + approvals demo (offline).
+  - `examples/demos/simple_arch/enriched.py` — simple architecture demo (supervisor/iterative modes).
+  - `examples/demos/approvals/subagent.py` — handoff exclusivity + approvals demo (offline).
   - `examples/demos/exploration_demo.py` — exploration planner demo that prints and writes `plan.json`.
 
 - configs/: Example configurations
@@ -72,8 +72,8 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
     - The main example runners also print this line at startup for quick visibility.
 
 - Demos
-  - `uv run python examples/demos/simple_arch_demo.py --mode supervisor "Research topic..."`
-  - `uv run python examples/demos/subagent_approvals_demo.py --preset dev`
+  - `uv run python examples/demos/simple_arch/enriched.py --mode supervisor "Research topic..."`
+  - `uv run python examples/demos/approvals/subagent.py --preset dev`
   - `uv run python examples/demos/exploration_demo.py --breadth 2 --depth 2 --max-queries 6 "Explore Inspect‑AI agent patterns"`
 
 ## Deprecation notice: examples/inspect/*
