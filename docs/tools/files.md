@@ -9,25 +9,44 @@ owner: docs
 # files (Unified File Operations)
 
 ## Overview
-- Unified file operations via a single tool using a discriminated union for commands: `ls`, `read`, `write`, `edit`, `delete`.
+- Unified file operations via a single tool using a discriminated union
+  for commands: `ls`, `read`, `write`, `edit`, `delete`, `mkdir`,
+  `move`, `stat`.
 - Prefer this tool in new prompts and configs; wrapper tools remain for backward compatibility.
 - Classification: stateless.
 
 ## Parameters
 - params: union — One of:
   - LsParams: `{ command: "ls", instance?: string }`
-  - ReadParams: `{ command: "read", file_path: string, offset?: int, limit?: int, instance?: string }`
-  - WriteParams: `{ command: "write", file_path: string, content: string, instance?: string }`
-  - EditParams: `{ command: "edit", file_path: string, old_string: string, new_string: string, replace_all?: bool, instance?: string }`
+  - ReadParams: `{ command: "read", file_path: string, offset?: int,
+    limit?: int, instance?: string }`
+  - WriteParams: `{ command: "write", file_path: string, content: string,
+    instance?: string }`
+  - EditParams: `{ command: "edit", file_path: string, old_string: string,
+    new_string: string, replace_all?: bool, instance?: string }`
   - DeleteParams: `{ command: "delete", file_path: string, instance?: string }`
+  - MkdirParams: `{ command: "mkdir", dir_path: string, instance?: string }`
+  - MoveParams: `{ command: "move", src_path: string, dst_path: string,
+    instance?: string }`
+  - StatParams: `{ command: "stat", path: string, instance?: string }`
 
 ## Result Schema
 - Depends on the command:
-  - ls → default: list[string]; typed: `{ files: list[string] }` (`FileListResult`).
-  - read → default: string of numbered lines; typed: `{ lines: list[string], summary: string }` (`FileReadResult`).
-  - write → default: string; typed: `{ path: string, summary: string }` (`FileWriteResult`).
-  - edit → default: string; typed: `{ path: string, replaced: int, summary: string }` (`FileEditResult`).
-  - delete → default: string; typed: `{ path: string, summary: string }` (`FileDeleteResult`).
+  - ls → default: list[string]; typed: `{ files: list[string] }`
+    (`FileListResult`).
+  - read → default: string of numbered lines; typed:
+    `{ lines: list[string], summary: string }` (`FileReadResult`).
+  - write → default: string; typed: `{ path: string, summary: string }`
+    (`FileWriteResult`).
+  - edit → default: string; typed:
+    `{ path: string, replaced: int, summary: string }` (`FileEditResult`).
+  - delete → default: string; typed: `{ path: string, summary: string }`
+    (`FileDeleteResult`).
+  - move → default: string; typed:
+    `{ src: string, dst: string, summary: string }` (`FileMoveResult`).
+  - stat → default: string; typed:
+    `{ path: string, exists: bool, is_dir: bool, size: int|null }`
+    (`FileStatResult`).
 
 See also: [Typed Results vs Legacy Outputs](typed_results.md) for examples and the `INSPECT_AGENTS_TYPED_RESULTS` toggle.
 
@@ -64,6 +83,17 @@ See also: [Typed Results vs Legacy Outputs](typed_results.md) for examples and t
 
 // Delete (store mode only)
 {"params": {"command": "delete", "file_path": "docs/note.md"}}
+```
+
+```json
+// Make a directory (sandbox uses mkdir; store is a no-op)
+{"params": {"command": "mkdir", "dir_path": "docs"}}
+
+// Move/rename a file
+{"params": {"command": "move", "src_path": "docs/note.md", "dst_path": "docs/archive.md"}}
+
+// Stat a path
+{"params": {"command": "stat", "path": "docs/archive.md"}}
 ```
 
 ### Examples — Limits & Confinement
