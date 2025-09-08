@@ -17,6 +17,7 @@ nav:
       - "Operations: Logging & tracing": how-to/operations_logging_tracing.md
       - Exploration examples (Plan & Runner): how-to/exploration_examples.md
       - Model resolver explain API: how-to/model_resolver_explain.md
+      - CLI docs & grouping: how-to/cli_docs_guidelines.md
   - Reference:
       - CLI: reference/cli.md
       - Environment variables: reference/environment.md
