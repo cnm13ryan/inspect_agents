@@ -29,8 +29,9 @@ Quick fixes
     ```
   - If you need containers or a browser, pass a provider config (e.g., Docker):
     ```bash
+    # Hardened Compose template in this repo
     uv run inspect eval examples/tasks/prompt_task.py \
-      --sandbox 'docker:compose.yaml' -T prompt="..."
+      --sandbox 'docker:ops/providers/docker/compose.yaml' -T prompt="..."
     ```
 
 - Python runners (programmatic)
@@ -41,6 +42,26 @@ Quick fixes
       "Create docs/OUTLINE.md and add 3 sections"
     ```
   - Or construct a Task with `sandbox="local"` (or another provider) when using Inspect’s programmatic eval APIs.
+
+  - Environment shortcut (profile selector)
+    - `inspect_agents` also honors an env profile selector for convenience:
+      ```bash
+      # Web-only, containerized, offline
+      INSPECT_PROFILE=T1.H1.N2 \
+      uv run python examples/runners/profiled_runner.py \
+        "Create docs/OUTLINE.md and add 3 sections"
+      # → Sets web_search=1, exec=0, browser=0; hints sandbox="docker"; logs a profile tool_event.
+      ```
+    - For exec-enabled profiles (T0), ensure a sandbox is provided (H0→local, H1→docker, etc.) or you’ll trigger the missing-sandbox error documented above.
+
+  - Kubernetes option (preferred for N1/N2)
+    - Deploy the sandbox chart with the hardened values in this repo, then
+      point runs at the k8s provider:
+      ```bash
+      # After deploying with ops/providers/k8s/values.yaml
+      uv run inspect eval examples/tasks/prompt_task.py \
+        --sandbox k8s -T prompt="..."
+      ```
 
 Minimal repro → resolution
 1) Repro (no sandbox):
@@ -71,4 +92,3 @@ Notes and tips
 Related docs
 - Filesystem tools — Store vs Sandbox: `docs/how-to/filesystem.md`
 - Sandboxing in inspect_agents (deep dive): `docs/how-to/sandboxing_inspect_agents.md`
-

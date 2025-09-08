@@ -54,6 +54,52 @@ The `Task(..., sandbox=...)` parameter selects host isolation. Tooling is contro
   - H1/Docker: default is general egress (N0). For N1/N2 use network policies, egress proxies, or compose-level network controls. Prefer K8s for fine-grained N1/N2.
   - H0/local: inherits host networking — avoid for untrusted tasks.
 
+### Profile selector (env)
+
+You can apply an opinionated profile via an environment variable consumed by `inspect_agents`:
+
+```bash
+INSPECT_PROFILE=T1.H1.N2 \  # T (tools), H (host), N (network)
+uv run python examples/runners/profiled_runner.py "Summarize latest docs"  # or any runner using inspect_agents
+```
+
+Behavior when `INSPECT_PROFILE` is set:
+
+- Applies T toggles conservatively:
+  - T2 → `INSPECT_ENABLE_EXEC=0`, `INSPECT_ENABLE_WEB_BROWSER=0`, `INSPECT_ENABLE_WEB_SEARCH=0`.
+  - T1 → `INSPECT_ENABLE_EXEC=0`, `INSPECT_ENABLE_WEB_BROWSER=0`, `INSPECT_ENABLE_WEB_SEARCH=1`.
+  - T0 → `INSPECT_ENABLE_EXEC=1` (browser remains opt‑in).
+- Maps H to a provider and exports `INSPECT_EVAL_SANDBOX` as a convenience for CLI paths: H0→`local`, H1→`docker`, H2→`k8s`, H3→`proxmox`.
+- Emits a structured `tool_event` with `{tool:"profile", t,h,n, sandbox, source:"env"}` for auditability.
+
+Notes:
+
+- Programmatic callers should still pass `Task(..., sandbox=...)`; the env sets defaults and CLI hints but does not override your explicit `Task` configuration.
+- When `INSPECT_PROFILE` is not set, behavior and defaults are unchanged.
+
+### Provider templates (secure-by-default)
+
+This repo includes hardened provider templates you can use out of the box:
+
+- Docker/Compose (H1): `ops/providers/docker/compose.yaml`
+  - Non-root user, read-only root filesystem, `cap_drop: [ALL]`,
+    `no-new-privileges`, dedicated network.
+  - Use with Inspect CLI:
+    ```bash
+    uv run inspect eval examples/tasks/prompt_task.py \
+      --sandbox 'docker:ops/providers/docker/compose.yaml' \
+      -T prompt="List files and summarize"
+    ```
+
+- Kubernetes/Helm values (H2): `ops/providers/k8s/values.yaml`
+  - Restricted Pod/Container security contexts, `RuntimeDefault` seccomp,
+    `readOnlyRootFilesystem`, `emptyDir` for `/tmp` and `/run`, resource
+    limits, NetworkPolicy stubs with default deny egress.
+  - Deploy and then run with `--sandbox k8s`.
+
+See the READMEs under `ops/providers/docker/` and `ops/providers/k8s/` for
+host prerequisites and customization guidance.
+
 ## Approvals (required for sensitive tools)
 
 Attach approval policies to each Task via `approval=...`:
