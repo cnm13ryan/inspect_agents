@@ -20,14 +20,17 @@ ordering and "no override" behavior for simple KEY=VALUE lines.
 
 from __future__ import annotations
 
+import importlib.util as _il
 import os
 import sys
 from pathlib import Path
+from types import ModuleType
 
 __all__ = [
     "ensure_repo_src_on_path",
     "load_env_files",
     "print_effective_tool_output_limit",
+    "import_by_path",
 ]
 
 
@@ -133,3 +136,27 @@ def print_effective_tool_output_limit(label: str = "Tool-output cap") -> None:
     except Exception:
         # Best-effort only; absence should not break example runners
         return
+
+
+def import_by_path(name: str, path: Path) -> ModuleType:
+    """Import a Python module by file path with clear errors.
+
+    Parameters
+    - name: logical module name to assign (used in tracebacks only)
+    - path: filesystem path to the module (``.py`` file)
+
+    Returns
+    - The loaded module object (``types.ModuleType``)
+
+    Notes
+    - This helper avoids site-packages name collisions (e.g., a third-party
+      ``examples`` package) by importing from an explicit path.
+    - Callers should keep a minimal bootstrap to import this function itself
+      when ``examples._utils`` cannot be safely imported via sys.path.
+    """
+    spec = _il.spec_from_file_location(name, str(path))
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise ImportError(f"Unable to load {name} from {path}")
+    mod = _il.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[arg-type]
+    return mod
