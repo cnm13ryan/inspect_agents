@@ -5,6 +5,9 @@ on:
     branches: [ main, master, inspect-ai-rewrite ]
   pull_request:
     branches: [ main, master, inspect-ai-rewrite ]
+    paths-ignore:
+      - 'docs/**'
+      - 'mkdocs.yml'
 
 jobs:
   unit-tests:
