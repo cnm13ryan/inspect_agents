@@ -29,6 +29,7 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
   - `examples/runners/research_runner.py` — research composition runner.
   - `examples/runners/iterative_runner.py` — iterative agent runner (no submit).
   - `examples/runners/profiled_runner.py` — Tx.Hx.Nx profile selector for iterative runs.
+  - `examples/runners/exploration_runner.py` — exploration (planner → research → critique) runner.
 
 - debug/: Small utility scripts for diagnostics
   - `examples/debug/show_limits.py` — prints the effective tool‑output truncation cap and its source.
@@ -54,6 +55,7 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
   - `uv run python examples/runners/research_runner.py --enable-web-search "Research LangGraph vs Inspect"`
   - `uv run python examples/runners/iterative_runner.py --time-limit 120 --max-steps 20 "List repo files and summarize"`
   - `uv run python examples/runners/profiled_runner.py --profile T1.H1.N1 "Curate arXiv papers by Quantinuum (2025)"`
+  - `uv run python examples/runners/exploration_runner.py --config examples/configs/research/exploration.yaml "Investigate <topic>"`
 
 - Monolithic CLI (python -m examples)
   - `uv run python -m examples --help`  → list subcommands: `supervisor`, `iterative`, `research`, `exploration`, `debug`.
