@@ -22,15 +22,22 @@ def test_supervisor_prompt_includes_planner_cfg(monkeypatch: pytest.MonkeyPatch)
 
     captured: dict[str, str] = {}
 
-    # Stub build_subagents to avoid creating real sub-agents/tools
-    monkeypatch.setattr(runner, "build_subagents", lambda **_: [])
-
-    # Capture supervisor prompt
-    def _stub_build_supervisor(*, prompt: str, tools, attempts: int, model):  # type: ignore[no-untyped-def]
+    # Capture the composed supervisor prompt by intercepting runner.build_runner_agent
+    def _stub_build_runner_agent(
+        *,
+        planner_cfg,
+        attempts: int,
+        model,
+        supervisor_prompts=None,
+        scoring_cfg=None,
+    ) -> object:  # type: ignore[no-untyped-def]
+        # Use runner's local prompt helper to mirror production prompt text
+        override = (supervisor_prompts or {}).get("supervisor") if supervisor_prompts else None
+        prompt = runner._supervisor_prompt(planner_cfg, override_text=override)
         captured["prompt"] = prompt
-        return SimpleNamespace(name="agent", prompt=prompt, tools=tools, attempts=attempts, model=model)
+        return SimpleNamespace(name="agent", prompt=prompt, tools=[], attempts=attempts, model=model)
 
-    monkeypatch.setattr(runner, "build_supervisor", _stub_build_supervisor)
+    monkeypatch.setattr(runner, "build_runner_agent", _stub_build_runner_agent)
 
     # Provide a deterministic planner config
     planner_cfg = {"breadth": 2, "depth": 1, "max_queries": 5, "site_hints": ["arxiv.org", "*.edu"]}
