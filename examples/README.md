@@ -55,6 +55,15 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
   - `uv run python examples/runners/iterative_runner.py --time-limit 120 --max-steps 20 "List repo files and summarize"`
   - `uv run python examples/runners/profiled_runner.py --profile T1.H1.N1 "Curate arXiv papers by Quantinuum (2025)"`
 
+- Monolithic CLI (python -m examples)
+  - `uv run python -m examples --help`  → list subcommands: `supervisor`, `iterative`, `research`, `exploration`, `debug`.
+  - Examples:
+    - `uv run python -m examples supervisor "What is Inspect‑AI?"`
+    - `uv run python -m examples iterative --time-limit 120 --max-steps 20 "List files and summarize"`
+    - `uv run python -m examples research --enable-web-search "Compare LangGraph and Inspect"`
+    - `uv run python -m examples exploration --config examples/configs/research/exploration.yaml "Investigate topic"`
+    - `uv run python -m examples debug model-explain --json --provider ollama --model llama3`
+
 - Debugging helpers
   - `uv run python examples/debug/show_limits.py`  → prints one line like `Tool-output cap: 16384 bytes (default)`.
     - Sources: `config` (active GenerateConfig), `env` (`INSPECT_MAX_TOOL_OUTPUT`), `default` (16384 bytes).

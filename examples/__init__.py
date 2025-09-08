@@ -1,1 +1,4 @@
-# Makes the examples directory importable for tests (namespace not required)
+"""Examples package entry.
+
+Provides `python -m examples` CLI via `examples.__main__`.
+"""
