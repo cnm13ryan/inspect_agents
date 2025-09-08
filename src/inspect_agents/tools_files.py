@@ -38,6 +38,29 @@ _deny_symlink = _fs.deny_symlink
 _validate_sandbox_path = _fs.validate_sandbox_path
 
 
+# Optional path policy checks (stubs by default)
+def _check_policy(path: str, op: str) -> None:
+    """Optional policy hook to validate path operations.
+
+    By default, no policy is enforced. Repositories may monkeypatch this
+    symbol to enforce allow/deny rules in CI or specific environments.
+    """
+    return
+
+
+def _match_path_policy(path: str) -> tuple[str | None, str | None]:
+    """Return a tuple of (kind, rule) describing the matching policy.
+
+    This is used for logging when a policy denial occurs. Default stub returns
+    (None, None).
+    """
+    return None, None
+
+
+_check_policy = _fs.check_policy
+_match_path_policy = _fs.match_path_policy
+
+
 # Result types
 class FileReadResult(BaseModel):
     """Typed result for read operations."""
@@ -585,6 +608,23 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
             # Validate path is within configured root and deny symlinks
             validated_path = adapter.validate(params.file_path)
             await adapter.deny_symlink(validated_path)
+            # Policy check (sandbox) — optional
+            try:
+                _policy = globals().get("_check_policy")
+                if _policy is not None:
+                    _policy(validated_path, "write")
+            except ToolException:
+                _match = globals().get("_match_path_policy")
+                kind, rule = (None, None)
+                if _match is not None:
+                    kind, rule = _match(validated_path)
+                _log_tool_event(
+                    name="files:write",
+                    phase="error",
+                    extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+                    t0=_t0,
+                )
+                raise
 
             # Serialize writes per-path and prefer atomic temp+rename when bash is available
             lock = _get_lock(validated_path, params.instance)
@@ -618,15 +658,29 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
                     pass
 
     # Store-backed with timeout guard
-    # Store-backed with timeout + per-path lock; simulate atomic swap via temp key
+    # Keep store-mode simple: single put_file to the final key (no temp swap)
+    # Policy check (store) — optional
+    try:
+        _policy = globals().get("_check_policy")
+        if _policy is not None:
+            _policy(os.path.join(_fs_root(), params.file_path), "write")
+    except ToolException:
+        _match = globals().get("_match_path_policy")
+        kind, rule = (None, None)
+        if _match is not None:
+            kind, rule = _match(os.path.join(_fs_root(), params.file_path))
+        _log_tool_event(
+            name="files:write",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+            t0=_t0,
+        )
+        raise
     lock = _get_lock(params.file_path, params.instance)
     async with lock:
         with anyio.fail_after(_default_tool_timeout()):
             files = store_as(Files, instance=params.instance)
-            tmp_key = f"{params.file_path}.tmp-{_uuid.uuid4().hex}"
-            files.put_file(tmp_key, params.content)
             files.put_file(params.file_path, params.content)
-            files.delete_file(tmp_key)
 
     if _use_typed_results():
         _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
@@ -660,7 +714,6 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             "new_len": len(params.new_string),
             "replace_all": params.replace_all,
             "expected_count": params.expected_count,
-            "dry_run": params.dry_run,
             "instance": params.instance,
         },
     )
@@ -677,6 +730,23 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
             # Deny symlinks for security
             await adapter.deny_symlink(validated_path)
+            # Policy check (sandbox) — optional
+            try:
+                _policy = globals().get("_check_policy")
+                if _policy is not None:
+                    _policy(validated_path, "edit")
+            except ToolException:
+                _match = globals().get("_match_path_policy")
+                kind, rule = (None, None)
+                if _match is not None:
+                    kind, rule = _match(validated_path)
+                _log_tool_event(
+                    name="files:edit",
+                    phase="error",
+                    extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+                    t0=_t0,
+                )
+                raise
 
             # Serialize edits per-path and prefer atomic temp+rename using bash when possible
             lock = _get_lock(validated_path, params.instance)
@@ -858,6 +928,24 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                 f"String '{params.old_string}' not found in file '{params.file_path}'. "
                 f"Please check the exact text to replace."
             )
+
+    # Policy check (store) — optional
+    try:
+        _policy = globals().get("_check_policy")
+        if _policy is not None:
+            _policy(os.path.join(_fs_root(), params.file_path), "edit")
+    except ToolException:
+        _match = globals().get("_match_path_policy")
+        kind, rule = (None, None)
+        if _match is not None:
+            kind, rule = _match(os.path.join(_fs_root(), params.file_path))
+        _log_tool_event(
+            name="files:edit",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+            t0=_t0,
+        )
+        raise
 
         # Count replacements for accurate reporting
         if params.replace_all:
@@ -1098,13 +1186,35 @@ async def execute_mkdir(params: MkdirParams) -> str:
         if await adapter.preflight("bash session"):
             try:
                 validated = adapter.validate(params.dir_path)
-                # No symlink target for mkdir, but validate parent path
+                # Policy check (sandbox)
+                try:
+                    _check_policy(validated, "mkdir")
+                except ToolException:
+                    kind, rule = _match_path_policy(validated)
+                    _log_tool_event(
+                        name="files:mkdir",
+                        phase="error",
+                        extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dir_path},
+                        t0=_t0,
+                    )
+                    raise
                 await adapter.mkdir(validated)
                 _log_tool_event(name="files:mkdir", phase="end", extra={"ok": True}, t0=_t0)
                 return f"Created directory {params.dir_path}"
             except Exception:
                 pass
-    # Store: no-op; directories are implicit via file keys
+    # Store: enforce policy even though directory entries are implicit
+    try:
+        _check_policy(os.path.join(_fs_root(), params.dir_path), "mkdir")
+    except ToolException:
+        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.dir_path))
+        _log_tool_event(
+            name="files:mkdir",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dir_path},
+            t0=_t0,
+        )
+        raise
     _log_tool_event(name="files:mkdir", phase="end", extra={"ok": True, "mode": "store"}, t0=_t0)
     return f"Created directory {params.dir_path}"
 
@@ -1126,6 +1236,18 @@ async def execute_move(params: MoveParams) -> str | FileMoveResult:
                 src = adapter.validate(params.src_path)
                 dst = adapter.validate(params.dst_path)
                 await adapter.deny_symlink(src)
+                # Policy check for destination path (write side)
+                try:
+                    _check_policy(dst, "move")
+                except ToolException:
+                    kind, rule = _match_path_policy(dst)
+                    _log_tool_event(
+                        name="files:move",
+                        phase="error",
+                        extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dst_path},
+                        t0=_t0,
+                    )
+                    raise
                 await adapter.move(src, dst)
                 # Verify destination exists; if not, fall back to store path
                 exists, _, _ = await adapter.stat(dst)
@@ -1138,13 +1260,25 @@ async def execute_move(params: MoveParams) -> str | FileMoveResult:
                     return summary
             except Exception:
                 pass
-    # Store: rename file key if exists
+    # Store: rename file key if exists (policy enforced on destination)
     with anyio.fail_after(_default_tool_timeout()):
         files = store_as(Files, instance=params.instance)
         content = files.get_file(params.src_path)
     if content is None:
         _log_tool_event(name="files:move", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
         raise ToolException(f"Source '{params.src_path}' not found")
+    # Policy check for destination (store)
+    try:
+        _check_policy(os.path.join(_fs_root(), params.dst_path), "move")
+    except ToolException:
+        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.dst_path))
+        _log_tool_event(
+            name="files:move",
+            phase="error",
+            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dst_path},
+            t0=_t0,
+        )
+        raise
     lock = _get_lock(params.src_path, params.instance)
     async with lock:
         files.put_file(params.dst_path, content)
