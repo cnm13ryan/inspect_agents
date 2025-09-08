@@ -1,45 +1,27 @@
 #!/usr/bin/env python3
 """
-Exploration Runner (Supervisor → Planner → Research → Critique)
+Exploration Runner (legacy shim)
 
-Purpose
-- Orchestrates a simple, auditable deep‑research flow using Inspect‑AI agents
-  and repo tools: planner_tool → research‑agent → critique‑agent.
+Deprecated path: examples.inspect.exploration.runner
 
-Outputs (virtual Files store)
-- plan.json       — planner output (JSON)
-- question.txt    — original user question
-- final_report.md — synthesized report (post‑critique)
-
-Usage
-- uv run python -m examples.inspect.exploration.runner \
-    --attempts 3 \
-    --config examples/configs/research/exploration.yaml \
-    "Investigate <topic>"
-
-Notes
-- Approvals: uses approval_preset("ci") — permissive; no exclusivity/kill‑switch.
-- Web search optional: works with or without INSPECT_ENABLE_WEB_SEARCH=1. When
-  disabled, the research agent still produces a report based on available
-  context; planner artifacts are always produced.
+This module remains as a thin shim for backward compatibility. It emits
+DeprecationWarning and delegates execution to the consolidated runner at
+examples/runners/exploration_runner.py. Internal prompt helpers are kept
+so that existing tests that reference them (e.g., _supervisor_prompt)
+continue to function during the deprecation window.
 """
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
+import warnings
 from typing import Any
 
-from examples.lib.builders import build_exploration_supervisor
-from examples.lib.exploration.config_loader import (
-    load_exploration_sections,
-)
-from inspect_agents.approval import approval_preset
-from inspect_agents.model import resolve_model
-from inspect_agents.run import run_agent
+from examples.runners import exploration_runner as _new_runner
 
-# Note: YAML loading is centralized in examples.lib.exploration.config_loader.
+# Deprecated shim utilities
+_MSG = "examples.inspect.exploration.runner is deprecated; use examples/runners/exploration_runner.py"
 
 
 def _supervisor_prompt(planner_cfg: dict[str, Any] | None, *, override_text: str | None = None) -> str:
@@ -100,75 +82,24 @@ def build_runner_agent(
     supervisor_prompts: dict[str, str] | None = None,
     scoring_cfg: dict[str, Any] | None = None,
 ):
-    """Construct supervisor via shared builder and return an Inspect agent.
-
-    Retains the historical function name for test compatibility while
-    delegating to `examples.lib.builders.build_exploration_supervisor`.
-    """
-    return build_exploration_supervisor(
-        model=model,
-        attempts=attempts,
+    warnings.warn(_MSG, DeprecationWarning, stacklevel=2)
+    return _new_runner.build_runner_agent(
         planner_cfg=planner_cfg,
-        prompts_override=supervisor_prompts,
+        attempts=attempts,
+        model=model,
+        supervisor_prompts=supervisor_prompts,
+        scoring_cfg=scoring_cfg,
     )
 
 
 async def _amain(args: argparse.Namespace) -> None:
-    # Resolve model once for the run
-    model_id = resolve_model()
-
-    # Load optional exploration YAML (policy/scoring/supervisor)
-    planner_cfg, scoring_cfg, supervisor_cfg = load_exploration_sections(args.config)
-
-    # Supervisor attempts: YAML override takes precedence over CLI flag if present
-    yaml_attempts = None
-    if supervisor_cfg and isinstance(supervisor_cfg.get("attempts"), int):
-        yaml_attempts = int(supervisor_cfg["attempts"])
-    effective_attempts = yaml_attempts if yaml_attempts is not None else args.attempts
-
-    prompts = None
-    if supervisor_cfg and isinstance(supervisor_cfg.get("prompts"), dict):
-        # Coerce keys to str->str
-        raw = supervisor_cfg["prompts"]
-        prompts = {str(k): str(v) for k, v in raw.items()}
-
-    agent = build_runner_agent(
-        planner_cfg=planner_cfg,
-        attempts=effective_attempts,
-        model=model_id,
-        supervisor_prompts=prompts,
-        scoring_cfg=scoring_cfg,
-    )
-
-    # Approvals: permissive CI preset (no exclusivity/kill-switch by default)
-    approvals = approval_preset("ci")
-
-    # Run the agent with the provided prompt
-    await run_agent(agent, args.prompt, approval=approvals)
+    warnings.warn(_MSG, DeprecationWarning, stacklevel=2)
+    await _new_runner._amain(args)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Exploration runner: planner → research → critique")
-    parser.add_argument(
-        "prompt",
-        type=str,
-        help="Research question, e.g., 'Investigate <topic>'",
-    )
-    parser.add_argument(
-        "--config",
-        dest="config",
-        default=None,
-        help="Optional planner config YAML (e.g., examples/configs/research/exploration.yaml)",
-    )
-    parser.add_argument(
-        "--attempts",
-        type=int,
-        default=3,
-        help="Supervisor attempts (submit-terminated ReAct loop)",
-    )
-
-    args = parser.parse_args()
-    asyncio.run(_amain(args))
+    warnings.warn(_MSG, DeprecationWarning, stacklevel=2)
+    _new_runner.main()
 
 
 if __name__ == "__main__":
