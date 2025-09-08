@@ -1,0 +1,14 @@
+{% if page and page.meta and page.meta.git_revision_date_localized %}
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-meta__item">
+        Last updated on {{ page.meta.git_revision_date_localized }}
+      </div>
+      <div class="md-footer-meta__item">
+        <div class="md-copyright">
+          Made with <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">Material for MkDocs</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
