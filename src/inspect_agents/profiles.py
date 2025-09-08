@@ -90,7 +90,31 @@ def resolve_profile_from_env(env: Mapping[str, str] | None = None) -> SandboxPro
     sandbox = _map_host_isolation(h)
 
     # Apply tooling toggles as defaults
-    _apply_tooling_env(t, env if isinstance(env, MutableMapping) else os.environ)
+    target_env: MutableMapping[str, str]
+    try:
+        # Prefer the provided mapping when it behaves like a mutable env
+        if hasattr(env, "setdefault") and callable(getattr(env, "setdefault")):
+            target_env = env  # type: ignore[assignment]
+        else:
+            raise TypeError
+    except Exception:
+        # Fallback to process env if a read-only Mapping was passed
+        target_env = os.environ  # type: ignore[assignment]
+
+    _apply_tooling_env(t, target_env)
+
+    # Stronger safe defaults for host isolation in prod-like profiles.
+    # When H >= H1 (docker/k8s/proxmox), default to:
+    # - Read-only filesystem guard in sandbox mode
+    # - Forced sandbox preflight to avoid silent fallbacks
+    # Respect explicit overrides set by the caller (do not overwrite).
+    try:
+        if h.upper() in {"H1", "H2", "H3"}:
+            target_env.setdefault("INSPECT_AGENTS_FS_READ_ONLY", "1")
+            target_env.setdefault("INSPECT_SANDBOX_PREFLIGHT", "force")
+    except Exception:
+        # Defaulting must never raise; continue best-effort
+        pass
 
     # Emit observability event for auditability
     try:
