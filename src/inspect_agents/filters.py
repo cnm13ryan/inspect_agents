@@ -21,6 +21,8 @@ MessageFilter = Callable[[list[Message]], Awaitable[list[Message]]]
 ACTIVE_INPUT_FILTER_KEY = "inspect_agents:active_input_filter_mode"
 
 
+import warnings
+
 from .settings import int_env as _settings_int_env
 from .settings import truthy as _settings_truthy  # delegate to centralized settings
 
@@ -124,8 +126,31 @@ def _append_scoped_summary_factory(max_todos: int = 10, max_files: int = 20, max
     return run
 
 
-# Compatibility alias (no redefinition) for truthy
-_truthy = _settings_truthy
+_DEPRECATIONS_ENABLED = _settings_truthy(os.getenv("INSPECT_SHOW_DEPRECATIONS"))
+_DEPRECATIONS_EMITTED: set[str] = set()
+
+
+def _warn_alias(name: str) -> None:
+    if not _DEPRECATIONS_ENABLED:
+        return
+    try:
+        global _DEPRECATIONS_EMITTED
+        key = f"filters:{name}"
+        if key in _DEPRECATIONS_EMITTED:
+            return
+        warnings.warn(
+            f"{name} is deprecated; use the non-underscore variant in inspect_agents.settings.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        _DEPRECATIONS_EMITTED.add(key)
+    except Exception:
+        return
+
+
+def _truthy(val: str | None) -> bool:  # noqa: D401
+    _warn_alias("_truthy")
+    return _settings_truthy(val)
 
 
 def _int_env(name: str, default: int, minimum: int = 0) -> int:
