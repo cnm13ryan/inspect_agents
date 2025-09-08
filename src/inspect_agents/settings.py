@@ -57,6 +57,24 @@ def str_env(name: str, default: str | None = None) -> str | None:
     return default if val is None else val
 
 
+def max_tool_output_env() -> int | None:
+    """Parse `INSPECT_MAX_TOOL_OUTPUT` as a non-negative int.
+
+    Returns None when the variable is unset or invalid. Value ``0`` is allowed
+    and indicates truncation is disabled.
+    """
+    import os as _os
+
+    raw = _os.getenv("INSPECT_MAX_TOOL_OUTPUT")
+    try:
+        if raw is None or str(raw).strip() == "":
+            return None
+        val = int(str(raw).strip())
+        return val if val >= 0 else None
+    except Exception:
+        return None
+
+
 def typed_results_enabled() -> bool:
     """Whether typed result models should be returned by tools."""
     return truthy(os.getenv("INSPECT_AGENTS_TYPED_RESULTS"))
@@ -72,6 +90,7 @@ __all__ = [
     "int_env",
     "float_env",
     "str_env",
+    "max_tool_output_env",
     "typed_results_enabled",
     "default_tool_timeout",
 ]
