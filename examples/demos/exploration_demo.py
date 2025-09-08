@@ -22,16 +22,23 @@ from typing import Any
 
 
 def _load_planner_tool():
-    import importlib.util
+    # Prefer the non-deprecated import path in the examples.lib namespace.
+    try:
+        from examples.lib.exploration.planner_tool import planner_tool as _planner_tool
 
-    here = Path(__file__).resolve()
-    mod_path = here.parents[1] / "inspect" / "exploration" / "planner_tool.py"
-    spec = importlib.util.spec_from_file_location("_examples_planner_tool", str(mod_path))
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load planner_tool from {mod_path}")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[arg-type]
-    return getattr(mod, "planner_tool")()
+        return _planner_tool()
+    except Exception:
+        # Fallback: load directly from file path under examples/lib if import fails
+        import importlib.util
+
+        here = Path(__file__).resolve()
+        mod_path = here.parents[1] / "lib" / "exploration" / "planner_tool.py"
+        spec = importlib.util.spec_from_file_location("_examples_planner_tool", str(mod_path))
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Unable to load planner_tool from {mod_path}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[arg-type]
+        return getattr(mod, "planner_tool")()
 
 
 async def _main() -> int:
