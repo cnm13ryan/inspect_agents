@@ -44,6 +44,7 @@ Note on status:
 - [Filesystem Sandbox — Enforce Read‑Only Mode Flag](./todo_feature_fs_readonly_flag.md) — DONE.
 - [Docs Adjustments — Supervisor Tool Exposure & ADR 0004 Baseline](./todo_feature_readme_docs_updates.md)
 - [Docs — Add FS Design Note Backlink](./todo_docs_fs_design_note_backlink.md)
+- [Sandbox — Best Practices Feature Set (Epic: profiles, provider hardening, FS ops, audits)](./todo_features_sandbox_best_practices.md)
 
 ### Iterative Agent & Pruning — sorted by name
 - [Iterative Agent — `code_only` Flag](./todo_feature_iterative_code_only.md)
