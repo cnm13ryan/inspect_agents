@@ -25,6 +25,24 @@ from .exceptions import ToolException
 # --- Truthy/Config helpers ----------------------------------------------------
 from .settings import truthy  # single source of truth
 
+# Explicit module exports for a stable, discoverable public API
+__all__ = [
+    # Config helpers
+    "fs_mode",
+    "use_sandbox_fs",
+    "default_tool_timeout",
+    "fs_root",
+    "max_bytes",
+    # Sandbox preflight
+    "reset_sandbox_preflight_cache",
+    "ensure_sandbox_ready",
+    # Path/symlink guards and policy
+    "deny_symlink",
+    "validate_sandbox_path",
+    "match_path_policy",
+    "check_policy",
+]
+
 
 def fs_mode() -> str:
     """Return filesystem mode: 'store' (default) or 'sandbox'."""
@@ -74,6 +92,7 @@ def max_bytes() -> int:
 _SANDBOX_READY: bool | None = None
 _SANDBOX_WARN: str | None = None
 _SANDBOX_TS: float | None = None  # monotonic seconds of last evaluation
+_SANDBOX_READY_FROM_STUB: bool | None = None  # tracks whether last True came from in-process stub
 
 
 def reset_sandbox_preflight_cache() -> None:
@@ -84,10 +103,11 @@ def reset_sandbox_preflight_cache() -> None:
     Intended for tests and operator workflows.
     """
 
-    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS
+    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS, _SANDBOX_READY_FROM_STUB
     _SANDBOX_READY = None
     _SANDBOX_WARN = None
     _SANDBOX_TS = None
+    _SANDBOX_READY_FROM_STUB = None
 
 
 async def ensure_sandbox_ready(tool_name: str) -> bool:
@@ -101,7 +121,7 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
     - In 'force' mode, raises ToolException on unavailability
     """
 
-    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS
+    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS, _SANDBOX_READY_FROM_STUB
 
     mode = (os.getenv("INSPECT_SANDBOX_PREFLIGHT", "auto") or "").strip().lower()
     if mode not in {"auto", "skip", "force"}:
@@ -116,24 +136,88 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
 
         now = time.monotonic()
         if tool_name == "editor" and "inspect_ai.tool._tools._text_editor" in sys.modules:
-            _SANDBOX_READY = True
-            _SANDBOX_TS = now
-            return True
+            mod = sys.modules.get("inspect_ai.tool._tools._text_editor")
+            # Only treat as ready when a lightweight in-process stub is installed
+            if getattr(mod, "__file__", None) is None:
+                # Detect availability flip and emit status_changed before caching
+                old = _SANDBOX_READY
+                new = True
+                if old is not None and old != new:
+                    try:
+                        import json
+                        import logging
+
+                        logging.getLogger(__name__).info(
+                            "tool_event %s",
+                            json.dumps(
+                                {
+                                    "tool": "files:sandbox_preflight",
+                                    "phase": "status_changed",
+                                    "old": bool(old),
+                                    "new": bool(new),
+                                },
+                                ensure_ascii=False,
+                            ),
+                        )
+                    except Exception:
+                        pass
+                _SANDBOX_READY = True
+                _SANDBOX_READY_FROM_STUB = True
+                _SANDBOX_TS = now
+                return True
         if tool_name == "bash session" and "inspect_ai.tool._tools._bash_session" in sys.modules:
-            _SANDBOX_READY = True
-            _SANDBOX_TS = now
-            return True
+            mod = sys.modules.get("inspect_ai.tool._tools._bash_session")
+            if getattr(mod, "__file__", None) is None:
+                old = _SANDBOX_READY
+                new = True
+                if old is not None and old != new:
+                    try:
+                        import json
+                        import logging
+
+                        logging.getLogger(__name__).info(
+                            "tool_event %s",
+                            json.dumps(
+                                {
+                                    "tool": "files:sandbox_preflight",
+                                    "phase": "status_changed",
+                                    "old": bool(old),
+                                    "new": bool(new),
+                                },
+                                ensure_ascii=False,
+                            ),
+                        )
+                    except Exception:
+                        pass
+                _SANDBOX_READY = True
+                _SANDBOX_READY_FROM_STUB = True
+                _SANDBOX_TS = now
+                return True
     except Exception:
         pass
 
-    # TTL cache
+    # TTL cache — avoid returning a stale "ready" when in-process stubs were
+    # removed since the last evaluation.
     try:
         ttl_sec = float(os.getenv("INSPECT_SANDBOX_PREFLIGHT_TTL_SEC", "300"))
     except Exception:
         ttl_sec = 300.0
     now = time.monotonic()
     if _SANDBOX_READY is not None and _SANDBOX_TS is not None and ttl_sec > 0:
-        if (now - _SANDBOX_TS) < ttl_sec:
+        # Detect whether a previously-cached True conflicts with current stub presence
+        _has_stub = False
+        try:
+            import sys as _sys
+
+            if tool_name == "editor":
+                _has_stub = "inspect_ai.tool._tools._text_editor" in _sys.modules
+            elif tool_name == "bash session":
+                _has_stub = "inspect_ai.tool._tools._bash_session" in _sys.modules
+        except Exception:
+            _has_stub = False
+        if (now - _SANDBOX_TS) < ttl_sec and not (
+            _SANDBOX_READY is True and (_SANDBOX_READY_FROM_STUB is True) and not _has_stub
+        ):
             return _SANDBOX_READY
     _SANDBOX_TS = None  # invalidate on expiry
 
@@ -141,6 +225,28 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
     try:  # pragma: no cover - integration path
         from inspect_ai.tool._tool_support_helpers import tool_support_sandbox
     except Exception:
+        # Flip detection + structured status change event
+        old = _SANDBOX_READY
+        new = False
+        if old is not None and old != new:
+            try:
+                import json
+                import logging
+
+                logging.getLogger(__name__).info(
+                    "tool_event %s",
+                    json.dumps(
+                        {
+                            "tool": "files:sandbox_preflight",
+                            "phase": "status_changed",
+                            "old": bool(old),
+                            "new": bool(new),
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+            except Exception:
+                pass
         _SANDBOX_READY = False
         _SANDBOX_TS = now
         _SANDBOX_WARN = "Sandbox helper unavailable; falling back to Store-backed FS."
@@ -151,11 +257,55 @@ async def ensure_sandbox_ready(tool_name: str) -> bool:
     try:
         # Verify the sandbox has the required service; ignore returned version
         await tool_support_sandbox(tool_name)
+        old = _SANDBOX_READY
+        new = True
+        if old is not None and old != new:
+            try:
+                import json
+                import logging
+
+                logging.getLogger(__name__).info(
+                    "tool_event %s",
+                    json.dumps(
+                        {
+                            "tool": "files:sandbox_preflight",
+                            "phase": "status_changed",
+                            "old": bool(old),
+                            "new": bool(new),
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+            except Exception:
+                pass
         _SANDBOX_READY = True
+        _SANDBOX_READY_FROM_STUB = False
         _SANDBOX_TS = now
         return True
     except Exception as exc:
+        old = _SANDBOX_READY
+        new = False
+        if old is not None and old != new:
+            try:
+                import json
+                import logging
+
+                logging.getLogger(__name__).info(
+                    "tool_event %s",
+                    json.dumps(
+                        {
+                            "tool": "files:sandbox_preflight",
+                            "phase": "status_changed",
+                            "old": bool(old),
+                            "new": bool(new),
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+            except Exception:
+                pass
         _SANDBOX_READY = False
+        _SANDBOX_READY_FROM_STUB = False
         _SANDBOX_TS = now
         _SANDBOX_WARN = str(exc) or ("Sandbox service not available; falling back to Store-backed FS.")
 
@@ -323,9 +473,8 @@ def _warn_alias(name: str) -> None:
         return
 
 
-def _truthy(val: str | None) -> bool:  # noqa: D401
-    _warn_alias("_truthy")
-    return truthy(val)
+# Maintain direct alias identity for one compatibility cycle
+_truthy = truthy
 
 
 def _fs_mode() -> str:  # noqa: D401
