@@ -81,7 +81,7 @@ More detail and setup tips: `docs/getting-started/inspect_agents_quickstart.md`.
 - Direct API (pure‑Python, deterministic):
 
 ```python
-from examples.inspect.exploration.planner import plan, ExplorationConfig as C
+from examples.lib.exploration.planner import plan, ExplorationConfig as C
 items = plan("Explore Inspect‑AI agent patterns", C(breadth=3, depth=2, seed=0, max_queries=8))
 for it in items:
     print(it.depth, it.query, it.tags)
