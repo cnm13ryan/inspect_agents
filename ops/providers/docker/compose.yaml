@@ -1,0 +1,68 @@
+# Hardened Docker Compose template for Inspect sandbox execution
+#
+# Usage with Inspect CLI:
+#   uv run inspect eval examples/tasks/prompt_task.py \
+#     --sandbox 'docker:ops/providers/docker/compose.yaml' \
+#     -T prompt="List files and summarize"
+#
+# Security defaults:
+# - Rootless user (uid:gid 1000:1000)
+# - Read-only root filesystem with tmpfs for /tmp and /run
+# - Drop all Linux capabilities; no-new-privileges
+# - Modest PID limit to reduce fork bombs
+# - Dedicated bridge network (can be replaced with a restricted network)
+#
+# Notes:
+# - The container runs "sleep infinity" so that Inspect can exec into it.
+# - Mount a workspace volume at /work for task artifacts.
+# - Adjust image as needed; ensure bash/python exist for exec tools.
+
+services:
+  sandbox:
+    image: ubuntu:22.04
+    init: true
+    container_name: inspect-sandbox
+    user: "1000:1000"
+    working_dir: /work
+    command: ["sleep", "infinity"]
+
+    # Filesystem hardening
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+
+    # Capability and privilege hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      # To use a custom seccomp or AppArmor profile, uncomment and
+      # provide valid profiles on the host:
+      # - seccomp=./seccomp-restricted.json
+      # - apparmor:docker-default
+
+    # Resource guardrails
+    pids_limit: 256
+
+    # Workspace mounts (adjust host paths as needed)
+    volumes:
+      - ./sandbox_work:/work:rw
+      - ./sandbox_cache:/cache:rw
+
+    # Network isolation: attach to a dedicated network by default
+    networks:
+      - sandbox_net
+
+    environment:
+      - INSPECT_SANDBOX=1
+      - HOME=/home/sandbox
+
+networks:
+  sandbox_net:
+    driver: bridge
+
+volumes:
+  # Named volumes can be used instead of bind mounts above if preferred
+  # work:
+  # cache:
