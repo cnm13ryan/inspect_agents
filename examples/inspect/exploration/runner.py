@@ -31,40 +31,13 @@ import asyncio
 import json
 from typing import Any
 
+from examples.lib.builders import build_exploration_supervisor
 from examples.lib.exploration.config_loader import (
     load_exploration_sections,
 )
-from inspect_agents.agents import build_subagents, build_supervisor
 from inspect_agents.approval import approval_preset
 from inspect_agents.model import resolve_model
 from inspect_agents.run import run_agent
-from inspect_agents.tools import (
-    edit_file,
-    ls,
-    read_file,
-    standard_tools,
-    update_todo_status,
-    write_file,
-    write_todos,
-)
-
-# Local tool: exploration planner exposed as an Inspect tool
-# Import planner_tool with a robust fallback so this module works when loaded
-# via package import (python -m) or via path-based import in the Inspect task.
-try:
-    from .planner_tool import planner_tool  # type: ignore
-except Exception:  # pragma: no cover - fallback for file-based import
-    import importlib.util as _il
-    from pathlib import Path as _Path
-
-    _mod_path = _Path(__file__).with_name("planner_tool.py")
-    _spec = _il.spec_from_file_location("_examples_planner_tool", str(_mod_path))
-    if _spec is None or _spec.loader is None:
-        raise ImportError(f"Unable to load planner_tool from {_mod_path}")
-    _mod = _il.module_from_spec(_spec)
-    _spec.loader.exec_module(_mod)  # type: ignore[arg-type]
-    planner_tool = getattr(_mod, "planner_tool")
-
 
 # Note: YAML loading is centralized in examples.lib.exploration.config_loader.
 
@@ -127,44 +100,17 @@ def build_runner_agent(
     supervisor_prompts: dict[str, str] | None = None,
     scoring_cfg: dict[str, Any] | None = None,
 ):
-    """Construct supervisor + sub-agents and return an Inspect agent.
+    """Construct supervisor via shared builder and return an Inspect agent.
 
-    - Adds `planner_tool()` to the supervisor tool list.
-    - Sub-agents are exposed via handoff tools: transfer_to_research-agent, transfer_to_critique-agent.
+    Retains the historical function name for test compatibility while
+    delegating to `examples.lib.builders.build_exploration_supervisor`.
     """
-
-    # Built-ins + standard tools
-    builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
-    base_tools = builtins + standard_tools()
-
-    # Sub-agents (handoffs)
-    sub_configs = [
-        {
-            "name": "research-agent",
-            "description": ("Used to research more in-depth questions. Only give this researcher one topic at a time."),
-            "prompt": _research_prompt((supervisor_prompts or {}).get("research")),
-            "tools": ["web_search", "read_file", "write_file", "ls"],
-            "mode": "handoff",
-        },
-        {
-            "name": "critique-agent",
-            "description": "Used to critique the final report.",
-            "prompt": _critique_prompt((supervisor_prompts or {}).get("critique")),
-            "tools": ["read_file", "write_file", "ls"],
-            "mode": "handoff",
-        },
-    ]
-
-    subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools, default_model=model)
-
-    # Supervisor with planner tool + subagent handoffs
-    sup = build_supervisor(
-        prompt=_supervisor_prompt(planner_cfg, override_text=(supervisor_prompts or {}).get("supervisor")),
-        tools=[planner_tool()] + subagent_tools,
-        attempts=attempts,
+    return build_exploration_supervisor(
         model=model,
+        attempts=attempts,
+        planner_cfg=planner_cfg,
+        prompts_override=supervisor_prompts,
     )
-    return sup
 
 
 async def _amain(args: argparse.Namespace) -> None:
