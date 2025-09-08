@@ -79,6 +79,23 @@ class FileListResult(BaseModel):
     files: list[str]
 
 
+class FileMoveResult(BaseModel):
+    """Typed result for move operations."""
+
+    src: str
+    dst: str
+    summary: str
+
+
+class FileStatResult(BaseModel):
+    """Typed result for stat operations."""
+
+    path: str
+    exists: bool
+    is_dir: bool
+    size: int | None
+
+
 # ---------------------------------------------------------------------------
 # Per-path async locks to prevent torn writes and overlapping edits
 # ---------------------------------------------------------------------------
@@ -149,6 +166,28 @@ class EditParams(BaseFileParams):
             "an error on mismatch."
         ),
     )
+
+
+class MkdirParams(BaseFileParams):
+    """Parameters for mkdir command."""
+
+    command: Literal["mkdir"] = "mkdir"
+    dir_path: str = Field(description="Directory path to create")
+
+
+class MoveParams(BaseFileParams):
+    """Parameters for move command."""
+
+    command: Literal["move"] = "move"
+    src_path: str = Field(description="Source path")
+    dst_path: str = Field(description="Destination path")
+
+
+class StatParams(BaseFileParams):
+    """Parameters for stat command."""
+
+    command: Literal["stat"] = "stat"
+    path: str = Field(description="Path to stat")
     dry_run: bool = Field(
         False,
         description=("When true, compute counts and validate but do not modify the file."),
@@ -166,7 +205,7 @@ class FilesParams(RootModel):
     """Discriminated union of all file operation parameters."""
 
     root: Annotated[
-        LsParams | ReadParams | WriteParams | EditParams | DeleteParams,
+        LsParams | ReadParams | WriteParams | EditParams | DeleteParams | MkdirParams | MoveParams | StatParams,
         Discriminator("command"),
     ]
 
@@ -1007,6 +1046,12 @@ def files_tool():  # -> Tool
                 return await execute_write(command_params)
             elif isinstance(command_params, EditParams):
                 return await execute_edit(command_params)
+            elif isinstance(command_params, MkdirParams):
+                return await execute_mkdir(command_params)
+            elif isinstance(command_params, MoveParams):
+                return await execute_move(command_params)
+            elif isinstance(command_params, StatParams):
+                return await execute_stat(command_params)
             elif isinstance(command_params, DeleteParams):
                 try:
                     return await execute_delete(command_params)
@@ -1038,3 +1083,120 @@ def files_tool():  # -> Tool
         ).as_tool()
 
     return _factory()
+
+
+async def execute_mkdir(params: MkdirParams) -> str:
+    """Execute mkdir command (create directory)."""
+    _t0 = _log_tool_event(
+        name="files:mkdir",
+        phase="start",
+        args={"dir_path": params.dir_path, "instance": params.instance},
+    )
+    # Sandbox path
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("bash session"):
+            try:
+                validated = adapter.validate(params.dir_path)
+                # No symlink target for mkdir, but validate parent path
+                await adapter.mkdir(validated)
+                _log_tool_event(name="files:mkdir", phase="end", extra={"ok": True}, t0=_t0)
+                return f"Created directory {params.dir_path}"
+            except Exception:
+                pass
+    # Store: no-op; directories are implicit via file keys
+    _log_tool_event(name="files:mkdir", phase="end", extra={"ok": True, "mode": "store"}, t0=_t0)
+    return f"Created directory {params.dir_path}"
+
+
+async def execute_move(params: MoveParams) -> str | FileMoveResult:
+    """Execute move/rename command."""
+    from inspect_ai.util._store_model import store_as
+
+    _t0 = _log_tool_event(
+        name="files:move",
+        phase="start",
+        args={"src": params.src_path, "dst": params.dst_path, "instance": params.instance},
+    )
+    # Sandbox: try bash mv with guards
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        if await adapter.preflight("bash session"):
+            try:
+                src = adapter.validate(params.src_path)
+                dst = adapter.validate(params.dst_path)
+                await adapter.deny_symlink(src)
+                await adapter.move(src, dst)
+                # Verify destination exists; if not, fall back to store path
+                exists, _, _ = await adapter.stat(dst)
+                if exists:
+                    summary = f"Moved {params.src_path} -> {params.dst_path} (sandbox mode)"
+                    if _use_typed_results():
+                        _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
+                        return FileMoveResult(src=params.src_path, dst=params.dst_path, summary=summary)
+                    _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
+                    return summary
+            except Exception:
+                pass
+    # Store: rename file key if exists
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
+        content = files.get_file(params.src_path)
+    if content is None:
+        _log_tool_event(name="files:move", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
+        raise ToolException(f"Source '{params.src_path}' not found")
+    lock = _get_lock(params.src_path, params.instance)
+    async with lock:
+        files.put_file(params.dst_path, content)
+        files.delete_file(params.src_path)
+    summary = f"Moved {params.src_path} -> {params.dst_path}"
+    if _use_typed_results():
+        _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
+        return FileMoveResult(src=params.src_path, dst=params.dst_path, summary=summary)
+    _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
+    return summary
+
+
+async def execute_stat(params: StatParams) -> str | FileStatResult:
+    """Execute stat command to query existence/type/size."""
+    from inspect_ai.util._store_model import store_as
+
+    _t0 = _log_tool_event(
+        name="files:stat",
+        phase="start",
+        args={"path": params.path, "instance": params.instance},
+    )
+    # Sandbox (verify; if missing or error, fall back to store)
+    if _use_sandbox_fs():
+        adapter = _get_sandbox_adapter()
+        try:
+            validated = adapter.validate(params.path)
+            exists, is_dir, size = await adapter.stat(validated)
+            if exists:
+                if _use_typed_results():
+                    _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
+                    return FileStatResult(path=params.path, exists=exists, is_dir=is_dir, size=size)
+                _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
+                kind = "dir" if is_dir else ("file" if exists else "missing")
+                return f"{params.path}: {kind}{'' if size is None else f' ({size} bytes)'}"
+        except Exception:
+            pass
+    # Store: derive from keys
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
+        content = files.get_file(params.path)
+        exists = content is not None
+        if exists:
+            is_dir = False
+            size = len(content.encode("utf-8"))
+        else:
+            # Treat any prefix match as a directory
+            prefix = params.path.rstrip("/") + "/"
+            is_dir = any(k.startswith(prefix) for k in files.list_files())
+            size = None
+    if _use_typed_results():
+        _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
+        return FileStatResult(path=params.path, exists=exists or is_dir, is_dir=is_dir, size=size)
+    _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
+    kind = "dir" if is_dir else ("file" if exists else "missing")
+    return f"{params.path}: {kind}{'' if size is None else f' ({size} bytes)'}"
