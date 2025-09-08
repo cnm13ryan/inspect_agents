@@ -26,6 +26,10 @@ def _load_runner_module() -> object:
 @pytest.mark.asyncio
 async def test_yaml_supervisor_overrides_applied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     runner = _load_runner_module()
+    # Import the consolidated runner module; the legacy shim delegates here
+    import importlib
+
+    new_runner = importlib.import_module("examples.runners.exploration_runner")
 
     # Build a minimal YAML with supervisor attempts + prompt overrides and scoring
     yaml_text = (
@@ -55,11 +59,11 @@ async def test_yaml_supervisor_overrides_applied(monkeypatch: pytest.MonkeyPatch
         # Return a tiny object with an `output` attribute for compatibility
         return SimpleNamespace(output=SimpleNamespace(completion="OK"))
 
-    # Stubs to keep _amain fast and offline
-    monkeypatch.setattr(runner, "build_runner_agent", _capture_build_runner_agent)
-    monkeypatch.setattr(runner, "run_agent", _stub_run_agent)
-    monkeypatch.setattr(runner, "approval_preset", lambda *_: [])
-    monkeypatch.setattr(runner, "resolve_model", lambda *_, **__: "dummy-model")
+    # Stubs to keep _amain fast and offline (patch the new runner module)
+    monkeypatch.setattr(new_runner, "build_runner_agent", _capture_build_runner_agent)
+    monkeypatch.setattr(new_runner, "run_agent", _stub_run_agent)
+    monkeypatch.setattr(new_runner, "approval_preset", lambda *_: [])
+    monkeypatch.setattr(new_runner, "resolve_model", lambda *_, **__: "dummy-model")
 
     # Call the async entrypoint with a CLI attempts value that should be
     # overridden by YAML supervisor.attempts
