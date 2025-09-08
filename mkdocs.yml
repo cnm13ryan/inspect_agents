@@ -148,6 +148,8 @@ plugins:
   - git-revision-date-localized:
       fallback_to_build_date: false
       enable_creation_date: false
+      type: date
+      locale: en
   - minify:
       minify_html: true
       minify_js: true
