@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import time
+import warnings
 
 import anyio
 
@@ -237,15 +238,129 @@ def validate_sandbox_path(path: str) -> str:
     return normalized_path
 
 
+# --- Path Policy (Allow/Deny Globs) -------------------------------------------
+
+
+def _split_globs(val: str | None) -> list[str]:
+    try:
+        if not val:
+            return []
+        parts = [p.strip() for p in val.split(",")]
+        return [p for p in parts if p]
+    except Exception:
+        return []
+
+
+def match_path_policy(abs_path: str) -> tuple[str, str | None]:
+    """Return (kind, rule) where kind is 'deny'|'allow'|'none'.
+
+    Rules are evaluated relative to fs_root():
+    - INSPECT_FS_DENY: comma-separated globs (deny wins if matched)
+    - INSPECT_FS_ALLOW: comma-separated globs (when set, only matched
+      paths are allowed; non-matches are implicitly denied by 'allow')
+    """
+    import fnmatch
+    import os as _os
+
+    root = fs_root()
+    try:
+        rel = _os.path.relpath(abs_path, root)
+    except Exception:
+        rel = abs_path
+    rel_posix = rel.replace(_os.sep, "/")
+
+    deny = _split_globs(os.getenv("INSPECT_FS_DENY"))
+    for rule in deny:
+        if fnmatch.fnmatch(rel_posix, rule):
+            return "deny", rule
+
+    allow = _split_globs(os.getenv("INSPECT_FS_ALLOW"))
+    if allow:
+        for rule in allow:
+            if fnmatch.fnmatch(rel_posix, rule):
+                return "allow", rule
+        # allow list present but no match → implicit deny
+        return "deny", "<implicit-allow>"
+
+    return "none", None
+
+
+def check_policy(abs_path: str, op: str) -> None:
+    """Enforce path policy for a given absolute path and op.
+
+    Raises ToolException on denial with a descriptive message including the
+    matched rule.
+    """
+    kind, rule = match_path_policy(abs_path)
+    if kind == "deny":
+        root = fs_root()
+        raise ToolException(
+            f"PolicyDenied: operation '{op}' on '{abs_path}' denied by rule '{rule}' under root '{root}'"
+        )
+
+
 # --- Compatibility aliases (for gradual adoption) ----------------------------
 
-# Preserve familiar underscore-prefixed names for callers we migrate later.
-_truthy = truthy
-_fs_mode = fs_mode
-_use_sandbox_fs = use_sandbox_fs
-_default_tool_timeout = default_tool_timeout
-_fs_root = fs_root
-_max_bytes = max_bytes
-_ensure_sandbox_ready = ensure_sandbox_ready
-_deny_symlink = deny_symlink
+_DEPRECATIONS_ENABLED = truthy(os.getenv("INSPECT_SHOW_DEPRECATIONS"))
+_DEPRECATIONS_EMITTED: set[str] = set()
+
+
+def _warn_alias(name: str) -> None:
+    if not _DEPRECATIONS_ENABLED:
+        return
+    try:
+        global _DEPRECATIONS_EMITTED
+        key = f"fs:{name}"
+        if key in _DEPRECATIONS_EMITTED:
+            return
+        warnings.warn(
+            f"{name} is deprecated; use the non-underscore variant from inspect_agents.fs instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        _DEPRECATIONS_EMITTED.add(key)
+    except Exception:
+        return
+
+
+def _truthy(val: str | None) -> bool:  # noqa: D401
+    _warn_alias("_truthy")
+    return truthy(val)
+
+
+def _fs_mode() -> str:  # noqa: D401
+    _warn_alias("_fs_mode")
+    return fs_mode()
+
+
+def _use_sandbox_fs() -> bool:  # noqa: D401
+    _warn_alias("_use_sandbox_fs")
+    return use_sandbox_fs()
+
+
+def _default_tool_timeout() -> float:  # noqa: D401
+    _warn_alias("_default_tool_timeout")
+    return default_tool_timeout()
+
+
+def _fs_root() -> str:  # noqa: D401
+    _warn_alias("_fs_root")
+    return fs_root()
+
+
+def _max_bytes() -> int:  # noqa: D401
+    _warn_alias("_max_bytes")
+    return max_bytes()
+
+
+async def _ensure_sandbox_ready(tool_name: str) -> bool:  # noqa: D401
+    _warn_alias("_ensure_sandbox_ready")
+    return await ensure_sandbox_ready(tool_name)
+
+
+async def _deny_symlink(path: str) -> None:  # noqa: D401
+    _warn_alias("_deny_symlink")
+    await deny_symlink(path)
+
+
 _validate_sandbox_path = validate_sandbox_path
