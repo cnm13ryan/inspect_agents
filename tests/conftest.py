@@ -321,6 +321,26 @@ def _default_env_guard(monkeypatch, request):
         monkeypatch.setenv("NO_NETWORK", "1")
 
 
+# Ensure tests that stub out Inspect's call_tools module don't leak state.
+# Some tests replace `inspect_ai.model._call_tools` in `sys.modules` without
+# automatic restoration. This guard captures the original module reference and
+# restores it after each test to prevent order-dependent failures in suites
+# that expect real tool execution (e.g., handoff prescan tests).
+@pytest.fixture(autouse=True)
+def _call_tools_module_guard():  # pragma: no cover - test infrastructure
+    import sys as _sys
+
+    name = "inspect_ai.model._call_tools"
+    saved = _sys.modules.get(name)
+    try:
+        yield
+    finally:
+        if saved is None:
+            _sys.modules.pop(name, None)
+        else:
+            _sys.modules[name] = saved
+
+
 def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
     # Ensure common markers are known regardless of optional plugins
     try:
