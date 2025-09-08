@@ -1,0 +1,101 @@
+# Hardened Helm values for an Inspect sandbox workload on Kubernetes
+#
+# This file provides a secure-by-default configuration aligned with the
+# H2 dimension (Kubernetes) in the Tx.Hx.Nx profiles. Apply these values
+# with the Inspect sandbox chart to run a long-lived pod that Inspect can
+# exec into for tools like bash and python.
+#
+# Example deployment (chart name and repo may vary):
+#   kubectl create namespace inspect-sandbox \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl label namespace inspect-sandbox \
+#     pod-security.kubernetes.io/enforce=restricted \
+#     pod-security.kubernetes.io/enforce-version=latest --overwrite
+#   helm upgrade --install inspect-sandbox <inspect-chart> \
+#     -n inspect-sandbox -f ops/providers/k8s/values.yaml
+#
+# Once deployed, point the Inspect CLI or programmatic runs at the k8s
+# provider (for CLI: --sandbox k8s). Prefer N1/N2 on Kubernetes.
+
+replicaCount: 1
+
+image:
+  repository: ubuntu
+  tag: "22.04"
+  pullPolicy: IfNotPresent
+
+command: ["sleep", "infinity"]
+
+serviceAccount:
+  create: true
+  name: "inspect-sandbox"
+  annotations: {}
+  automount: false
+
+podAnnotations:
+  # Enforce AppArmor to the runtime default when available
+  container.apparmor.security.beta.kubernetes.io/sandbox: runtime/default
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 2000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+env:
+  - name: INSPECT_SANDBOX
+    value: "1"
+  - name: HOME
+    value: /home/sandbox
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: run
+    mountPath: /run
+  - name: work
+    mountPath: /work
+
+volumes:
+  - name: tmp
+    emptyDir:
+      medium: Memory
+  - name: run
+    emptyDir:
+      medium: Memory
+  - name: work
+    emptyDir: {}
+    # For persistence across pod restarts, replace with a PVC:
+    # persistentVolumeClaim:
+    #   claimName: work-pvc
+
+affinity: {}
+nodeSelector: {}
+tolerations: []
+
+networkPolicy:
+  enabled: true
+  # Deny all egress by default; opt-in allowances below
+  defaultDenyEgress: true
+  allowDNS: true
+  # Egress allowlist via CIDRs or namespaceSelectors. Domain-level
+  # restrictions require an egress proxy; pair with proxy IPs here.
+  egressCIDRs: []
+  additionalPolicies: []
