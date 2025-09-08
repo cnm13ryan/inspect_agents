@@ -31,6 +31,9 @@ __all__ = [
     "load_env_files",
     "print_effective_tool_output_limit",
     "import_by_path",
+    "add_common_model_flags",
+    "add_common_tool_flags",
+    "apply_tool_env_from_args",
 ]
 
 
@@ -160,3 +163,67 @@ def import_by_path(name: str, path: Path) -> ModuleType:
     mod = _il.module_from_spec(spec)
     spec.loader.exec_module(mod)  # type: ignore[arg-type]
     return mod
+
+
+def add_common_model_flags(ap) -> None:  # type: ignore[no-untyped-def]
+    """Add provider/model flags with consistent help and defaults.
+
+    Flags
+    - --provider: defaults to $DEEPAGENTS_MODEL_PROVIDER or "ollama".
+    - --model: defaults to $INSPECT_EVAL_MODEL (optional, may include provider prefix).
+    """
+    import os as _os
+
+    ap.add_argument(
+        "--provider",
+        default=_os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"),
+        help="Model provider (ollama, lm-studio, openai, ...)",
+    )
+    ap.add_argument(
+        "--model",
+        default=_os.getenv("INSPECT_EVAL_MODEL"),
+        help="Explicit model name (optional; provider prefix allowed)",
+    )
+
+
+def add_common_tool_flags(ap) -> None:  # type: ignore[no-untyped-def]
+    """Add standard enable_* tool flags consistently across runners."""
+    ap.add_argument("--enable-think", action="store_true", help="Enable think() tool")
+    ap.add_argument(
+        "--enable-web-search",
+        action="store_true",
+        help="Enable web_search() tool (requires Tavily or Google CSE keys)",
+    )
+    ap.add_argument("--enable-exec", action="store_true", help="Enable bash() and python() tools (requires sandbox)")
+    ap.add_argument(
+        "--enable-web-browser",
+        action="store_true",
+        help="Enable web_browser() tools (requires sandbox + Playwright)",
+    )
+    ap.add_argument(
+        "--enable-text-editor-tool",
+        action="store_true",
+        help="Expose text_editor() directly (optional; FS tools route to it in sandbox)",
+    )
+
+
+def apply_tool_env_from_args(args) -> None:  # type: ignore[no-untyped-def]
+    """Reflect common enable_* argparse flags into INSPECT_ENABLE_* env vars.
+
+    Safe to call even if a script didn't add all flags; checks attributes first.
+    """
+    import os as _os
+
+    def _on(name: str) -> bool:
+        return bool(getattr(args, name, False))
+
+    if _on("enable_think"):
+        _os.environ["INSPECT_ENABLE_THINK"] = "1"
+    if _on("enable_web_search"):
+        _os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
+    if _on("enable_exec"):
+        _os.environ["INSPECT_ENABLE_EXEC"] = "1"
+    if _on("enable_web_browser"):
+        _os.environ["INSPECT_ENABLE_WEB_BROWSER"] = "1"
+    if _on("enable_text_editor_tool"):
+        _os.environ["INSPECT_ENABLE_TEXT_EDITOR_TOOL"] = "1"

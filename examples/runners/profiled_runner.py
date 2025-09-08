@@ -97,6 +97,8 @@ def main() -> int:
         action="store_true",
         help="Enable web_search tool (defaults on for T1; requires provider keys)",
     )
+    # Common model flags (provider/model) across runners
+    _utils.add_common_model_flags(ap)
     ap.add_argument("--log-dir", default=os.getenv("INSPECT_LOG_DIR", "./logs"))
     args = ap.parse_args()
 
@@ -111,6 +113,8 @@ def main() -> int:
 
     # Apply env toggles for tooling
     apply_tooling(t, enable_browser=args.enable_browser, enable_web_search=args.enable_web_search)
+    # Allow explicit enable_* flags (if any added in the future) to override profile defaults
+    _utils.apply_tool_env_from_args(args)
 
     # Ensure logs/traces are repo-local unless overridden
     os.makedirs(args.log_dir, exist_ok=True)
@@ -118,7 +122,7 @@ def main() -> int:
     os.environ.setdefault("INSPECT_TRACE_FILE", os.path.join(args.log_dir, "trace.log"))
 
     # Build agent
-    model_id = resolve_model()
+    model_id = resolve_model(provider=getattr(args, "provider", None), model=getattr(args, "model", None))
     agent = build_iterative_agent(
         prompt=(
             "You are an iterative coding agent. Work in small, verifiable steps. "

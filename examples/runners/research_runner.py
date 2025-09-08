@@ -79,21 +79,9 @@ async def _main() -> int:
         ),
     )
     parser.add_argument("prompt", nargs="*", help="User prompt text")
-    parser.add_argument(
-        "--provider",
-        default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"),
-        help="Model provider (ollama, lm-studio, openai, ...)",
-    )
-    parser.add_argument(
-        "--model",
-        default=os.getenv("INSPECT_EVAL_MODEL"),
-        help="Explicit model name (optional; provider prefix allowed)",
-    )
-    parser.add_argument(
-        "--enable-web-search",
-        action="store_true",
-        help="Enable Inspect standard web_search tool",
-    )
+    # Common flags across runners
+    _utils.add_common_model_flags(parser)
+    _utils.add_common_tool_flags(parser)
     parser.add_argument(
         "--approval",
         choices=["dev", "ci", "prod"],
@@ -106,8 +94,7 @@ async def _main() -> int:
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv("PROMPT", "Write a short overview of Inspect‑AI")
-    if args.enable_web_search:
-        os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
+    _utils.apply_tool_env_from_args(args)
 
     # Local‑first: let resolver choose provider/model (defaults to Ollama if unset)
     model_id = resolve_model(provider=args.provider, model=args.model)
