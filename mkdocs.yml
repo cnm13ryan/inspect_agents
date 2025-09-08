@@ -118,6 +118,10 @@ extra_javascript:
   # Keep mermaid2 plugin as sole renderer; no CDN mermaid here.
   - assets/javascripts/mermaid-extras.js
 
+extra:
+  version:
+    provider: mike
+
 extra_css:
   - assets/stylesheets/mermaid-extras.css
 
