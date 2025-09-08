@@ -164,3 +164,132 @@ def load_exploration_config(path: str | None = None) -> ExplorationConfig:
 
     raw = _fallback_load(path)
     return ExplorationConfig(**raw)
+
+
+def _fallback_load_sections(path: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    """Minimal, indentation‑aware parser for policy/scoring/supervisor sections.
+
+    This is a best‑effort fallback used only when PyYAML is unavailable. It
+    understands mappings like:
+
+    policy:
+      key: value
+    scoring:
+      weight: 0.5
+    supervisor:
+      attempts: 3
+      prompts:
+        supervisor: TEXT
+        research: TEXT
+        critique: TEXT
+    """
+
+    def indent(s: str) -> int:
+        return len(s) - len(s.lstrip(" \t"))
+
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+
+    sections: dict[str, dict[str, Any]] = {"policy": {}, "scoring": {}, "supervisor": {}}
+    current: str | None = None
+    current_indent = 0
+    # track nested block like supervisor.prompts
+    nested_key: str | None = None
+    nested_indent = 0
+
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if not line.strip() or line.strip().startswith("#"):
+            continue
+        i = indent(line)
+        # Section headers at top level
+        m_sec = re.match(r"^\s*(policy|scoring|supervisor)\s*:\s*$", line)
+        if m_sec:
+            current = m_sec.group(1)
+            current_indent = i
+            nested_key = None
+            continue
+        # End section when indentation drops to or below current section
+        if (
+            current
+            and i <= current_indent
+            and line.strip().endswith(":")
+            and not re.match(r"^\s*(policy|scoring|supervisor)\s*:\s*$", line)
+        ):
+            # New unrelated top-level key; end current section
+            current = None
+            nested_key = None
+        if not current:
+            continue
+        # Handle nested block header (e.g., prompts:)
+        m_nested = re.match(r"^\s*([a-zA-Z_][\w-]*)\s*:\s*$", line)
+        if m_nested and i > current_indent:
+            nested_key = m_nested.group(1)
+            nested_indent = i
+            if nested_key not in sections[current]:
+                sections[current][nested_key] = {}
+            continue
+        # Key: value line
+        m_kv = re.match(r"^\s*([a-zA-Z_][\w-]*)\s*:\s*(.+?)\s*$", line)
+        if m_kv and i > current_indent:
+            key, val = m_kv.group(1), m_kv.group(2)
+            value: Any = _coerce_scalar(val)
+            if nested_key and i > nested_indent:
+                # supervisor.prompts.* style
+                submap = sections[current].get(nested_key)
+                if isinstance(submap, dict):
+                    submap[key] = value
+                else:
+                    sections[current][nested_key] = {key: value}
+            else:
+                sections[current][key] = value
+            continue
+        # Simple list under current section (not deeply needed here, but allow)
+        if re.match(r"^\s*([a-zA-Z_][\w-]*)\s*:\s*$", line) and i > current_indent:
+            # treat as empty mapping/list start; next iterations will fill
+            continue
+
+    pol = sections["policy"] or None
+    sco = sections["scoring"] or None
+    sup = sections["supervisor"] or None
+    return pol, sco, sup
+
+
+def load_exploration_sections(
+    path: str | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    """Load (policy, scoring, supervisor) maps from YAML.
+
+    - Returns a tuple of plain dicts or None when a section is missing/invalid.
+    - Accepts either nested sections or a flat policy mapping (legacy). In a
+      flat mapping, keys other than {scoring, supervisor} are treated as policy.
+    """
+    if not path:
+        return None, None, None
+    if not os.path.exists(path):
+        return None, None, None
+
+    if yaml is not None:  # type: ignore[truthy-function]
+        try:
+            with open(path, encoding="utf-8") as f:
+                doc = yaml.safe_load(f)  # type: ignore[attr-defined]
+            data = doc or {}
+            if not isinstance(data, dict):
+                return None, None, None
+            policy = data.get("policy") if isinstance(data.get("policy"), dict) else None
+            scoring = data.get("scoring") if isinstance(data.get("scoring"), dict) else None
+            supervisor = data.get("supervisor") if isinstance(data.get("supervisor"), dict) else None
+            if policy is None:
+                # treat flat mapping as policy, minus known section names
+                flat = {k: v for k, v in data.items() if k not in {"scoring", "supervisor"}}
+                policy = flat or None
+            return (
+                dict(policy) if policy else None,
+                dict(scoring) if scoring else None,
+                dict(supervisor) if supervisor else None,
+            )
+        except Exception:
+            # fall back to a tiny parser
+            pass
+
+    return _fallback_load_sections(path)
