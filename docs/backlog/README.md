@@ -114,6 +114,7 @@ Note on status:
 ### Docs Alignment — new
 - [YAML limits schema and examples: align docs with current parser](./todo_feature_yaml_limits_parser.md)
 - [Filesystem read‑only: expand docs and examples across how‑to + env ref](./todo_docs_fs_read_only_alignment.md)
+- [Add CHANGELOG and release notes automation (Release Drafter)](./todo_docs_changelog_template_release_drafter.md)
 
 ## Overlaps / Duplicates
 - CI exclusivity for the research runner is tracked in both:
