@@ -12,6 +12,7 @@ reusing helpers from inspect_agents.fs and upstream Inspect tools.
 from __future__ import annotations
 
 import shlex
+from collections.abc import AsyncIterator
 
 import anyio
 
@@ -63,6 +64,83 @@ class SandboxFsAdapter:
             return None
 
     # --- Core operations ---------------------------------------------------
+    async def view_chunks(
+        self, path: str, start_line: int, max_lines: int, *, chunk_size_lines: int = 512
+    ) -> AsyncIterator[str]:
+        """Return content from file in chunks for streaming reads.
+
+        Args:
+            path: file path
+            start_line: 1-based starting line
+            max_lines: maximum lines to read (0 means unbounded)
+            chunk_size_lines: lines per chunk for streaming
+
+        Yields:
+            String chunks containing lines from the file
+        """
+
+        # Use sed to read file in chunks
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            escaped_path = shlex.quote(path)
+
+            current_line = start_line
+            remaining_lines = None if max_lines <= 0 else max_lines
+
+            while remaining_lines is None or remaining_lines > 0:
+                # Calculate chunk size for this iteration
+                lines_to_read = chunk_size_lines
+                if remaining_lines is not None:
+                    lines_to_read = min(chunk_size_lines, remaining_lines)
+
+                # Calculate end line for sed command
+                end_line = current_line + lines_to_read - 1
+                sed_range = f"{current_line},{end_line}p"
+
+                with anyio.fail_after(_fs.default_tool_timeout()):
+                    result = await bash(action="run", command=f"sed -n '{sed_range}' {escaped_path}")
+
+                if result and hasattr(result, "stdout") and result.stdout:
+                    chunk_content = str(result.stdout).rstrip("\n")
+                    if not chunk_content:
+                        # No more content
+                        break
+
+                    # Count actual lines returned to track progress
+                    actual_lines = len(chunk_content.splitlines())
+                    if actual_lines == 0:
+                        break
+
+                    yield chunk_content
+                    current_line += actual_lines
+
+                    if remaining_lines is not None:
+                        remaining_lines -= actual_lines
+
+                    # If we got fewer lines than requested, we've reached EOF
+                    if actual_lines < lines_to_read:
+                        break
+                else:
+                    break
+
+        except Exception:
+            # Fallback: use view method and split into chunks
+            try:
+                full_content = await self.view(path, start_line, -1 if max_lines <= 0 else start_line + max_lines - 1)
+                if full_content:
+                    lines = full_content.splitlines()
+                    if max_lines > 0:
+                        lines = lines[:max_lines]
+
+                    # Yield in chunks
+                    for i in range(0, len(lines), chunk_size_lines):
+                        chunk_lines = lines[i : i + chunk_size_lines]
+                        yield "\n".join(chunk_lines)
+            except Exception:
+                return
+
     async def view(self, path: str, start_line: int, end_line: int) -> str:
         """Return a line-range from file using sed when available, else editor.
 
