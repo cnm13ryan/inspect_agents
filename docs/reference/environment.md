@@ -392,14 +392,15 @@ export INSPECT_DISABLE_TOOL_PARALLEL=1   # allow only the first non‑handoff to
   - `auto`: perform preflight; on failure, log a one‑time `files:sandbox_preflight` warning and fall back to store.
   - `skip`: return `False` from the preflight without logging; callers fall back deterministically.
   - `force`: perform preflight and raise on failure (no fallback). Intended for operator workflows where sandbox is mandatory.
-- `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` — cache TTL in seconds for the preflight result (default `300`). Set `0` to disable caching and recheck each call.
-- `INSPECT_SANDBOX_LOG_PATHS` — `1/true` to enrich the `files:sandbox_preflight` warning with contextual fields like `fs_root` and `tool`.
-- `INSPECT_AGENTS_FS_READ_ONLY` — `1/true` enables audited read‑only mode in
-  sandbox. When `INSPECT_AGENTS_FS_MODE=sandbox` and this flag is truthy,
-  write/edit/delete operations are blocked: the files tool raises a
-  `ToolException("SandboxReadOnly")` and emits a `tool_event` with
-  `phase="error"` and `error="SandboxReadOnly"`. Listing and reading remain
-  allowed. Has no effect in `store` mode.
+  - `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` — cache TTL in seconds for the preflight result (default `300`). Set `0` to disable caching and recheck each call.
+  - `INSPECT_SANDBOX_LOG_PATHS` — `1/true` to enrich the `files:sandbox_preflight` warning with contextual fields like `fs_root` and `tool`.
+  - `INSPECT_AGENTS_FS_READ_ONLY` — `1/true` enables audited read‑only mode in
+    sandbox. When `INSPECT_AGENTS_FS_MODE=sandbox` and this flag is truthy,
+    write/edit/delete operations are blocked: the files tool raises a
+    `ToolException("SandboxReadOnly")` and emits a `tool_event` with
+    `phase="error"` and `error="SandboxReadOnly"`. Listing and reading remain
+    allowed. Has no effect in `store` mode.
+  - End‑to‑end examples and expected errors: see ../how-to/filesystem.md#read-only-mode-sandbox
 - `INSPECT_AGENTS_FS_ROOT` — absolute root path for sandbox confinement (default `/repo`). Must be an absolute path; non‑absolute values are converted to absolute.
 - `INSPECT_AGENTS_FS_MAX_BYTES` — maximum allowed file size in bytes for read/write/edit operations (default `5_000_000`).
 

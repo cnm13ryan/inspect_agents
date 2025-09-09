@@ -65,6 +65,44 @@ export INSPECT_SANDBOX_LOG_PATHS=1
 Programmatic reset
 - `reset_sandbox_preflight_cache()` clears the cached preflight decision and TTL, forcing a fresh check on next use. This is intended for tests and debugging.
 
+## Read‑Only Mode (Sandbox)
+
+Enable an audited read‑only posture for the filesystem tools while using the sandbox adapter. In this mode, listing and reading are allowed; write, edit, and delete operations are blocked with a specific, short error code.
+
+When it applies
+- Only affects sandbox mode. It has no effect in `store` mode.
+- The guard triggers when sandbox preflight is active (i.e., `INSPECT_SANDBOX_PREFLIGHT` is not `skip`). If preflight is `skip` or fails, tools fall back to the in‑memory store and writes will succeed there.
+
+Enable
+```bash
+export INSPECT_AGENTS_FS_MODE=sandbox
+export INSPECT_AGENTS_FS_READ_ONLY=1   # block write/edit/delete; allow ls/read
+```
+
+What is allowed
+- `ls` and `read_file` continue to operate normally.
+
+What is blocked (and error)
+- `write_file`, `edit_file`, and `delete_file` raise `SandboxReadOnly` and emit a `tool_event` with `phase="error"` and `error="SandboxReadOnly"`.
+
+Examples (JSON‑style params)
+```json
+// Write attempt (blocked)
+{"params": {"command": "write", "file_path": "/repo/hello.txt", "content": "Hello"}}
+// -> Error: SandboxReadOnly
+
+// Edit attempt (blocked)
+{"params": {"command": "edit", "file_path": "/repo/hello.txt", "old_string": "Hello", "new_string": "Hi"}}
+// -> Error: SandboxReadOnly
+
+// Read is allowed
+{"params": {"command": "read", "file_path": "/repo/hello.txt", "view_range": [1, 50]}}
+```
+
+See also
+- Environment flags and semantics: ../reference/environment.md#filesystem--sandbox-mode-safety-limits
+- ADR and guardrails: ../adr/0004-filesystem-sandbox-guardrails.md
+
 ## Delete Policy
 - `delete_file` is supported only in `store` mode.
 - In `sandbox` mode, delete is intentionally disabled and raises `ToolException("SandboxUnsupported")`. Switch to store mode (`INSPECT_AGENTS_FS_MODE=store`) to delete from the in‑memory Files store. In sandbox read‑only mode (`INSPECT_AGENTS_FS_READ_ONLY=1`), delete raises `ToolException("SandboxReadOnly")`.
