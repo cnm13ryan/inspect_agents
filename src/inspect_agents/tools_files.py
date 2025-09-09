@@ -63,6 +63,16 @@ _deny_symlink = _fs.deny_symlink
 _validate_sandbox_path = _fs.validate_sandbox_path
 
 
+def _chunk_size_lines() -> int:
+    """Return chunk size for streaming reads from environment variable."""
+    import os
+
+    try:
+        return int(os.getenv("INSPECT_AGENTS_FS_CHUNK_LINES", "512"))
+    except (ValueError, TypeError):
+        return 512
+
+
 # Optional path policy checks (stubs by default)
 def _check_policy(path: str, op: str) -> None:
     """Optional policy hook to validate path operations.
@@ -434,9 +444,31 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
             # Compute 1-based start and inclusive end; -1 means EOF
             start_line = max(1, int(params.offset) + 1)
-            end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
+            max_lines = 0 if (params.limit is None or params.limit <= 0) else int(params.limit)
 
-            raw = await adapter.view(validated_path, start_line, end_line)
+            # Try view_chunks first if available, with fallback to view
+            chunk_size = _chunk_size_lines()
+            raw = ""
+
+            if hasattr(adapter, "view_chunks"):
+                try:
+                    chunks = []
+                    async for chunk in adapter.view_chunks(
+                        validated_path, start_line, max_lines, chunk_size_lines=chunk_size
+                    ):
+                        chunks.append(chunk)
+                    raw = "\n".join(chunks)
+                    # If we got empty content, fall back to view method
+                    if not raw.strip():
+                        raise Exception("Empty content from view_chunks, trying view fallback")
+                except Exception:
+                    # Fall back to regular view
+                    end_line = -1 if max_lines <= 0 else (start_line + max_lines - 1)
+                    raw = await adapter.view(validated_path, start_line, end_line)
+            else:
+                # Regular behavior - use view with computed end_line
+                end_line = -1 if max_lines <= 0 else (start_line + max_lines - 1)
+                raw = await adapter.view(validated_path, start_line, end_line)
 
             if raw is None or str(raw).strip() == "":
                 if _use_typed_results():
@@ -467,6 +499,9 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                 )
             _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(padded_lines)}, t0=_t0)
             return joined_output
+        except ToolException:
+            # Re-raise ToolExceptions (like size limit exceeded) without fallback
+            raise
         except Exception:
             # Secondary fallback: attempt a direct bash 'sed -n' read if available
             try:
