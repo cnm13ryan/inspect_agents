@@ -1,7 +1,7 @@
 """Tests for unified files tool with discriminated union."""
 
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -368,19 +368,11 @@ class TestFilesToolUnified:
             patch("inspect_agents.tools_files._use_typed_results", return_value=True),
             patch("inspect_agents.tools_files.anyio.fail_after"),
         ):
-            # Mock sandbox adapter's view to deterministically return content,
-            # and bash session to satisfy any incidental calls.
-            with (
-                patch("inspect_agents.fs_adapter.SandboxFsAdapter.view", new_callable=AsyncMock) as mock_view,
-                patch("inspect_ai.tool._tools._bash_session.bash_session") as mock_bash_session,
-            ):
-                mock_view.return_value = "line 1\nline 2\nline 3"
-                mock_execute = AsyncMock()
-                mock_result = Mock()
-                mock_result.stdout = "line 1\nline 2\nline 3"
-                mock_execute.return_value = mock_result
-                mock_bash_session.return_value = mock_execute
+            # Mock sandbox adapter's streaming view to deterministically return content.
+            async def _view_chunks_stub(_self, _path: str, _start: int, _max: int, *, chunk_size_lines: int = 512):
+                yield "line 1\nline 2\nline 3"
 
+            with patch("inspect_agents.fs_adapter.SandboxFsAdapter.view_chunks", new=_view_chunks_stub):
                 params = FilesParams(root=ReadParams(command="read", file_path="test.txt", offset=0, limit=2))
                 result = await self.tool(params)
 
