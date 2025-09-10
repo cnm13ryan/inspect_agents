@@ -1,32 +1,16 @@
-# quickstart_toy.py
-import asyncio
+#!/usr/bin/env python3
+"""Compatibility shim: moved to examples/inspect/quickstart_toy.py"""
 
-from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageAssistant
+from __future__ import annotations
 
-from inspect_agents.agents import build_supervisor
-from inspect_agents.run import run_agent
+import runpy
+import sys
+from pathlib import Path
 
-
-@agent
-def toy_submit_model():
-    async def execute(state: AgentState, tools):
-        state.messages.append(
-            ChatMessageAssistant(
-                content="",
-                tool_calls=[{"id": "1", "function": "submit", "arguments": {"answer": "DONE"}}],
-            )
-        )
-        return state
-
-    return execute
-
-
-async def main():
-    sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
-    result = await run_agent(sup, "hello")
-    print("Completion:", result.output.completion)
-
-
-asyncio.run(main())
-# Expected output: "Completion: DONE"
+if __name__ == "__main__":
+    print(
+        "[deprecated] scripts/quickstart_toy.py has moved to examples/inspect/quickstart_toy.py",
+        file=sys.stderr,
+    )
+    target = Path(__file__).resolve().parents[1] / "examples" / "inspect" / "quickstart_toy.py"
+    sys.exit(runpy.run_path(str(target), run_name="__main__") or 0)
