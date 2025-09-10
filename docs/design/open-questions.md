@@ -40,7 +40,7 @@ Decision Needed
 <summary>✅ Answer Found in Implementation</summary>
 
 **Finding**: `fs.py` imports `ToolException` from the centralized exceptions module, ensuring a single exception type across modules.
-**Evidence**: See `src/inspect_agents/fs.py` (imports `from .exceptions import ToolException`).
+**Evidence**: See `src/inspect_agents/fs.py` (imports `from .exceptions import ToolException`). 【F:src/inspect_agents/fs.py- L22-L24】
 **Conclusion**: Option A is implemented (centralized exceptions). This item can be marked resolved.
 
 </details>
@@ -70,7 +70,7 @@ Decision Needed
 <summary>✅ Answer Found in Implementation</summary>
 
 **Finding**: `ensure_sandbox_ready()` logs a structured JSON payload via the module logger (not `observability.log_tool_event`).
-**Evidence**: `src/inspect_agents/fs.py` — in the preflight failure path, emits `logger.info("tool_event %s", json.dumps(payload, ...))` with fields `{tool:"files:sandbox_preflight", phase:"warn", ok:false, ...}`.
+**Evidence**: `src/inspect_agents/fs.py` — in the preflight failure path, emits `logger.info("tool_event %s", json.dumps(payload, ...))` with fields `{tool:"files:sandbox_preflight", phase:"warn", ok:false, ...}`. 【F:src/inspect_agents/fs.py- L317-L323】
 **Conclusion**: Option B is in effect (local JSON logging with identical fields). No parity hook is used.
 
 </details>
@@ -104,6 +104,11 @@ Decision Needed
 **Conclusion**: Option A (keep both) is implemented. A formal deprecation timeline is not yet encoded in code/docs (timeline decision remains optional).
 
 </details>
+
+⚠️ Still Open - Requires Decision
+- Formalize and document the deprecation timeline for underscore
+  aliases (e.g., announce now; remove after two minor versions). No
+  user-visible policy exists yet.
 
 ### Q4 — Duplicate Code Cleanup in `tools_files.py`
 
@@ -253,7 +258,7 @@ Next Steps
 <summary>✅ Answer Found in Implementation</summary>
 
 **Finding**: Read‑only behavior is implemented behind `INSPECT_AGENTS_FS_READ_ONLY=1` for sandbox mode. Write/edit/delete return a `ToolException("SandboxReadOnly")` and emit `tool_event` with `error: "SandboxReadOnly"`; ls/read remain allowed.
-**Evidence**: `src/inspect_agents/tools_files.py` (guards in `execute_write`, `execute_edit`, `execute_delete`); tests in `tests/unit/inspect_agents/fs/test_fs_sandbox_readonly.py` assert exception text and log payloads.
+**Evidence**: `src/inspect_agents/tools_files.py` (read‑only guards): write guard for `files:write` and `SandboxReadOnly` error 【F:src/inspect_agents/tools_files.py- L801-L808】; edit guard for `files:edit` 【F:src/inspect_agents/tools_files.py- L960-L966】; delete guard for `files:delete` 【F:src/inspect_agents/tools_files.py- L1316-L1323】. Tests assert exception text and `tool_event` payloads for write/edit/delete. 【F:tests/unit/inspect_agents/fs/test_fs_sandbox_readonly.py- L15-L28】【F:tests/unit/inspect_agents/fs/test_fs_sandbox_readonly.py- L30-L44】【F:tests/unit/inspect_agents/fs/test_fs_sandbox_readonly.py- L46-L62】
 **Conclusion**: The chosen taxonomy/message and observability shape are implemented and tested.
 
 </details>
@@ -479,6 +484,11 @@ Gaps / Candidates
 
 Acceptance Criteria
 - Prioritize and add targeted tests; keep deterministic/offline by default.
+
+⚠️ Still Open - Requires Decision
+- Prioritize which remaining scenarios to add first (unknown tools,
+  malformed args, concurrent calls, handoff-exclusive). No additional
+  tests landed yet beyond those cited above.
 
 ---
 
@@ -783,6 +793,11 @@ Acceptance Criteria
 
 </details>
 
+⚠️ Still Open - Requires Decision
+- Decide whether to freeze `path` labels as a public, versioned
+  contract (additive-only), or keep them internal with smoke-test
+  guarantees only.
+
 ### 4) Source granularity — record where each decision came from?
 
 Current
@@ -1031,6 +1046,7 @@ Context
 **Conclusion**: Current state matches the first phase (silent aliases). Formal deprecation timeline/warnings not yet implemented.
 
 </details>
+
 
 ## 8) Documentation touchpoints
 
