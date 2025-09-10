@@ -1,5 +1,10 @@
 # TODO: YAML Config — Add Role Mapping for Sub‑Agents
 
+Status: DONE (2025-09-10)
+- Implemented: `SubAgentCfg` includes optional `role`; `build_from_config` resolves `model` via `resolve_model(role=...)` when explicit model is absent.
+- Code: src/inspect_agents/config.py, src/inspect_agents/model.py.
+- Tests: covered by model resolver tests under tests/unit/inspect_agents/.
+
 ## Context & Motivation
 - Purpose: allow `role` indirection in YAML so environments control provider/model centrally; explicit `model` remains higher precedence.
 - Problem: YAML supports only `model`; `resolve_model(role=...)` exists but can’t be used via config.

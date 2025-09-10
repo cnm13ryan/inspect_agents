@@ -1,5 +1,9 @@
 # TODO: Settings — Add `max_tool_output_env()` Accessor
 
+Status: DONE (2025-09-10)
+- Implemented: Added `settings.max_tool_output_env()` and adopted it in observability/iterative code paths.
+- Code: src/inspect_agents/settings.py; used in src/inspect_agents/observability.py and src/inspect_agents/iterative.py.
+
 ## Context & Motivation
 - Env parsing for `INSPECT_MAX_TOOL_OUTPUT` is duplicated in observability/iterative.
 

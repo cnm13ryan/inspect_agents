@@ -1,5 +1,9 @@
 # TODO: Docs — Add FS Design Note Backlink
 
+Status: DONE (2025-09-10)
+- Implemented: Added short Design Note backlinks in filesystem how‑to and environment reference.
+- Docs: see docs/how-to/filesystem.md (note block) and docs/reference/environment.md (references section).
+
 ## Context & Motivation
 - Add a short “Design Note” in Filesystem How‑To/Reference that links back to the consolidation rationale in open questions.
 

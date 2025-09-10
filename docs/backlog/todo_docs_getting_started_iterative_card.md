@@ -1,5 +1,9 @@
 # TODO: Docs — Add Iterative Quick‑Start Card to Getting Started
 
+Status: DONE (2025-09-10)
+- Implemented: Added a minimal iterative runner snippet (300s/20 steps) to the Quickstart and linked back to the reference.
+- Docs: see docs/getting-started/inspect_agents_quickstart.md.
+
 ## Context & Motivation
 - Getting Started lacks a minimal iterative snippet; examples link to reference only.
 

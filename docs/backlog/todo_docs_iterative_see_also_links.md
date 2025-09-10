@@ -1,5 +1,9 @@
 # TODO: Docs — Add “See Also” Block to Iterative Reference
 
+Status: DONE (2025-09-10)
+- Implemented: Added a concise "See Also" section with high‑value links (environment, settings API, supervisor limits, tool umbrellas, approvals).
+- Docs: see docs/reference/iterative-agent-behavior.md ("See Also").
+
 ## Context & Motivation
 - Readers lack backlinks from the reference to runners/tasks.
 

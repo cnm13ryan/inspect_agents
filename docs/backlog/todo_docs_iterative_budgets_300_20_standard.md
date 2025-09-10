@@ -1,5 +1,9 @@
 # TODO: Docs — Standardize Iterative Examples at 300s/20 Steps
 
+Status: DONE (2025-09-10)
+- Implemented: Examples in iterative reference and quickstart show 300s/20 steps while scripts keep defaults unchanged.
+- Docs: see docs/reference/iterative-agent-behavior.md and docs/getting-started/inspect_agents_quickstart.md.
+
 ## Context & Motivation
 - Reference/examples inconsistently show time/step budgets; propose standardizing examples at 300/20.
 
