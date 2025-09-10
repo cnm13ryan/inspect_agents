@@ -159,6 +159,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Session tracking (Codex helpers)
+.session_files
+
 # Pyre type checker
 .pyre/
 
