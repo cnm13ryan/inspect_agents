@@ -1,5 +1,9 @@
 # TODO: Docs — Add Supervisor Runner Subsection to Iterative Agent Reference
 
+Status: DONE (2025-09-10)
+- Implemented: Added a concise "Supervisor runner" subsection with flags and example under the iterative reference.
+- Docs: see docs/reference/iterative-agent-behavior.md (section: "Supervisor runner").
+
 ## Context & Motivation
 - Supervisor demo flags are not covered in the Iterative Agent reference, reducing discoverability.
 

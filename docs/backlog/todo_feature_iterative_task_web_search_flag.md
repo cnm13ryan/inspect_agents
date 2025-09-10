@@ -1,5 +1,9 @@
 # TODO: Iterative Task (Inspect) — `enable_web_search` Flag
 
+Status: DONE (2025-09-10)
+- Implemented: Added `enable_web_search` parameter; sets `INSPECT_ENABLE_WEB_SEARCH=1` when true.
+- Code: examples/tasks/iterative_task.py (usage documented in file header).
+
 ## Context & Motivation
 - Purpose: parity with local runner flag; simple way to enable search for the iterative task.
 - Problem: `examples/tasks/iterative_task.py` exposes only `enable_exec`.

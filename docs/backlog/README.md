@@ -1,6 +1,6 @@
 # Backlog Index
 
-Last updated: 2025-09-07
+Last updated: 2025-09-10
 
 Curated index of all items under `docs/backlog/`, grouped for quick navigation. This index is non‑destructive: it does not move or rename files to avoid breaking links. Use it to find the right TODO quickly.
 
@@ -21,12 +21,12 @@ Note on status:
 - [Iterative Agent — In‑Loop Sample Limits Enforcement (message/token soft stop)](./todo_feature_iterative_limits_enforcement.md) — DONE.
 
 ### Docs Alignment — Iterative Agent & CLI
-- [Iterative Reference — Add Supervisor Runner Subsection](./todo_docs_iterative_supervisor_subsection.md)
-- [Getting Started — Add Iterative Quick‑Start Card](./todo_docs_getting_started_iterative_card.md)
-- [Iterative Examples — Standardize at 300s/20 Steps](./todo_docs_iterative_budgets_300_20_standard.md)
-- [Iterative Reference — Add CLI Quick‑Reference Table](./todo_docs_iterative_quick_reference_table.md)
-- [Iterative Reference — Add “See Also” Backlinks](./todo_docs_iterative_see_also_links.md)
-- [Iterative Reference — Add `INSPECT_MAX_TOOL_OUTPUT` Example Invocation](./todo_docs_iterative_output_cap_example.md)
+- [Iterative Reference — Add Supervisor Runner Subsection](./todo_docs_iterative_supervisor_subsection.md) — DONE.
+- [Getting Started — Add Iterative Quick‑Start Card](./todo_docs_getting_started_iterative_card.md) — DONE.
+- [Iterative Examples — Standardize at 300s/20 Steps](./todo_docs_iterative_budgets_300_20_standard.md) — DONE.
+- [Iterative Reference — Add CLI Quick‑Reference Table](./todo_docs_iterative_quick_reference_table.md) — DONE.
+- [Iterative Reference — Add “See Also” Backlinks](./todo_docs_iterative_see_also_links.md) — DONE.
+- [Iterative Reference — Add `INSPECT_MAX_TOOL_OUTPUT` Example Invocation](./todo_docs_iterative_output_cap_example.md) — DONE.
 
 ### Approvals & Handoffs (ADR‑0005) — sorted by name
 - [Apply Exclusivity in CI for the Research Runner](./todo_ci_exclusivity_research_runner.md) — DONE.
@@ -37,13 +37,13 @@ Note on status:
 
 ### Config & YAML — sorted by name
 - [Model Roles Map — Implementation Checklists](./TODO-model-roles-map.md)
-- [YAML Config — Add Role Mapping for Sub‑Agents](./todo_feature_yaml_subagent_role_mapping.md)
+- [YAML Config — Add Role Mapping for Sub‑Agents](./todo_feature_yaml_subagent_role_mapping.md) — DONE.
 - [YAML Limits — Parse and Return Inspect Limits](./todo_feature_yaml_limits_parser.md) — DONE.
 
 ### Filesystem Sandbox (ADR‑0004) — sorted by name
 - [Filesystem Sandbox — Enforce Read‑Only Mode Flag](./todo_feature_fs_readonly_flag.md) — DONE.
 - [Docs Adjustments — Supervisor Tool Exposure & ADR 0004 Baseline](./todo_feature_readme_docs_updates.md)
-- [Docs — Add FS Design Note Backlink](./todo_docs_fs_design_note_backlink.md)
+- [Docs — Add FS Design Note Backlink](./todo_docs_fs_design_note_backlink.md) — DONE.
 - [Sandbox — Best Practices Feature Set (Epic: profiles, provider hardening, FS ops, audits)](./todo_features_sandbox_best_practices.md)
 
 ### Iterative Agent & Pruning — sorted by name
