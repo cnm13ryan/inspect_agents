@@ -48,3 +48,14 @@ Example NetworkPolicy for N1
 - See `policies/networkpolicy-n1-proxy-egress.yaml` for a policy that
   allows egress only to kube-dns and a labeled in-namespace proxy. Apply
   it after deploying the sandbox and ensure your proxy enforces domains.
+
+E2E tests (opt-in)
+- Static defaults are validated via a lightweight test that inspects
+  `values.yaml`.
+- Runtime checks (namespace pod-security labels, container security
+  context, and default-deny egress) are opt-in to avoid CI dependencies.
+- Enable with: `INSPECT_E2E_SANDBOX=1 INSPECT_E2E_K8S_CHART=<chart>` and
+  run: `pytest -q -m sandbox_e2e -k k8s`.
+- Requires `kubectl`+`helm`, a working cluster, and the Inspect sandbox
+  chart. The test performs best-effort teardown (uninstall release and
+  delete the test namespace).
