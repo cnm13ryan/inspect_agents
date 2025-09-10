@@ -9,8 +9,7 @@
 #   - Mode A: Auto-detected; file-driven using prompts/features/* when no plan/phase files present
 #
 # For batch modes, the script writes prompts/FEATURE_PROMPT.txt into each worktree.
-# The "single" subcommand writes a per-worktree .env with log/trace paths, mirroring
-# the previous scripts/new_worktree.sh behavior but without uv/venv bootstrapping.
+# The "single" subcommand writes a per-worktree .env with log/trace paths.
 #
 set -euo pipefail
 
