@@ -234,6 +234,22 @@
       "description": "Runner near-limit threshold (0<val<1)."
     },
     {
+      "name": "INSPECT_OBS_INCLUDE_PROFILE",
+      "category": "Observability",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Include profile context (t/h/n) and fs_root in files:* tool events."
+    },
+    {
+      "name": "INSPECT_OBS_REDACT_PATHS",
+      "category": "Observability",
+      "type": "bool",
+      "default": false,
+      "sensitive": false,
+      "description": "Redact path-like values (fs_root basename only) in observability payloads when profile context is enabled."
+    },
+    {
       "name": "INSPECT_MODEL_DEBUG",
       "category": "Debug",
       "type": "bool",
