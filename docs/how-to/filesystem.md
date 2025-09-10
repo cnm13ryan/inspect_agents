@@ -69,6 +69,22 @@ Programmatic reset
 - `delete_file` is supported only in `store` mode.
 - In `sandbox` mode, delete is intentionally disabled and raises `ToolException("SandboxUnsupported")`. Switch to store mode (`INSPECT_AGENTS_FS_MODE=store`) to delete from the in‑memory Files store. In sandbox read‑only mode (`INSPECT_AGENTS_FS_READ_ONLY=1`), delete raises `ToolException("SandboxReadOnly")`.
 
+### Trash (Audited Delete)
+- Use the unified `files` tool with the `trash` command to move paths to a per‑run trash directory instead of hard‑deleting in sandbox mode.
+- Destination: `/.trash/<unix_ts>/<rel_path>` under the configured root (`INSPECT_AGENTS_FS_ROOT`, default `/repo`).
+- Behavior:
+  - Sandbox: validates path, denies symlinks, enforces path policy, then creates the trash parent and moves the file. Emits `files:trash` start/end events with `src` and `dst`.
+  - Store: re‑keys the in‑memory entry to `.trash/<unix_ts>/<rel_path>` and emits the same events.
+
+Example
+```python
+from inspect_agents.tools_files import files_tool, FilesParams, TrashParams
+
+tool = files_tool()
+await tool(params=FilesParams(root=TrashParams(command="trash", file_path="docs/a.txt")))
+# -> logs: tool_event {"tool":"files:trash","phase":"end","src":"docs/a.txt","dst":".trash/1699999999/docs/a.txt"}
+```
+
 ## Confinement, Symlinks, and Size
 - Root confinement (sandbox): file paths are validated to live under `INSPECT_AGENTS_FS_ROOT` (absolute, default `/repo`). Attempts to access paths outside the root are rejected before invoking the editor.
 - Symlink denial (sandbox): symbolic links are denied for read/write/edit as a safety measure.
