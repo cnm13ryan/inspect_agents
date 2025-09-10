@@ -412,6 +412,34 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
                 root = _fs_root()
                 file_list = await adapter.ls(root)
 
+                # Optional policy enforcement on ls results (feature-flagged)
+                if _truthy(os.getenv("INSPECT_FS_POLICY_ENFORCE_READS")):
+                    try:
+                        # Filter out denied paths; emit a structured error for each denied entry
+                        allowed: list[str] = []
+                        for name in file_list:
+                            abs_path = os.path.join(root, name)
+                            kind, rule = _match_path_policy(abs_path)
+                            if kind == "deny":
+                                _log_tool_event(
+                                    name="files:ls",
+                                    phase="error",
+                                    extra={
+                                        "ok": False,
+                                        "error": "PolicyDenied",
+                                        "policy_rule": rule,
+                                        "path": name,
+                                    },
+                                    t0=_t0,
+                                )
+                                continue
+                            allowed.append(name)
+                        # Ensure deterministic ordering when policy is enforced
+                        file_list = sorted(allowed)
+                    except Exception:
+                        # Policy evaluation must not crash ls; fall back to original list
+                        pass
+
                 if _use_typed_results():
                     _log_tool_event(
                         name="files:ls",
@@ -510,6 +538,21 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         validated_path = adapter.validate(params.file_path)
         # Symlink denial (adapter itself no-ops when sandbox is unavailable)
         await adapter.deny_symlink(validated_path)
+
+        # Optional policy enforcement for reads (feature-flagged)
+        if _truthy(os.getenv("INSPECT_FS_POLICY_ENFORCE_READS")):
+            try:
+                _check_policy(validated_path, "read")
+            except ToolException:
+                # Emit structured error with matching rule for observability
+                kind, rule = _match_path_policy(validated_path)
+                _log_tool_event(
+                    name="files:read",
+                    phase="error",
+                    extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
+                    t0=_t0,
+                )
+                raise
 
         try:
             # Optional byte preflight via wc -c (no-op if bash is unavailable)
