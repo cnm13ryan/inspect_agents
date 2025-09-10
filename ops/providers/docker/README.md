@@ -36,3 +36,10 @@ Mapping to profiles
 - H1 corresponds to Docker/Compose. Use this template with:
   - T2 (text-only) or T1 (web-only) profiles
   - T0 (exec) only when approvals and sandbox policies are in place
+
+E2E tests (opt-in)
+- These provider-hardening tests are optional and disabled by default.
+- Enable with: `INSPECT_E2E_SANDBOX=1 pytest -q -m sandbox_e2e -k docker`
+- The test brings `compose.yaml` up and verifies non-root UID/GID,
+  read-only rootfs, `no-new-privileges`, `cap_drop: [ALL]`, and a PIDs
+  limit. Teardown runs `docker compose down -v`.
