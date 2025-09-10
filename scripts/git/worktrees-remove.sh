@@ -11,9 +11,9 @@ set -euo pipefail
 # - Inspired by the interactive style of env_templates/configure.py.
 #
 # Usage:
-#   scripts/remove_worktrees.sh [--all] [--force]
-#                               [--select <spec>] [--yes]
-#                               [--delete-branch] [--force-branch]
+#   scripts/git/worktrees-remove.sh [--all] [--force]
+#                                   [--select <spec>] [--yes]
+#                                   [--delete-branch] [--force-branch]
 #
 # Flags:
 #   --all            Include all worktrees (not just those under .worktrees/.worktree)
@@ -34,9 +34,9 @@ also delete their local branches. Defaults to scanning .worktrees/ and
 .worktree/ under the repo root.
 
 Usage:
-  scripts/remove_worktrees.sh [--all] [--force]
-                              [--select <spec>] [--yes]
-                              [--delete-branch] [--force-branch]
+  scripts/git/worktrees-remove.sh [--all] [--force]
+                                  [--select <spec>] [--yes]
+                                  [--delete-branch] [--force-branch]
 
 Options:
   --all            Include all worktrees (not only under .worktrees/.worktree)
