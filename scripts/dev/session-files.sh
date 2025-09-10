@@ -7,7 +7,7 @@ cmd="${1:-usage}"
 
 usage() {
   cat <<EOF
-Usage: scripts/session-init.sh [init|add|check|list|clear]
+Usage: scripts/dev/session-files.sh [init|add|check|list|clear]
   init  - create .session_files if missing
   add   - append path(s) to .session_files
   check - ensure staged files ⊆ .session_files
