@@ -1,57 +1,70 @@
-# Worktree Helper Scripts
+# Scripts Index (by concern)
 
-This folder contains utilities to streamline parallel feature development using Git worktrees.
+This directory now groups scripts by concern to make them easier to find and to keep generated artifacts out of version control. The legacy top‑level filenames remain as thin wrappers for one release cycle and print a deprecation note when used.
 
-## create_feature_worktrees.sh — Single or Batch Worktree Creation
+## Git
+- `scripts/git/worktrees-create.sh` — create one or many Git worktrees (moved from `scripts/create_feature_worktrees.sh`).
+- `scripts/git/worktrees-remove.sh` — interactive Git worktree remover (moved from `scripts/remove_worktrees.sh`).
 
-- Purpose: create one or many Git worktrees for feature development. The `single` subcommand creates one worktree quickly and writes a per‑worktree `.env`. Batch modes derive branches from phase files, a plan JSON, or feature files and write a `prompts/FEATURE_PROMPT.txt` into each worktree.
-- Location: `scripts/create_feature_worktrees.sh`
-- Requirements: Git ≥ 2.5 and bash.
+Quick help:
+- `bash scripts/git/worktrees-create.sh single -h`
+- `bash scripts/git/worktrees-remove.sh -h`
 
-### Quick Start (single worktree)
+## Eval
+- `scripts/eval/export-log-json.sh` — export Inspect logs to JSON (moved from `scripts/export_eval_json.sh`).
+  - Note: when called via the old path, the default output remains `scripts/eval.json`; the new path defaults to `scripts/eval/eval.json`.
+- `scripts/eval/read-log-eval.py` — inspect latest `.eval` log (moved from `scripts/read_log_eval.py`).
+
+Quick help:
+- `bash scripts/eval/export-log-json.sh -h`
+- `uv run python scripts/eval/read-log-eval.py -h`
+
+## Docs
+- `scripts/docs/status-sweep.py` — sweep/verify docs status (moved from `scripts/sweep_status.py`).
+- `scripts/docs/gen-env-docs.py` — generate env docs/templates (moved from `scripts/gen_env_docs.py`).
+
+Quick help:
+- `uv run python scripts/docs/gen-env-docs.py -h`
+- `uv run python scripts/docs/status-sweep.py -h`
+
+## Dev
+- `scripts/dev/session-files.sh` — manage `.session_files` (moved from `scripts/session-init.sh`).
+
+## Scaffold
+- `scripts/scaffold/agent.py` — scaffold a minimal agent and optional test (moved from `scripts/scaffold_agent.py`).
+
+## Examples
+- `examples/inspect/quickstart_toy.py` — toy example moved from `scripts/quickstart_toy.py`.
+
+## Removed / No longer used
+- `scripts/hooks.py` (MkDocs post‑build): removed — `mkdocs-exclude-search` handles backlog filtering.
+
+---
+
+## Worktrees — Quick Start
+
+Create a single worktree:
 
 ```bash
-# From your main repo clone (clean working tree recommended)
-bash scripts/create_feature_worktrees.sh single --branch feat/fs-atomic
-
-# Specify a custom path and push upstream
-bash scripts/create_feature_worktrees.sh single --branch feat/profiles --path ../inspect_agents-profiles --push
+bash scripts/git/worktrees-create.sh single --branch feat/fs-atomic
 ```
 
-### Batch Modes (auto-detected)
-
-- Mode C: uses `prompts/features_by_phase/phase-*.md` (merged phase files)
-- Mode B: uses `prompts/plan/features_plan.json` plus `prompts/features/`
-- Mode A: uses files in `prompts/features/` when no plan/phase files are present
-
-Run:
+Batch modes (auto‑detected by inputs in `prompts/`): run with no args:
 
 ```bash
-bash scripts/create_feature_worktrees.sh
+bash scripts/git/worktrees-create.sh
 ```
 
-Filters via env vars: `PHASES=1,2 GROUPS=A bash scripts/create_feature_worktrees.sh`
+Filters via env vars:
 
-### Working With Multiple Codex Sessions
+```bash
+PHASES=1,2 GROUPS=A bash scripts/git/worktrees-create.sh
+```
 
-- Start a separate session per worktree and set the session’s CWD to the worktree path (each session works on its own branch).
-- Keep environments and logs isolated per worktree via the generated `.env` (written by `single` and by batch modes when creating prompts/FEATURE_PROMPT.txt).
-- If your runner requires it, export `INSPECT_ENV_FILE=.env` before running.
-
-### Common Tasks
-
+Common tasks:
 - List worktrees: `git worktree list`
-- Remove a worktree after merge: `git worktree remove <path> && git worktree prune`
-- Push branch later: `git push -u origin <branch>`
-- Rebase worktree branch: `git fetch origin && git rebase origin/main`
+- Remove worktrees: `bash scripts/git/worktrees-remove.sh`
 
-### Troubleshooting
-
-- "Branch is already checked out": create a new branch name; Git forbids checking the same branch in multiple worktrees.
-- "Not inside a git repository": run the script from within a cloned repo.
-- Provider/submodule differences: if your feature changes submodules or provider configs, repeat any required `git submodule update` inside each worktree.
-
-### Notes
-
-- Worktrees share the same `.git` object store, so large binary files affect disk usage across all worktrees.
-- Prefer selective staging (`git add -p -- <paths>`) to keep commits scoped per feature.
+Notes:
+- Per‑worktree `.env` sets `INSPECT_LOG_DIR` and `INSPECT_TRACE_FILE` for isolation.
+- Worktrees share the same Git object store; prefer selective staging (`git add -p -- <paths>`).
