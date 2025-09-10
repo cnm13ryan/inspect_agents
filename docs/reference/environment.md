@@ -73,6 +73,8 @@ The blocks below are generated from a single machine‑readable spec to avoid dr
 | `INSPECT_LIMIT_NEARING_THRESHOLD` | float | 0.8 | no | Runner near-limit threshold (0<val<1). |
 | `INSPECT_LOG_DIR` | path | .inspect/logs | no | Transcript/log output directory. |
 | `INSPECT_MAX_TOOL_OUTPUT` | int | 16384 | no | Global tool-output cap bytes (0 disables). |
+| `INSPECT_OBS_INCLUDE_PROFILE` | bool | False | no | Include profile context (t/h/n) and fs_root in files:* tool events. |
+| `INSPECT_OBS_REDACT_PATHS` | bool | False | no | Redact path-like values (fs_root basename only) in observability payloads when profile context is enabled. |
 | `INSPECT_TOOL_OBS_TRUNCATE` | int | 200 | no | Max chars for string fields in tool logs. |
 | `INSPECT_TRACE_FILE` | path |  | no | Optional trace file path. |
 
@@ -140,6 +142,8 @@ The blocks below are generated from a single machine‑readable spec to avoid dr
 # INSPECT_LIMIT_NEARING_THRESHOLD=0.8
 # INSPECT_LOG_DIR=.inspect/logs
 # INSPECT_MAX_TOOL_OUTPUT=16384
+# INSPECT_OBS_INCLUDE_PROFILE=0
+# INSPECT_OBS_REDACT_PATHS=0
 # INSPECT_TOOL_OBS_TRUNCATE=200
 # INSPECT_TRACE_FILE=
 

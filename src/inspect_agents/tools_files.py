@@ -20,7 +20,8 @@ if TYPE_CHECKING:  # pragma: no cover
 from . import fs as _fs
 from .exceptions import ToolException
 from .fs_adapter import get_default_adapter as _get_sandbox_adapter
-from .observability import log_tool_event as _log_tool_event
+from .observability import log_tool_event as _base_log_tool_event
+from .profiles import parse_profile as _parse_profile
 from .settings import (
     typed_results_enabled as _use_typed_results,
 )
@@ -61,6 +62,96 @@ _fs_root = _fs.fs_root
 _max_bytes = _fs.max_bytes
 _deny_symlink = _fs.deny_symlink
 _validate_sandbox_path = _fs.validate_sandbox_path
+
+
+# ---------------------------------------------------------------------------
+# Observability enrichment: include profile context in files:* tool events
+# ---------------------------------------------------------------------------
+
+
+def _obs_profile_extra() -> dict[str, object]:
+    """Return optional profile/fs_root fields for observability logs.
+
+    Controlled by env flags:
+    - INSPECT_OBS_INCLUDE_PROFILE: when truthy, include t/h/n (if available)
+      and fs_root in the tool_event payload.
+    - INSPECT_OBS_REDACT_PATHS: when truthy, redact path-like values
+      (fs_root) to avoid leaking host paths in logs.
+    """
+    try:
+        if not _truthy(os.getenv("INSPECT_OBS_INCLUDE_PROFILE")):
+            return {}
+
+        # fs_root is always included when the flag is enabled
+        root = _fs_root()
+        if _truthy(os.getenv("INSPECT_OBS_REDACT_PATHS")):
+            try:
+                # Redact by keeping only the basename; if that fails, mask
+                import os as _os
+
+                redacted_root = _os.path.basename(root.rstrip(_os.sep)) or "[redacted]"
+            except Exception:
+                redacted_root = "[redacted]"
+            fs_root_val: object = redacted_root
+        else:
+            fs_root_val = root
+
+        # Parse INSPECT_PROFILE if present; ignore on parse errors
+        t: str | None = None
+        h: str | None = None
+        n: str | None = None
+        raw = (os.getenv("INSPECT_PROFILE") or "").strip()
+        if raw:
+            try:
+                t, h, n = _parse_profile(raw)
+            except Exception:
+                # Do not raise; simply omit t/h/n when invalid
+                t = h = n = None
+
+        out: dict[str, object] = {"fs_root": fs_root_val}
+        if t and h and n:
+            out.update({"t": t, "h": h, "n": n})
+        return out
+    except Exception:
+        # Never let observability impact control flow
+        return {}
+
+
+def _merge_obs_extra(extra: dict[str, object] | None) -> dict[str, object] | None:
+    """Merge profile extra with provided extra without overwriting its keys.
+
+    When disabled via env, returns the original extra unchanged.
+    """
+    try:
+        base = _obs_profile_extra()
+        if not base:
+            return extra
+        if extra is None:
+            return base
+        # Preserve existing keys by letting `extra` win on conflicts
+        merged = dict(base)
+        merged.update(extra)
+        return merged
+    except Exception:
+        return extra
+
+
+def _log_tool_event(
+    *,
+    name: str,
+    phase: str,
+    args: dict[str, object] | None = None,
+    extra: dict[str, object] | None = None,
+    t0: float | None = None,
+) -> float:
+    """Thin wrapper that augments files:* events with profile context.
+
+    Mirrors the upstream signature and delegates to observability.log_tool_event.
+    """
+    # Only augment files:* events
+    if isinstance(name, str) and name.startswith("files:"):
+        extra = _merge_obs_extra(extra)
+    return _base_log_tool_event(name=name, phase=phase, args=args, extra=extra, t0=t0)
 
 
 def _chunk_size_lines() -> int:
