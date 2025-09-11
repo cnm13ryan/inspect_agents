@@ -60,7 +60,17 @@ jobs:
           "
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: |
+          uv sync --dev
+          # Explicitly install testing dependencies
+          uv sync --extra testing
+
+      - name: Verify pytest installation
+        run: |
+          echo "Checking pytest installation..."
+          uv run python -m pytest --version || echo "pytest not found via -m pytest"
+          uv run python -c "import sys; print('Python path:', sys.path)" || echo "Python path check failed"
+          uv pip list | grep pytest || echo "No pytest in pip list"
 
       - name: Verify version consistency
         run: |
@@ -86,7 +96,7 @@ jobs:
 
       - name: Run tests
         run: |
-          CI=1 NO_NETWORK=1 PYTHONPATH=src uv run pytest -q tests/ --tb=short
+          CI=1 NO_NETWORK=1 PYTHONPATH=src uv run python -m pytest -q tests/ --tb=short
 
       - name: Run linting
         run: uv run ruff check
