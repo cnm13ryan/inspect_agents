@@ -22,6 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,6 +33,25 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+
+      - name: Prepare CI environment
+        run: |
+          # For CI, use PyPI version of inspect-ai instead of workspace
+          python -c "
+          import re
+
+          # Read pyproject.toml
+          with open('pyproject.toml', 'r') as f:
+              content = f.read()
+
+          # Remove workspace configuration
+          content = re.sub(r'\[tool\.uv\.workspace\].*?(?=\n\[|\nZ)', '', content, flags=re.DOTALL)
+          content = re.sub(r'\[tool\.uv\.sources\].*?(?=\n\[|\nZ)', '', content, flags=re.DOTALL)
+
+          # Write back
+          with open('pyproject.toml', 'w') as f:
+              f.write(content)
+          "
 
       - name: Install dependencies
         run: uv sync --dev
