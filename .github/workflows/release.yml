@@ -37,20 +37,26 @@ jobs:
       - name: Prepare CI environment
         run: |
           # For CI, use PyPI version of inspect-ai instead of workspace
+          # First install tomli-w for TOML writing
+          pip install tomli-w
           python -c "
-          import re
+          import tomllib
+          import tomli_w
 
-          # Read pyproject.toml
-          with open('pyproject.toml', 'r') as f:
-              content = f.read()
+          # Read and parse pyproject.toml
+          with open('pyproject.toml', 'rb') as f:
+              data = tomllib.load(f)
 
-          # Remove workspace configuration sections
-          content = re.sub(r'\[tool\.uv\.workspace\][^[]*', '', content, flags=re.DOTALL)
-          content = re.sub(r'\[tool\.uv\.sources\][^[]*', '', content, flags=re.DOTALL)
+          # Remove workspace configuration
+          if 'tool' in data and 'uv' in data['tool']:
+              if 'workspace' in data['tool']['uv']:
+                  del data['tool']['uv']['workspace']
+              if 'sources' in data['tool']['uv']:
+                  del data['tool']['uv']['sources']
 
           # Write back
-          with open('pyproject.toml', 'w') as f:
-              f.write(content)
+          with open('pyproject.toml', 'wb') as f:
+              tomli_w.dump(data, f)
           "
 
       - name: Install dependencies
