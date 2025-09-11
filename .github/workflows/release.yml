@@ -44,9 +44,9 @@ jobs:
           with open('pyproject.toml', 'r') as f:
               content = f.read()
 
-          # Remove workspace configuration
-          content = re.sub(r'\[tool\.uv\.workspace\].*?(?=\n\[|\nZ)', '', content, flags=re.DOTALL)
-          content = re.sub(r'\[tool\.uv\.sources\].*?(?=\n\[|\nZ)', '', content, flags=re.DOTALL)
+          # Remove workspace configuration sections
+          content = re.sub(r'\[tool\.uv\.workspace\][^[]*', '', content, flags=re.DOTALL)
+          content = re.sub(r'\[tool\.uv\.sources\][^[]*', '', content, flags=re.DOTALL)
 
           # Write back
           with open('pyproject.toml', 'w') as f:
@@ -55,9 +55,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --dev
-
-      - name: Verify pytest is available
-        run: uv run python -c "import pytest; print('pytest version:', pytest.__version__)"
 
       - name: Verify version consistency
         run: |
