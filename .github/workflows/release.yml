@@ -62,15 +62,17 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --dev
-          # Explicitly install testing dependencies
-          uv sync --extra testing
+          # Explicitly install all optional dependencies
+          uv sync --extra dev --extra testing --extra utilities
 
-      - name: Verify pytest installation
+      - name: Verify tools installation
         run: |
           echo "Checking pytest installation..."
           uv run python -m pytest --version || echo "pytest not found via -m pytest"
-          uv run python -c "import sys; print('Python path:', sys.path)" || echo "Python path check failed"
-          uv pip list | grep pytest || echo "No pytest in pip list"
+          echo "Checking ruff installation..."
+          uv run ruff --version || echo "ruff not found"
+          echo "Checking available packages..."
+          uv pip list | grep -E "(pytest|ruff)" || echo "pytest/ruff not in pip list"
 
       - name: Verify version consistency
         run: |
