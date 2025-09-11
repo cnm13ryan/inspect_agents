@@ -5,13 +5,14 @@ This library extends Inspect‑AI with higher‑level agent orchestration, typed
 
 ![Quick Demo](docs/assets/demo.gif)
 
-[![Build](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/ci.yml?branch=main)](https://github.com/cnm13ryan/inspect_agents/actions)
-[![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/tests.yml?label=tests&branch=main)](https://github.com/cnm13ryan/inspect_agents/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/cnm13ryan/inspect_agents?branch=main)](https://app.codecov.io/gh/cnm13ryan/inspect_agents)
+[![Build](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/ci.yml?branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/tests.yml?label=tests&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
+[![Lint](https://img.shields.io/github/actions/workflow/status/cnm13ryan/inspect_agents/lint.yml?label=lint&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/cnm13ryan/inspect_agents?branch=inspect-ai-rewrite)](https://app.codecov.io/gh/cnm13ryan/inspect_agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PyPI Version](https://img.shields.io/pypi/v/inspect-agents)](https://pypi.org/project/inspect-agents/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/inspect-agents)](https://pypi.org/project/inspect-agents/)
-[![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/inspect_agents/main)](https://github.com/cnm13ryan/inspect_agents/commits/main)
+[![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/inspect_agents/inspect-ai-rewrite)](https://github.com/cnm13ryan/inspect_agents/commits/inspect-ai-rewrite)
 [![Docs](https://img.shields.io/badge/docs-mkdocs%20material-0A7BBB)](https://cnm13ryan.github.io/inspect_agents)
 
 ## Quickstart (self‑contained)
