@@ -1,0 +1,20 @@
+# PyPI Configuration Template
+# Copy this to ~/.pypirc and fill in your credentials
+#
+# For automated publishing, use GitHub trusted publishing instead:
+# https://docs.pypi.org/trusted-publishers/
+
+[distutils]
+index-servers =
+    pypi
+    testpypi
+
+[pypi]
+repository = https://upload.pypi.org/legacy/
+username = __token__
+password = # Your PyPI API token (starts with pypi-)
+
+[testpypi]
+repository = https://test.pypi.org/legacy/
+username = __token__
+password = # Your TestPyPI API token (starts with pypi-)

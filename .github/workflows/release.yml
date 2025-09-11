@@ -1,0 +1,177 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.0.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write  # For PyPI trusted publishing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Verify version consistency
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Extract version from tag (remove 'v' prefix)
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # Use workflow dispatch input
+            TAG_VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          # Get version from pyproject.toml
+          PROJECT_VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+
+          echo "Tag/Input version: $TAG_VERSION"
+          echo "Project version: $PROJECT_VERSION"
+
+          if [[ "$TAG_VERSION" != "$PROJECT_VERSION" ]]; then
+            echo "❌ Version mismatch: tag/input ($TAG_VERSION) != pyproject.toml ($PROJECT_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version consistency verified: $TAG_VERSION"
+
+      - name: Run tests
+        run: |
+          CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/
+
+      - name: Run linting
+        run: uv run ruff check
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify package contents
+        run: |
+          uv run python -m tarfile -l dist/*.tar.gz
+          uv run python -c "
+          import zipfile
+          import glob
+          for wheel in glob.glob('dist/*.whl'):
+              print(f'\\n=== {wheel} ===')
+              with zipfile.ZipFile(wheel) as z:
+                  for name in sorted(z.namelist()):
+                      print(name)
+          "
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  test-install:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Test wheel installation
+        run: |
+          python -m pip install --find-links dist/ inspect-agents
+          python -c "
+          import inspect_agents
+          print(f'✅ Successfully imported inspect_agents')
+          print(f'Available: {dir(inspect_agents)}')
+          "
+
+  publish:
+    needs: [build, test-install]
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+          verify-metadata: true
+
+  create-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Extract release notes
+        id: extract-notes
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            TAG_VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          # Extract changelog section for this version
+          awk -v version="$TAG_VERSION" '
+          /^## \['"$TAG_VERSION"'\]/ { found=1; next }
+          /^## \[/ && found { exit }
+          found && /^$/ { next }
+          found { print }
+          ' CHANGELOG.md > release_notes.md
+
+          echo "release_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', github.event.inputs.version) }}
+          name: Release ${{ steps.extract-notes.outputs.release_version }}
+          body_path: release_notes.md
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(steps.extract-notes.outputs.release_version, 'alpha') || contains(steps.extract-notes.outputs.release_version, 'beta') || contains(steps.extract-notes.outputs.release_version, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
