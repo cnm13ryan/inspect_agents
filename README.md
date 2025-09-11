@@ -170,7 +170,7 @@ Fallback: `docs/diagrams/architecture_overview.png`
 To preview docs locally, see: [docs/README.md](docs/README.md)
 
 ## Project Status
-- Version: 0.0.4 (repo) / see PyPI badge for latest
+- Version: 0.0.1 (repo) / see PyPI badge for latest
 - Status: Beta
 - Python: 3.11+ (tested on 3.12)
 - Roadmap: [Milestones](https://github.com/cnm13ryan/inspect_agents/milestones) | [Projects](https://github.com/cnm13ryan/inspect_agents/projects)

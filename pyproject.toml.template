@@ -1,0 +1,17 @@
+# This file shows the PyPI publishing configuration already present in pyproject.toml
+# No additional configuration needed for PyPI publishing.
+
+# The existing pyproject.toml already contains:
+# - Proper package metadata
+# - Build system configuration (pdm-backend)
+# - All required fields for PyPI
+
+# For trusted publishing setup (recommended):
+# 1. Go to https://pypi.org/manage/account/publishing/
+# 2. Add a trusted publisher for this GitHub repository
+# 3. Configure workflow: .github/workflows/release.yml
+# 4. Environment: release (optional, but recommended for protection)
+
+# Manual publishing commands (if not using trusted publishing):
+# uv build
+# uv publish  # requires PyPI credentials
