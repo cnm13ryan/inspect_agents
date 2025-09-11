@@ -57,7 +57,7 @@ jobs:
         run: uv sync --dev
 
       - name: Verify pytest is available
-        run: uv run python -c "import pytest; print(f'pytest version: {pytest.__version__}')"
+        run: uv run python -c "import pytest; print('pytest version:', pytest.__version__)"
 
       - name: Verify version consistency
         run: |
