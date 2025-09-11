@@ -1,5 +1,7 @@
 # inspect_agents
-> Inspect‑AI–native, CLI‑first agents with typed state, tools, and rich traces. Ship agents in minutes, not days.
+> Inspect‑AI–native agents with typed state, safe tools, and rich traces.
+
+This library extends Inspect‑AI with higher‑level agent orchestration, typed state (todos and virtual files), and a small set of Inspect‑native tools. It is safe by default: optional standard tools (think, web_search, bash/python, web_browser, text_editor) are gated behind environment flags, and sandboxed filesystem operations are constrained.
 
 ![Quick Demo](docs/assets/demo.gif)
 
@@ -12,16 +14,12 @@
 [![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/inspect_agents/main)](https://github.com/cnm13ryan/inspect_agents/commits/main)
 [![Docs](https://img.shields.io/badge/docs-mkdocs%20material-0A7BBB)](https://cnm13ryan.github.io/inspect_agents)
 
-## Quickstart (Offline, 60 seconds)
-Works with zero API keys and no local model server. New here? Follow these three steps, then see the docs Home.
-
-Start Here
-- `uv sync`
-- `uv run python env_templates/configure.py`
-- `python scripts/quickstart_toy.py` → prints `Completion: DONE`
+## Quickstart (self‑contained)
+Uses local sources via `PYTHONPATH` and requires no provider setup. This validates the code path without contacting external services.
 
 ```bash
-python scripts/quickstart_toy.py
+export PYTHONPATH=src:external/inspect_ai
+python examples/inspect/quickstart_toy.py
 # Expected: Completion: DONE
 ```
 
@@ -30,17 +28,21 @@ python scripts/quickstart_toy.py
 [Docs Home →](https://cnm13ryan.github.io/inspect_agents)
 
 ## Why Inspect Agents?
-Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. Inspect Agents removes the overhead with an Inspect-AI-native, CLI-first workflow: one command to run; typed state (todos/files); built-in tools; transcripts and traces by default. Ship in minutes, not days.
+Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. Inspect Agents removes overhead with an Inspect‑AI‑native workflow: typed state (todos/files), built‑in tools, and rich transcripts/traces by default. You can run a toy agent offline in seconds (see Quickstart above).
 
 ## Key Features
-- ✅ **CLI-first**: One command to run an agent or eval with Inspect
-- ✅ **Inspect-native tools**: Todos + virtual filesystem (store or sandbox)
-- ✅ **Optional standard tools**: Think, web_search, bash/python, web_browser, text_editor (policy: `bash_session` is internal‑only; used by the FS sandbox and not exposed)
-- ✅ **Typed state**: Simple, explicit models backed by Inspect Store
-- ✅ **Sub-agents**: Choose "handoff" (iterative control-flow) or "tool" (single-shot)
-- ✅ **Traces & transcripts**: Rich logs and JSONL artifacts out of the box
-- ✅ **Safe by default**: Approvals, quarantine filters, and sandbox file operations
-- ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
+- ✅ Inspect‑native tools: Todos + virtual filesystem
+  - Default: in‑memory “store” (ephemeral; isolated per run)
+  - Optional: sandbox (routes through Inspect’s `text_editor`/`bash_session`; delete disabled)
+- ✅ Optional standard tools (gated by env flags):
+  - `INSPECT_ENABLE_THINK` (default on), `INSPECT_ENABLE_WEB_SEARCH` (auto when provider keys set),
+    `INSPECT_ENABLE_EXEC`, `INSPECT_ENABLE_WEB_BROWSER`, `INSPECT_ENABLE_TEXT_EDITOR_TOOL` (default off)
+  - The stateful `bash_session` tool is never exposed by this repo; it’s used internally for sandbox FS.
+- ✅ Typed state: Pydantic models backed by Inspect Store for `Todos` and `Files`
+- ✅ Sub‑agents: “handoff” (transfer to `transfer_to_<name>`) or “tool” (single‑shot)
+- ✅ Traces & transcripts: Structured tool events and store change logs by default
+- ✅ Safe by default: approval presets (`dev`/`prod`), quarantine filters, sandbox confinement/symlink denial
+- ✅ Self‑contained toy example to verify setup without external model providers
 
 ## Table of Contents
 - Installation
@@ -53,166 +55,73 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - Support
 
 ## Installation
-
-### Prerequisites
-- **Python**: 3.11 or later (tested on 3.12)
-- **OS**: macOS or Linux
-
-### Using uv (Recommended)
-```bash
-# Set cache directory (avoids re-downloading in restricted environments)
-export UV_CACHE_DIR=.uv-cache
-
-# Install dependencies
-uv sync
-
-# Verify installation
-uv run python -c "import inspect_agents; print('inspect_agents OK')"
-```
-
-### Using pip/venv
-```bash
-# Create and activate virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
-
-# Install in editable mode
-pip install -e .
-
-# Verify installation
-python -c "import inspect_agents; print('inspect_agents OK')"
-```
+- Python 3.11+ on macOS or Linux.
+- For packaging/install instructions (pip or uv), see the docs site. The Quickstart above runs from source.
 
 ### Configure Environment Variables
+If you use Inspect CLI or providers, see the Environment reference and the example configurator:
 
-Use the interactive configurator to generate .env files with sensible defaults:
+- Environment reference: [docs/reference/environment.md](docs/reference/environment.md)
+- Example configurator: [env_templates/configure.py](env_templates/configure.py)
 
-```bash
-uv run python env_templates/configure.py
-```
-
-This writes a `.env` at the repo root and `examples/inspect/.env`. You can also point runners to the file with `--env-file` or by exporting `INSPECT_ENV_FILE=path/to/.env`.
+For the self‑contained Quickstart above, no configuration is required.
 
 <!-- Quickstart moved to top for faster TTFX -->
 
 ## Usage
 ### Scaffold a new agent
-Generate a minimal agent module (and optional smoke test) in seconds.
+Generate a minimal agent module in seconds.
 
 ```bash
-# Create src/<pkg>/<name>.py and tests/<pkg>/test_<name>.py
-python scripts/scaffold_agent.py <name> \
-  --package inspect_agents \
-  --path . \
-  --include-test      # default; use --no-test to skip
-
-# Example
-python scripts/scaffold_agent.py my_helper
-
-# Run the generated smoke test (offline)
-CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q -k my_helper
+# Creates src/<package>/<name>.py  (<package> is the dotted package path; <name> is normalized to snake_case)
+python scripts/scaffold_agent.py my_helper --path . --package inspect_agents --no-test
 ```
 
 Notes
-- Safe by default: refuses to overwrite existing files unless `--force` (or interactive confirmation in a TTY).
+- Safe by default: refuses to overwrite existing files unless `--force` (or confirms y/N when interactive).
 - The template uses `build_iterative_agent(code_only=True)` so it runs without exec/search/browser tools.
-- Files are created under `src/<package>/` and `tests/<package>/`; missing `__init__.py` files are added automatically.
+- Creates `src/<package>/<name>.py` (under `src/<package>/`; `<name>` is normalized to snake_case, e.g., "MyAgent" → `my_agent.py`).
+- By default a smoke test is also created at `tests/<package>/test_<name>.py`; in the example above we pass `--no-test` to skip it (omit `--no-test` to generate the test).
+
+### FS tools (store mode)
+Short, deterministic example that writes, lists, and reads a file using the in‑memory store (no host filesystem writes).
+
+```python
+import asyncio, os
+
+# Ensure store mode (default), i.e., in‑memory virtual filesystem
+os.environ["INSPECT_AGENTS_FS_MODE"] = "store"
+
+from inspect_agents.tools import write_file, read_file, ls
+
+async def main():
+    w = write_file(); r = read_file(); l = ls()
+    await w(file_path="demo.txt", content="Hello\nWorld")
+    print(await l())                  # → ["demo.txt"]
+    print(await r(file_path="demo.txt", offset=0, limit=10))
+    # → numbered output:
+    #     1\tHello
+    #     2\tWorld
+
+asyncio.run(main())
+```
 
 ### CLI (Inspect)
-Basic evaluation with built-in tools:
-```bash
-inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph"
-```
-
-Provider quick switch (pick one):
-```bash
-# LM Studio (OpenAI-compatible local server)
-export DEEPAGENTS_MODEL_PROVIDER=lm-studio
-export LM_STUDIO_BASE_URL="http://127.0.0.1:1234/v1"
-export LM_STUDIO_MODEL_NAME="local-model"
-inspect eval examples/inspect/prompt_task.py -T prompt="..."
-```
-
-With optional tools:
-```bash
-# Enable structured thinking
-INSPECT_ENABLE_THINK=1 inspect eval examples/inspect/prompt_task.py -T prompt="..."
-
-# Enable web search (requires API key)
-INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... inspect eval examples/inspect/prompt_task.py -T prompt="..."
-```
+When using Inspect CLI and tasks, see:
+- Evaluated examples: [docs/cli/inspect_eval.md](docs/cli/inspect_eval.md)
+- Provider setup: [docs/getting-started/inspect_agents_quickstart.md](docs/getting-started/inspect_agents_quickstart.md) and [docs/reference/environment.md](docs/reference/environment.md)
 
 Policy note: Enabling `INSPECT_ENABLE_EXEC=1` exposes only single‑shot `bash()` and `python()` tools. The stateful `bash_session` tool is never surfaced by this repo’s `standard_tools()`; it is reserved for internal filesystem‑sandbox operations (e.g., `sed`, `ls`, `wc -c`).
 
-For prompts with special characters, use single quotes:
-```bash
-uv run inspect eval examples/inspect/prompt_task.py \
-  -T 'prompt="Identify research about: Cultural traditions and scientific processes"'
-```
-
 ## Viewing Logs (Inspect View)
+Inspect provides a log viewer. See: [docs/cli/inspect_view.md](docs/cli/inspect_view.md)
 
-Start the Inspect log viewer to explore evaluation logs in your browser:
-
-```bash
-# Default: uses ./logs and serves on http://127.0.0.1:7575
-uv run inspect view
-
-# Specify an alternate directory/port
-uv run inspect view --log-dir ./experiment-logs --port 6565
-```
-
-See docs: [docs/cli/inspect_view.md](docs/cli/inspect_view.md)
-
-### Provider Examples
-```bash
-# LM Studio
-uv run python examples/inspect/run.py --provider lm-studio --model local-model "Your prompt"
-
-# Ollama
-uv run python examples/inspect/run.py --provider ollama --model llama3.1:8b "Your prompt"
-
-# OpenAI (requires OPENAI_API_KEY)
-uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "Your prompt"
-```
+<!-- Provider-specific CLI examples were removed to avoid stale or environment-sensitive commands here. See the docs site for up-to-date provider guidance. -->
 
 ## Advanced Usage
 
-### Sub-agents Configuration
-Define sub-agents in YAML and load programmatically. You can also set root-level runtime limits:
-```yaml
-# inspect.yaml
-supervisor:
-  prompt: |
-    You are a helpful supervisor. Use sub-agents when appropriate.
-subagents:
-  - name: researcher
-    description: Focused web researcher that plans and cites sources
-    prompt: Research the user's query. Plan, browse, then draft findings.
-    mode: handoff
-    tools: [web_search, write_todos, read_file, write_file]
-    context_scope: scoped
-    include_state_summary: true
-limits:
-  # Minimal schema: {type: time|message|token, value: <number>}
-  - type: time
-    value: 60    # seconds
-  - type: message
-    value: 8     # total messages
-  # - type: token
-  #   value: 10000  # optional total tokens
-```
-
-```python
-from inspect_agents.config import load_and_build
-from inspect_agents.run import run_agent
-import asyncio, yaml
-
-cfg = yaml.safe_load(open("inspect.yaml"))
-agent, tools, approvals, limits = load_and_build(cfg)
-result = asyncio.run(run_agent(agent, "start", approval=approvals, limits=limits))
-print(getattr(result.output, "completion", "[no completion]"))
-```
+### Sub‑agents Configuration
+Define sub‑agents in YAML and load programmatically. See: [docs/guides/subagents.md](docs/guides/subagents.md)
 
 ## Architecture
 
@@ -246,36 +155,22 @@ flowchart LR
 Fallback: `docs/diagrams/architecture_overview.png`
 
 ## Documentation
-- **Getting Started**: `docs/getting-started/inspect_agents_quickstart.md`
-- **Tools Reference**: `docs/tools/README.md`
-- **Sub-agent Patterns**: `docs/guides/subagents.md`
-- **Sandboxing Profiles (AISI-aligned)**: `docs/guides/sandbox_profiles.md`
-- **Examples**: `examples/inspect/`
-- **Open Questions**: `docs/design/open-questions.md`
- - **Testing Guides (repo)**: `tests/README.md`
+- Getting Started: [docs/getting-started/inspect_agents_quickstart.md](docs/getting-started/inspect_agents_quickstart.md)
+- Tools Reference: [docs/tools/README.md](docs/tools/README.md)
+- Filesystem & Sandbox: [docs/how-to/filesystem.md](docs/how-to/filesystem.md)
+- Approvals: [docs/how-to/approvals.md](docs/how-to/approvals.md)
+- Sub‑agent Patterns: [docs/guides/subagents.md](docs/guides/subagents.md)
+- Examples: [examples/inspect/](examples/inspect/)
+- Testing Guides (repo): [tests/README.md](tests/README.md)
 
 ### Docs (MkDocs)
-Preview the documentation site locally with MkDocs.
-
-Using uv (recommended):
-```bash
-uv sync --extra docs
-uv run mkdocs serve
-```
-
-Using pip/venv:
-```bash
-pip install -e '.[docs]'
-mkdocs serve
-```
-
-Then open http://127.0.0.1:8000. Sources live under `docs/` and the site is configured via `mkdocs.yml`.
+To preview docs locally, see: [docs/README.md](docs/README.md)
 
 ## Project Status
-- **Version**: 0.0.4 (repo) / see PyPI badge for latest
-- **Status**: Beta
-- **Python**: 3.11+ (tested on 3.12)
-- **Roadmap**: [Milestones](https://github.com/cnm13ryan/inspect_agents/milestones) | [Projects](https://github.com/cnm13ryan/inspect_agents/projects)
+- Version: 0.0.4 (repo) / see PyPI badge for latest
+- Status: Beta
+- Python: 3.11+ (tested on 3.12)
+- Roadmap: [Milestones](https://github.com/cnm13ryan/inspect_agents/milestones) | [Projects](https://github.com/cnm13ryan/inspect_agents/projects)
 
 ### Coming Soon
 - CI workflows (tests, lint, coverage) and release automation
@@ -286,21 +181,7 @@ Then open http://127.0.0.1:8000. Sources live under `docs/` and the site is conf
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ### Quick Setup for Contributors
-```bash
-# Install with dev dependencies
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e '.[dev,testing,utilities]'
-
-# Run tests (ensure local Inspect-AI src is visible)
-export PYTHONPATH=src:external/inspect_ai/src
-pytest -q tests/unit/inspect_agents
-
-# Lint and format
-ruff check && ruff format
-
-# Explore testing guides (markers, examples, CI surfacing)
-echo "See tests/README.md; locally opt-in to CI-style guide links: export DEEPAGENTS_SHOW_TEST_GUIDES=1"
-```
+See CONTRIBUTING.md for up‑to‑date dev environment instructions.
 
 ## Support
 - **Questions**: [GitHub Discussions](https://github.com/cnm13ryan/inspect_agents/discussions)
