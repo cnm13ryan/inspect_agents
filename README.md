@@ -34,6 +34,7 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ Inspect‑native tools: Todos + virtual filesystem
   - Default: in‑memory “store” (ephemeral; isolated per run)
   - Optional: sandbox (routes through Inspect’s `text_editor`/`bash_session`; delete disabled)
+  - Sandbox quickstart: see [docs/how-to/filesystem_sandbox_quickstart.md](docs/how-to/filesystem_sandbox_quickstart.md)
 - ✅ Optional standard tools (gated by env flags):
   - `INSPECT_ENABLE_THINK` (default on), `INSPECT_ENABLE_WEB_SEARCH` (auto when provider keys set),
     `INSPECT_ENABLE_EXEC`, `INSPECT_ENABLE_WEB_BROWSER`, `INSPECT_ENABLE_TEXT_EDITOR_TOOL` (default off)
@@ -105,6 +106,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+Note: In store mode these paths live in an in‑memory store tied to the current process context, not your disk. For sandbox mode, see the quickstart: [docs/how-to/filesystem_sandbox_quickstart.md](docs/how-to/filesystem_sandbox_quickstart.md) and the full guide: [docs/how-to/filesystem.md](docs/how-to/filesystem.md).
 
 ### CLI (Inspect)
 When using Inspect CLI and tasks, see:
