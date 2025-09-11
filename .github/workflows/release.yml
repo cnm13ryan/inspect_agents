@@ -56,6 +56,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Verify pytest is available
+        run: uv run python -c "import pytest; print(f'pytest version: {pytest.__version__}')"
+
       - name: Verify version consistency
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
@@ -80,7 +83,7 @@ jobs:
 
       - name: Run tests
         run: |
-          CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/
+          CI=1 NO_NETWORK=1 PYTHONPATH=src uv run pytest -q tests/ --tb=short
 
       - name: Run linting
         run: uv run ruff check
