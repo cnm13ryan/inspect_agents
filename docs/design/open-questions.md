@@ -740,7 +740,7 @@ Acceptance Criteria
 <summary>✅ Answer Found in Implementation</summary>
 
 **Finding**: A typed explain surface is implemented via `resolve_model_explain(...)` returning `(final: str, trace: ModelResolutionTrace)`. Each `ModelResolutionStep` in the trace includes `path`, `provider_arg`, `model_arg`, `role`, `role_env_model`, `role_env_provider`, `env_inspect_eval_model`, and optional `final_candidate`.
-**Evidence**: `src/inspect_agents/model.py` — `ModelResolutionStep` and `ModelResolutionTrace` definitions (L86–L109), `resolve_model_explain(...)` (L143–L231, L233–L389). Unit tests exercise the API and step labels in `tests/inspect_agents/test_model_resolver.py` (e.g., explicit path, role mapping, env override, vendor branches).
+**Evidence**: `src/inspect_agents/model.py` — `ModelResolutionStep` and `ModelResolutionTrace` definitions (L86–L109), `resolve_model_explain(...)` (L143–L231, L233–L389). Unit tests exercise the API and step labels in `tests/unit/inspect_agents/test_model_resolver.py` (e.g., explicit path, role mapping, env override, vendor branches).
 **Conclusion**: Explain surface is implemented with a typed trace (enriched fields). Remaining enrichment keys like `*_source` are optional enhancements (see item 4 below).
 
 </details>
@@ -883,7 +883,7 @@ Acceptance Criteria
 <summary>✅ Answer Found in Implementation</summary>
 
 **Finding**: Dedicated offline-safe tests cover the explain surface, branch labels, sentinel handling, vendor branches, and error paths.
-**Evidence**: `tests/inspect_agents/test_model_resolver.py` asserts `trace.steps[-1].path` across scenarios and validates `ResolveModelError` carries a trace.
+**Evidence**: `tests/unit/inspect_agents/test_model_resolver.py` asserts `trace.steps[-1].path` across scenarios and validates `ResolveModelError` carries a trace.
 **Conclusion**: Coverage is in place and deterministic (uses env monkeypatching, no network).
 
 </details>

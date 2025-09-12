@@ -6,7 +6,8 @@ This file governs engineering norms for this repository only. If your editor or 
 
 ### Project Structure
 - `src/inspect_agents/`: Inspect-AI-native library (agents, tools, state, config).
-- `tests/inspect_agents/`: Pytest suite for library behavior and shims.
+- `tests/unit/`: Unit tests (library behavior and shims).
+- `tests/integration/`: Integration tests (end-to-end flows, runners, examples).
 - `examples/inspect/`: CLI demos (`prompt_task.py`, `run.py`).
 - `env_templates/`: Example env file (`inspect.env`).
 - `external/inspect_ai/`: Inspect-AI source (submodule/checkout for local dev).
@@ -16,7 +17,7 @@ This file governs engineering norms for this repository only. If your editor or 
 - Install: `uv sync` (or `python3.11 -m venv .venv && pip install -e .`).
 - Run CLI task: `uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."`.
 - Run Python runner: `uv run python examples/inspect/run.py "..."`.
-- Test: `CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/inspect_agents`
+- Test: `CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/unit tests/integration`
 
 ## 2. Development Guidelines
 
@@ -110,11 +111,11 @@ Always use:
 ## 5. Testing
 
 ### Running Tests
-**Default command**: `CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/inspect_agents`
+**Default command**: `CI=1 NO_NETWORK=1 PYTHONPATH=src:external/inspect_ai uv run pytest -q tests/unit tests/integration`
 
 **Options**:
 - Subset testing: append `-k <expr>` (e.g., `-k sandbox`, `-k migration`)
-- Framework: pytest (tests in `tests/inspect_agents/`, named `test_*.py`)
+- Framework: pytest (tests in `tests/unit/**` and `tests/integration/**`, named `test_*.py`)
 - Default offline: `NO_NETWORK=1` for deterministic, fast tests
 - Lint (optional): `uv run ruff check`
 - Docs (optional): `uv run mkdocs serve`
