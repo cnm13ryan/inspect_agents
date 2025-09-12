@@ -113,7 +113,7 @@ def planner_tool():  # -> Tool
 
     exploration_config, _plan, load_cfg = _load_planner()
 
-    @tool(name="planner_tool")
+    @tool
     def planner_tool_factory():  # -> Tool
         async def execute(prompt: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
             """Deterministic exploration planner tool.
