@@ -19,5 +19,5 @@
 - Implemented `ResolveModelError` carrying `.trace` and `.final_step`; `resolve_model(...)` continues to raise `RuntimeError` for backward compatibility while `resolve_model_explain(...)` raises `ResolveModelError`.
 - References:
   - Code: `src/inspect_agents/model.py`
-  - Tests: `tests/inspect_agents/test_model_resolver.py`
+- Tests: `tests/unit/inspect_agents/test_model_resolver.py`
   - Docs: `docs/how-to/model_resolver_explain.md`
