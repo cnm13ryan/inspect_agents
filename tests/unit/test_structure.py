@@ -61,3 +61,30 @@ def test_no_legacy_tests_present() -> None:
         "Move tests to 'tests/unit/**' or 'tests/integration/**'.\n"
         "Offending paths:\n  - " + "\n  - ".join(sorted(offenders))
     )
+
+
+# --- Legacy Guard Cleanup (Group A / Phase 01) ---
+# Include deprecated test path in legacy roots guard.
+
+try:
+    _legacy_roots = list(LEGACY_ROOTS)  # type: ignore[name-defined]
+except NameError:
+    _legacy_roots = []
+except Exception:
+    try:
+        _legacy_roots = list(LEGACY_ROOTS)  # type: ignore[misc]
+    except Exception:
+        _legacy_roots = []
+
+_deprecated = Path("tests/inspect_agents")
+
+
+def _to_path(p: object) -> Path:
+    return p if isinstance(p, Path) else Path(str(p))
+
+
+if all(_to_path(p) != _deprecated for p in _legacy_roots):
+    _legacy_roots.append(_deprecated)
+
+LEGACY_ROOTS = _legacy_roots  # type: ignore[assignment]
+# --- End Legacy Guard Cleanup ---
