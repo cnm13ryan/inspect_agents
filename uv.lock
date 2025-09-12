@@ -1460,7 +1460,7 @@ wheels = [
 
 [[package]]
 name = "inspect-agents"
-version = "0.0.4"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "inspect-ai", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version >= '3.12' and sys_platform == 'linux')" },
