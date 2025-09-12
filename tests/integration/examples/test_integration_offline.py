@@ -50,9 +50,14 @@ async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pyt
     planner_mod = _load_planner_tool()
 
     planner = planner_mod.planner_tool()
-    write_file = tools_mod.write_file()
-    ls = tools_mod.ls()
-    read_file = tools_mod.read_file()
+    write_file_tool = tools_mod.write_file()
+    ls_tool = tools_mod.ls()
+    read_file_tool = tools_mod.read_file()
+
+    # Handle both ToolDef objects with .execute method or direct callable functions
+    write_file_fn = write_file_tool.execute if hasattr(write_file_tool, "execute") else write_file_tool
+    ls_fn = ls_tool.execute if hasattr(ls_tool, "execute") else ls_tool
+    read_file_fn = read_file_tool.execute if hasattr(read_file_tool, "execute") else read_file_tool
 
     prompt = "Explore Inspect-AI agent patterns"
     cfg = {"max_queries": 6, "breadth": 3, "depth": 2, "tags": ["integration"]}
@@ -64,20 +69,24 @@ async def test_offline_planner_writes_artifacts(tmp_path: Path, monkeypatch: pyt
     assert plan["breadth"] == cfg["breadth"] and plan["depth"] == cfg["depth"]
 
     # Write artifacts via tools into the in-memory Files store
-    await write_file(file_path="plan.json", content=json.dumps(plan, indent=2))
-    await write_file(file_path="question.txt", content=prompt)
+    write_result1 = await write_file_fn(file_path="plan.json", content=json.dumps(plan, indent=2))
+    print(f"Write result 1: {write_result1}")
+    write_result2 = await write_file_fn(file_path="question.txt", content=prompt)
+    print(f"Write result 2: {write_result2}")
 
     # Verify presence via ls tool
-    listing = await ls()
+    listing = await ls_fn()
+    print(f"Listing result: {listing}, type: {type(listing)}")
     if isinstance(listing, list):
         names = set(listing)
     else:
         names = set(getattr(listing, "files", []))
+    print(f"Names: {names}")
     assert "plan.json" in names
     assert "question.txt" in names
 
     # Verify JSON structure by reading back
-    content = await read_file(file_path="plan.json", limit=2000)
+    content = await read_file_fn(file_path="plan.json", limit=2000)
     raw_lines = content.splitlines() if isinstance(content, str) else list(getattr(content, "lines", []))
     # Strip legacy numbered prefixes like "   1\t" when typed results are disabled
     import re as _re

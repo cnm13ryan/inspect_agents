@@ -30,7 +30,11 @@ _TESTS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _TESTS_DIR.parent
 _SRC = _REPO_ROOT / "src"
 _EXT_INSPECT = _REPO_ROOT / "external" / "inspect_ai"
-for _p in (_EXT_INSPECT, _SRC):
+# Provide a local stub path for optional upstream dependencies when submodules
+# are unavailable in sandboxed CI. Place it first to prefer stubs over empty
+# directories; real external package will still win when present with modules.
+_LOCAL_STUBS = _REPO_ROOT / "tests" / ".pytest-deps"
+for _p in (_LOCAL_STUBS, _EXT_INSPECT, _SRC):
     try:
         if _p.exists():
             pstr = str(_p)
