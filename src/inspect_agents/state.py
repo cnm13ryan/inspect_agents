@@ -124,14 +124,43 @@ class Files(StoreModel):
     files: dict[str, str] = Field(default_factory=dict)
 
     def list_files(self) -> list[str]:
-        return list(self.files.keys())
+        try:
+            files = self.files
+            if not isinstance(files, dict):
+                # FieldInfo case - try to initialize to empty dict
+                self.files = {}
+                return []
+            return list(files.keys())
+        except (TypeError, AttributeError):
+            # If there's any issue accessing self.files, try to initialize
+            try:
+                self.files = {}
+            except Exception:
+                pass
+            return []
 
     def get_file(self, path: str) -> str | None:
-        return self.files.get(path)
+        try:
+            files = self.files
+            if not isinstance(files, dict):
+                return None
+            return files.get(path)
+        except (TypeError, AttributeError):
+            return None
 
     def put_file(self, path: str, content: str) -> None:
         # Replace with a copied mapping to ensure store update semantics
-        new_files = dict(self.files)
+        # Handle case where self.files might be a FieldInfo (Pydantic descriptor issue)
+        try:
+            current_files = self.files
+            if not isinstance(current_files, dict):
+                # If files is not properly initialized, initialize it as empty dict
+                current_files = {}
+            new_files = dict(current_files)
+        except (TypeError, AttributeError):
+            # Fallback: initialize as empty dict if there's any issue accessing self.files
+            new_files = {}
+
         new_files[path] = content
         # Emit a StoreEvent for this mutation
         with track_store_changes():
@@ -143,9 +172,18 @@ class Files(StoreModel):
         Uses a copied mapping update to ensure the StoreModel writes
         a new value into the Store (so changes are captured/transcripted).
         """
-        if path in self.files:
-            new_files = dict(self.files)
-            new_files.pop(path, None)
-            # Emit a StoreEvent for this mutation
-            with track_store_changes():
-                self.files = new_files
+        try:
+            current_files = self.files
+            if not isinstance(current_files, dict):
+                # If files is not properly initialized, nothing to delete
+                return
+
+            if path in current_files:
+                new_files = dict(current_files)
+                new_files.pop(path, None)
+                # Emit a StoreEvent for this mutation
+                with track_store_changes():
+                    self.files = new_files
+        except (TypeError, AttributeError):
+            # If there's any issue accessing self.files, nothing to delete
+            pass

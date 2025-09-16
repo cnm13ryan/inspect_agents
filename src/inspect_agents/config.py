@@ -63,6 +63,44 @@ class RootConfig(BaseModel):
     limits: list[Any] | None = Field(default=None)
 
 
+def _resolve_config_source(source: str | Path) -> tuple[Path | None, str]:
+    """Resolve a config `source` to file contents.
+
+    Returns a tuple of `(resolved_path, text)` where `resolved_path` is the
+    filesystem path if the source pointed to a readable file (resolved first
+    against the current working directory, then against the detected repo
+    root). If no readable file is found, returns `(None, str(source))` and
+    treats the source as inline YAML text.
+    """
+    src_path = Path(str(source))
+
+    # 1) Try as-is (relative to current working directory)
+    resolved_path: Path | None = None
+    cand = src_path if src_path.is_absolute() else (Path.cwd() / src_path)
+    if cand.exists():
+        resolved_path = cand
+    else:
+        # 2) Try relative to a detected repo root
+        here = Path(__file__).resolve()
+        repo_root: Path | None = None
+        for parent in [here] + list(here.parents):
+            if (parent / "pyproject.toml").exists() or (parent / ".git").exists():
+                repo_root = parent
+                break
+        if repo_root is not None:
+            alt = repo_root / src_path
+            if alt.exists():
+                resolved_path = alt
+
+    # Read text either from a resolved file path or treat as inline YAML
+    if resolved_path is not None:
+        text = resolved_path.read_text(encoding="utf-8")
+    else:
+        text = str(source)
+
+    return resolved_path, text
+
+
 def load_yaml(source: str | Path | dict[str, Any]) -> RootConfig:
     """Load YAML config from dict, file path, or inline YAML text.
 
@@ -80,31 +118,8 @@ def load_yaml(source: str | Path | dict[str, Any]) -> RootConfig:
     if isinstance(source, dict):
         data: dict[str, Any] = source
     else:
-        resolved_path: Path | None = None
-        src_path = Path(str(source))
-
-        # 1) Try as-is (relative to current working directory)
-        cand = src_path if src_path.is_absolute() else (Path.cwd() / src_path)
-        if cand.exists():
-            resolved_path = cand
-        else:
-            # 2) Try relative to a detected repo root
-            here = Path(__file__).resolve()
-            repo_root: Path | None = None
-            for parent in [here] + list(here.parents):
-                if (parent / "pyproject.toml").exists() or (parent / ".git").exists():
-                    repo_root = parent
-                    break
-            if repo_root is not None:
-                alt = repo_root / src_path
-                if alt.exists():
-                    resolved_path = alt
-
-        # Read text either from a resolved file path or treat as inline YAML
-        if resolved_path is not None:
-            text = resolved_path.read_text(encoding="utf-8")
-        else:
-            text = str(source)
+        # Resolve source into (optional) filesystem path and YAML text
+        resolved_path, text = _resolve_config_source(source)
 
         # Parse YAML safely and enforce mapping at the root
         try:
