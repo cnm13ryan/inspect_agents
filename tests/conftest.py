@@ -59,7 +59,7 @@ GUIDES = {
     "approvals": DOCS_DIR / "TESTING_APPROVALS_POLICIES.md",
     "handoff": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
     "subagent": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
-    "filters": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
+    "filters": DOCS_DIR / "TESTING_FILTERS.md",
     "kill_switch": DOCS_DIR / "TESTING_APPROVALS_POLICIES.md",
     "timeout": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
     "tool_timeouts": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
