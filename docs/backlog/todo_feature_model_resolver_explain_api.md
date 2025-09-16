@@ -20,7 +20,7 @@
 - Implemented as a typed API returning `(str, ModelResolutionTrace)` with `ModelResolutionStep` entries and `ResolveModelError` for failures.
 - References:
   - Code: `src/inspect_agents/model.py`
-  - Tests: `tests/inspect_agents/test_model_resolver.py`
+- Tests: `tests/unit/inspect_agents/test_model_resolver.py`
   - Docs: `docs/how-to/model_resolver_explain.md`
 
 Notes
