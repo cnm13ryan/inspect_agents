@@ -465,8 +465,13 @@ def ls():  # -> Tool
         async def execute(instance: str | None = None) -> list[str] | FileListResult:
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = LsParams(command="ls", instance=instance)
-            files = files_tool()
-            return await files(params=FilesParams(root=params))
+            files_factory = files_tool()
+            if hasattr(files_factory, "execute"):
+                # ToolDef with execute method
+                return await files_factory.execute(params=FilesParams(root=params))
+            else:
+                # Callable function
+                return await files_factory(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["instance"] = json_schema(str)
@@ -508,8 +513,13 @@ def read_file():  # -> Tool
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = ReadParams(command="read", file_path=file_path, offset=offset, limit=limit, instance=instance)
             try:
-                files = files_tool()
-                return await files(params=FilesParams(root=params))
+                files_factory = files_tool()
+                if hasattr(files_factory, "execute"):
+                    # ToolDef with execute method
+                    return await files_factory.execute(params=FilesParams(root=params))
+                else:
+                    # Callable function
+                    return await files_factory(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message") and e.message:
@@ -561,8 +571,13 @@ def write_file():  # -> Tool
             _warn_wrapper("write_file")
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = WriteParams(command="write", file_path=file_path, content=content, instance=instance)
-            files = files_tool()
-            return await files(params=FilesParams(root=params))
+            files_factory = files_tool()
+            if hasattr(files_factory, "execute"):
+                # ToolDef with execute method
+                return await files_factory.execute(params=FilesParams(root=params))
+            else:
+                # Callable function
+                return await files_factory(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["file_path"] = json_schema(str)
@@ -618,8 +633,13 @@ def edit_file():  # -> Tool
                 instance=instance,
             )
             try:
-                files = files_tool()
-                return await files(params=FilesParams(root=params))
+                files_factory = files_tool()
+                if hasattr(files_factory, "execute"):
+                    # ToolDef with execute method
+                    return await files_factory.execute(params=FilesParams(root=params))
+                else:
+                    # Callable function
+                    return await files_factory(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message") and e.message:
@@ -679,8 +699,13 @@ def delete_file():  # -> Tool
             # Convert wrapper params to unified FilesParams and delegate to files tool
             params = DeleteParams(command="delete", file_path=file_path, instance=instance)
             try:
-                files = files_tool()
-                return await files(params=FilesParams(root=params))
+                files_factory = files_tool()
+                if hasattr(files_factory, "execute"):
+                    # ToolDef with execute method
+                    return await files_factory.execute(params=FilesParams(root=params))
+                else:
+                    # Callable function
+                    return await files_factory(params=FilesParams(root=params))
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
                 if hasattr(e, "message") and e.message:
@@ -719,8 +744,13 @@ def mkdir():  # -> Tool
     def _factory() -> Tool:  # type: ignore[override]
         async def execute(dir_path: str, instance: str | None = None) -> str:
             params = MkdirParams(command="mkdir", dir_path=dir_path, instance=instance)
-            files = files_tool()
-            return await files(params=FilesParams(root=params))
+            files_factory = files_tool()
+            if hasattr(files_factory, "execute"):
+                # ToolDef with execute method
+                return await files_factory.execute(params=FilesParams(root=params))
+            else:
+                # Callable function
+                return await files_factory(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["dir_path"] = json_schema(str)
@@ -748,8 +778,13 @@ def move_file():  # -> Tool
     def _factory() -> Tool:  # type: ignore[override]
         async def execute(src_path: str, dst_path: str, instance: str | None = None) -> str | FileMoveResult:
             params = MoveParams(command="move", src_path=src_path, dst_path=dst_path, instance=instance)
-            files = files_tool()
-            return await files(params=FilesParams(root=params))
+            files_factory = files_tool()
+            if hasattr(files_factory, "execute"):
+                # ToolDef with execute method
+                return await files_factory.execute(params=FilesParams(root=params))
+            else:
+                # Callable function
+                return await files_factory(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["src_path"] = json_schema(str)
@@ -779,8 +814,13 @@ def stat_file():  # -> Tool
     def _factory() -> Tool:  # type: ignore[override]
         async def execute(path: str, instance: str | None = None) -> str | FileStatResult:
             params = StatParams(command="stat", path=path, instance=instance)
-            files = files_tool()
-            return await files(params=FilesParams(root=params))
+            files_factory = files_tool()
+            if hasattr(files_factory, "execute"):
+                # ToolDef with execute method
+                return await files_factory.execute(params=FilesParams(root=params))
+            else:
+                # Callable function
+                return await files_factory(params=FilesParams(root=params))
 
         params = ToolParams()
         params.properties["path"] = json_schema(str)
