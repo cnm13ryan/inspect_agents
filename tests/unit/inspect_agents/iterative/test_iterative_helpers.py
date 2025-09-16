@@ -3,12 +3,20 @@ from typing import Any
 
 import pytest
 
-from inspect_agents.iterative import (
+import inspect_agents.iterative as iterative_module
+from inspect_agents.iterative_runtime import (
     _append_overflow_hint,
     _prune_with_debug,
     _remaining_timeout,
     _should_emit_progress,
 )
+
+
+def test_iterative_module_reexports_helpers():
+    assert iterative_module._remaining_timeout is _remaining_timeout
+    assert iterative_module._should_emit_progress is _should_emit_progress
+    assert iterative_module._append_overflow_hint is _append_overflow_hint
+    assert iterative_module._prune_with_debug is _prune_with_debug
 
 
 def test_should_emit_progress_basic():
