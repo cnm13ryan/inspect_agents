@@ -20,7 +20,7 @@ def _install_stub_run(monkeypatch, sleep_s: float = 0.01, return_tuple: bool = T
 
 
 @pytest.mark.asyncio
-async def test_my_helper_smoke(monkeypatch):
+async def test_run_my_helper_smoke(monkeypatch):
     monkeypatch.setenv("NO_NETWORK", "1")
 
     # Provide a tiny runner time limit; our stub returns quickly.
