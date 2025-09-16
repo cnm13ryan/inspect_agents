@@ -215,7 +215,7 @@ Call `inspect_agents.logging.write_transcript()` to persist JSONL events. Defaul
 Run a focused test to confirm the path works locally:
 
 ```bash
-pytest -q tests/inspect_agents/test_run.py::test_run_with_str_input_returns_state
+pytest -q tests/integration/inspect_agents/test_run.py::test_run_with_str_input_returns_state
 ```
 
 ## Standard Tools
