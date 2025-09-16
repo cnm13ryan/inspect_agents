@@ -9,16 +9,35 @@ from __future__ import annotations
 import os
 import shlex as _shlex
 import uuid as _uuid
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING
 
 import anyio
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, RootModel
 
 if TYPE_CHECKING:  # pragma: no cover
     from inspect_ai.tool._tool import Tool
 
 from . import fs as _fs
 from .exceptions import ToolException
+from .files_models import (
+    DeleteParams,
+    EditParams,
+    FileDeleteResult,
+    FileEditResult,
+    FileListResult,
+    FileMoveResult,
+    FileReadResult,
+    FilesParams,
+    FileStatResult,
+    FileTrashResult,
+    FileWriteResult,
+    LsParams,
+    MkdirParams,
+    MoveParams,
+    ReadParams,
+    StatParams,
+    TrashParams,
+    WriteParams,
+)
 from .fs_adapter import get_default_adapter as _get_sandbox_adapter
 from .observability import log_tool_event as _base_log_tool_event
 from .profiles import parse_profile as _parse_profile
@@ -187,70 +206,7 @@ _check_policy = _fs.check_policy
 _match_path_policy = _fs.match_path_policy
 
 
-# Result types
-class FileReadResult(BaseModel):
-    """Typed result for read operations."""
-
-    lines: list[str]
-    summary: str
-
-
-class FileWriteResult(BaseModel):
-    """Typed result for write operations."""
-
-    path: str
-    summary: str
-
-
-class FileEditResult(BaseModel):
-    """Typed result for edit operations.
-
-    When `dry_run=True`, no mutation is performed; `replaced` reflects the
-    number of replacements that would have been applied given current file
-    contents and the `replace_all` flag.
-    """
-
-    path: str
-    replaced: int
-    summary: str
-
-
-class FileDeleteResult(BaseModel):
-    """Typed result for delete operations."""
-
-    path: str
-    summary: str
-
-
-class FileTrashResult(BaseModel):
-    """Typed result for trash operations (audited delete)."""
-
-    src: str
-    dst: str
-    summary: str
-
-
-class FileListResult(BaseModel):
-    """Typed result for ls operations."""
-
-    files: list[str]
-
-
-class FileMoveResult(BaseModel):
-    """Typed result for move operations."""
-
-    src: str
-    dst: str
-    summary: str
-
-
-class FileStatResult(BaseModel):
-    """Typed result for stat operations."""
-
-    path: str
-    exists: bool
-    is_dir: bool
-    size: int | None
+# Result types and parameter models are imported from files_models
 
 
 # ---------------------------------------------------------------------------
@@ -272,115 +228,6 @@ def _get_lock(path: str, instance: str | None) -> anyio.Lock:
         lock = anyio.Lock()
         _FILE_LOCKS[key] = lock
     return lock
-
-
-# Parameter schemas for each command
-class BaseFileParams(BaseModel):
-    """Base parameters for all file operations."""
-
-    instance: str | None = Field(None, description="Optional Files instance for isolation")
-
-    # Pydantic v2 style config
-    model_config = ConfigDict(extra="forbid")
-
-
-class LsParams(BaseFileParams):
-    """Parameters for ls command."""
-
-    command: Literal["ls"] = "ls"
-
-
-class ReadParams(BaseFileParams):
-    """Parameters for read command."""
-
-    command: Literal["read"] = "read"
-    file_path: str = Field(description="Path to read")
-    offset: int = Field(0, description="Line offset (0-based)")
-    limit: int = Field(2000, description="Max lines to return")
-
-
-class WriteParams(BaseFileParams):
-    """Parameters for write command."""
-
-    command: Literal["write"] = "write"
-    file_path: str = Field(description="Path to write")
-    content: str = Field(description="Content to write")
-
-
-class EditParams(BaseFileParams):
-    """Parameters for edit command."""
-
-    command: Literal["edit"] = "edit"
-    file_path: str = Field(description="Path to edit")
-    old_string: str = Field(description="String to replace")
-    new_string: str = Field(description="Replacement string")
-    replace_all: bool = Field(False, description="Replace all occurrences if true")
-    dry_run: bool = Field(False, description="When true, compute result without persisting changes")
-    expected_count: int | None = Field(
-        None,
-        description=(
-            "Optional expected number of replacements to perform. When set, the edit "
-            "will validate that exactly this many replacements would occur and raise "
-            "an error on mismatch."
-        ),
-    )
-
-
-class MkdirParams(BaseFileParams):
-    """Parameters for mkdir command."""
-
-    command: Literal["mkdir"] = "mkdir"
-    dir_path: str = Field(description="Directory path to create")
-
-
-class MoveParams(BaseFileParams):
-    """Parameters for move command."""
-
-    command: Literal["move"] = "move"
-    src_path: str = Field(description="Source path")
-    dst_path: str = Field(description="Destination path")
-
-
-class StatParams(BaseFileParams):
-    """Parameters for stat command."""
-
-    command: Literal["stat"] = "stat"
-    path: str = Field(description="Path to stat")
-    dry_run: bool = Field(
-        False,
-        description=("When true, compute counts and validate but do not modify the file."),
-    )
-
-
-class DeleteParams(BaseFileParams):
-    """Parameters for delete command."""
-
-    command: Literal["delete"] = "delete"
-    file_path: str = Field(description="Path to delete")
-
-
-class TrashParams(BaseFileParams):
-    """Parameters for trash command (audited delete)."""
-
-    command: Literal["trash"] = "trash"
-    file_path: str = Field(description="Path to move into trash")
-
-
-class FilesParams(RootModel):
-    """Discriminated union of all file operation parameters."""
-
-    root: Annotated[
-        LsParams
-        | ReadParams
-        | WriteParams
-        | EditParams
-        | DeleteParams
-        | TrashParams
-        | MkdirParams
-        | MoveParams
-        | StatParams,
-        Discriminator("command"),
-    ]
 
 
 # Execution functions (can be used by wrapper tools)
