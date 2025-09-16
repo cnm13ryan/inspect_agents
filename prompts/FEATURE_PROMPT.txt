@@ -1,52 +1,58 @@
-# Source: prompts/features_by_phase/delivery-latest/phase-02.md (phase block)
-# Branch: feat/p02-gA-files-models-extraction-critical-path
-# Phase: 02
+# Source: prompts/features_by_phase/delivery-latest/phase-03.md (phase block)
+# Branch: feat/p03-gA-storemode-file-ops-critical-path
+# Phase: 03
 # Group: A
-# Block: Files Models Extraction (Critical Path)
-# Features: feat-002-files-models-extraction
+# Block: Store‑Mode File Ops (Critical Path)
+# Features: feat-003-files-store-ops,feat-002-files-models-extraction
 
-## Group A: Files Models Extraction (Critical Path)
+## Group A: Store‑Mode File Ops (Critical Path)
 
 Merged Features
-- feat-002-files-models-extraction — Extract Files result/param models
+- feat-003-files-store-ops — Extract store-mode file ops
 
 Why merge
-- Single feature in this phase. Sets the base for later extractions.
+- Single feature in this group; prepares for sandbox extraction in Phase 4.
 
 Dependencies & Gates (Block)
-- Hard deps: none
+- Hard deps: feat-002-files-models-extraction
 - Soft deps: none
-- Phase gates: Phase 1 merged; re-exports in place.
+- Phase gates: Phase 2 merged; store-mode parity validation in place.
 
 Implementation Guidance (02a‑style)
-- Context & Motivation: separate Pydantic models from I/O-heavy logic to speed imports and enable focused unit tests.
+- Context & Motivation: isolate deterministic store-mode behavior to enable fast unit tests and reduce complexity in `tools_files.py`.
 - Steps
-  1) Create `src/inspect_agents/files_models.py` and move:
-     - Result models: `FileReadResult`, `FileWriteResult`, `FileEditResult`, `FileDeleteResult`, `FileTrashResult`, `FileListResult`, `FileMoveResult`, `FileStatResult`.
-     - Param models: `FilesParams`, `LsParams`, `ReadParams`, `WriteParams`, `EditParams`, `MkdirParams`, `MoveParams`, `StatParams`, `DeleteParams`, `TrashParams`.
-  2) In `src/inspect_agents/tools_files.py`: import-from and re-export the same names; keep `__all__` stable.
-  3) Grep identifiers to move: `class FileReadResult`, `class FilesParams`, `class ReadParams`, `LsParams`, etc.
+  1) Create `src/inspect_agents/files_ops_store.py` with functions:
+     - `ls_store`, `read_store`, `write_store`, `edit_store`, `delete_store`, `trash_store`, `mkdir_store`, `move_store`, `stat_store`.
+  2) In `src/inspect_agents/tools_files.py`, route store branches to new functions; keep sandbox branches unchanged.
+  3) Preserve:
+     - anyio timeouts via `_default_tool_timeout()`
+     - policy checks via `fs.check_policy/match_path_policy`
+     - observability events via `observability.log_tool_event`
+     - typed vs legacy return behavior
+  4) Grep targets: comments `Store-backed`, identifiers in existing `execute_*` functions.
 - Tests
-  - `tests/inspect_agents -k files_models`
-- Telemetry/Observability: none
-- Rollout & Guardrails: no behavior change; maintain import stability for downstream users.
+  - `tests/inspect_agents -k files_store`
+- Telemetry/Observability: ensure payload keys unchanged (e.g., `ok`, `count`, `replaced`).
+- Rollout & Guardrails: land with unit tests; no behavior changes.
 
 Scope Definition
-- In scope: `src/inspect_agents/tools_files.py`, `src/inspect_agents/files_models.py`, tests.
-- Out of scope: execution functions and sandbox/store logic.
+- In scope: `src/inspect_agents/tools_files.py`, `src/inspect_agents/files_ops_store.py`, tests.
+- Out of scope: sandbox adapter and branches; tests that require sandbox.
 
 Success Criteria
-- Green tests: `files_models` selector.
-- Behavior assertions: both import paths resolve to the same classes (identity), no import cycles, import time not increased noticeably.
+- Green tests: `files_store` selector.
+- Behavior assertions: identical messages for not-found, expected-count mismatch, idempotent delete; size cap enforcement unchanged.
 
 Merge/Conflict Plan
-- Hot files: `src/inspect_agents/tools_files.py` (re-export edits).
-- Conflict mitigation: land quickly before Phase 3/4; small PR.
+- Hot files: `src/inspect_agents/tools_files.py`.
+- Conflict mitigation: base on Phase 2 head; small, mechanical routing change plus new module.
 
 Risk & Estimate (Block)
 - Aggregate risk: medium
 - Aggregate estimate: 2 points (M)
 
 Owner & Work Mode
-- Branch: `phase-02A-files-models`
-- Single PR; reviewers from files/tools area.
+- Branch: `phase-03A-files-store-ops`
+- Single PR.
+
+---

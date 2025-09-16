@@ -1,0 +1,27 @@
+243:    from inspect_ai.util._store_model import store_as
+311:        files = store_as(Files, instance=params.instance)
+312:        file_list = files.list_files()
+343:    from inspect_ai.util._store_model import store_as
+527:        files = store_as(Files, instance=params.instance)
+638:    from inspect_ai.util._store_model import store_as
+744:    # Keep store-mode simple: single put_file to the final key (no temp swap)
+765:            files = store_as(Files, instance=params.instance)
+766:            files.put_file(params.file_path, params.content)
+787:    from inspect_ai.util._store_model import store_as
+1031:            files = store_as(Files, instance=params.instance)
+1132:        files = store_as(Files, instance=params.instance)
+1133:        files.put_file(params.file_path, updated)
+1156:    from inspect_ai.util._store_model import store_as
+1196:        files = store_as(Files, instance=params.instance)
+1199:        files.delete_file(params.file_path)
+1228:    from inspect_ai.util._store_model import store_as
+1306:        files = store_as(Files, instance=params.instance)
+1313:        files.put_file(dst_key, content)
+1314:        files.delete_file(params.file_path)
+1484:    from inspect_ai.util._store_model import store_as
+1525:        files = store_as(Files, instance=params.instance)
+1544:        files.put_file(params.dst_path, content)
+1545:        files.delete_file(params.src_path)
+1556:    from inspect_ai.util._store_model import store_as
+1580:        files = store_as(Files, instance=params.instance)
+1589:            is_dir = any(k.startswith(prefix) for k in files.list_files())
