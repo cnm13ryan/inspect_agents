@@ -28,7 +28,7 @@ Central index of testing guides for this repository. Tests default to offline, f
     carry their own copy.
 - fixtures: shared helpers and test data (`tests/fixtures/**`).
 - docs: local testing guides (this directory, `TESTING_*.md`).
-- benchmarks: opt-in perf/benchmark suites (`tests/benchmarks/**`).
+- perf: opt-in performance suites (`tests/perf/**`); marker-friendly even when `pytest-benchmark` is absent.
 
 Recent tidy-up:
 - Moved `tests/inspect_agents/*` into `tests/unit/inspect_agents/` with domain subfolders.
@@ -82,7 +82,7 @@ Recent tidy-up:
 ## Benchmarks (opt-in)
 - PR: add the label `run-benchmarks` to trigger the Benchmarks workflow.
 - Manual: you can also run it via the “Benchmarks (on label)” workflow_dispatch.
-- Local: `pytest -q -m benchmark --benchmark-only tests/benchmarks`.
+- Local: `pytest -q -m benchmark --benchmark-only tests/perf`.
 
 ## Conventions
 - Keep tests deterministic; set env in-tests via `monkeypatch`.

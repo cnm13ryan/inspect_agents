@@ -7,7 +7,7 @@ This is the front door to the test suite. It tells you where tests live, how to 
   - Each domain has its own README with scope, fixtures, and selection examples. See [Domain READMEs](#domain-readmes) below.
 - `integration/` – end‑to‑end flows and CLI/script coverage. Includes `integration/inspect_agents/` and `integration/examples/` for runnable scenarios.
 - `examples/` – legacy/minimal wrappers; prefer `integration/examples/` for new work.
-- `benchmarks/` – opt‑in performance suites (uses the `benchmark` marker; runs as smoke when `pytest-benchmark` is absent).
+- `perf/` – opt‑in performance suites (uses the `benchmark` marker when available; runs as smoke when `pytest-benchmark` is absent).
 - `fixtures/` – shared helpers, stubs, and test data.
 - `docs/` – local testing guides (index: `tests/docs/README.md`).
 
