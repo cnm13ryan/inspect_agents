@@ -39,6 +39,7 @@ Recent tidy-up:
 - Pytest core: `TESTING_PYTEST_CORE.md`
 - Async tests (pytest-asyncio): `TESTING_ASYNC.md`
 - Approvals & policies: `TESTING_APPROVALS_POLICIES.md`
+- E2E sandbox (Docker/K8s): `TESTING_E2E.md`
 - Filters: `TESTING_FILTERS.md`
 - Subagents & handoffs: `TESTING_SUBAGENTS_HANDOFFS.md`
 - Tools & filesystem: `TESTING_TOOLS_FILESYSTEM.md`
