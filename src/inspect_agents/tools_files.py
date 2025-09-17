@@ -602,6 +602,12 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
+    # Check mode first to avoid duplicate logging
+    if not _use_sandbox_fs():
+        # Store mode: delegate to store function which handles its own logging
+        return await write_store(params, ctx=_create_store_context())
+
+    # Sandbox mode: handle logging here since we're not delegating to store
     _t0 = _log_tool_event(
         name="files:write",
         phase="start",
@@ -703,7 +709,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
                 except Exception:
                     pass
 
-    # Store-backed with timeout guard
+    # Fallback to store mode if sandbox fails
     return await write_store(params, ctx=_create_store_context())
 
 
@@ -722,6 +728,12 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
+    # Check mode first to avoid duplicate logging
+    if not _use_sandbox_fs():
+        # Store mode: delegate to store function which handles its own logging
+        return await edit_store(params, ctx=_create_store_context())
+
+    # Sandbox mode: handle logging here since we're not delegating to store
     _t0 = _log_tool_event(
         name="files:edit",
         phase="start",
@@ -958,7 +970,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                 # Let store-mode path handle the operation on timeouts
                 pass
 
-    # Store-backed: perform the full read-modify-write under a per-path lock
+    # Fallback to store mode if sandbox fails
     return await edit_store(params, ctx=_create_store_context())
 
 
