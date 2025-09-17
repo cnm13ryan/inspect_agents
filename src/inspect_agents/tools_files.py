@@ -38,6 +38,18 @@ from .files_models import (
     TrashParams,
     WriteParams,
 )
+from .files_ops_store import (
+    StoreOpsContext,
+    delete_store,
+    edit_store,
+    ls_store,
+    mkdir_store,
+    move_store,
+    read_store,
+    stat_store,
+    trash_store,
+    write_store,
+)
 from .fs_adapter import get_default_adapter as _get_sandbox_adapter
 from .observability import log_tool_event as _base_log_tool_event
 from .profiles import parse_profile as _parse_profile
@@ -230,6 +242,26 @@ def _get_lock(path: str, instance: str | None) -> anyio.Lock:
     return lock
 
 
+def _create_store_context() -> StoreOpsContext:
+    """Create a StoreOpsContext with the required dependencies."""
+    from inspect_ai.util._store_model import store_as
+
+    def wrapped_store_as(files_class: type[Files], instance: str | None) -> Files:
+        return store_as(files_class, instance=instance)
+
+    return StoreOpsContext(
+        log_tool_event=_log_tool_event,
+        get_lock=_get_lock,
+        default_tool_timeout=_default_tool_timeout,
+        store_as=wrapped_store_as,
+        use_typed_results=_use_typed_results,
+        max_bytes=_max_bytes,
+        fs_root=_fs_root,
+        check_policy=_check_policy,
+        match_path_policy=_match_path_policy,
+    )
+
+
 # Execution functions (can be used by wrapper tools)
 async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     """Execute ls command.
@@ -240,7 +272,6 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 
     Notes: falls back from sandbox to store if sandbox is unavailable.
     """
-    from inspect_ai.util._store_model import store_as
 
     # Import lazily to avoid circular import during module import
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
@@ -307,25 +338,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
                 pass
 
     # Store-backed mode (in-memory Files store) with timeout guard
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        file_list = files.list_files()
-
-    if _use_typed_results():
-        _log_tool_event(
-            name="files:ls",
-            phase="end",
-            extra={"ok": True, "count": len(file_list) if isinstance(file_list, list) else len(file_list.files)},
-            t0=_t0,
-        )
-        return FileListResult(files=file_list)
-    _log_tool_event(
-        name="files:ls",
-        phase="end",
-        extra={"ok": True, "count": len(file_list) if isinstance(file_list, list) else len(file_list.files)},
-        t0=_t0,
-    )
-    return file_list
+    return await ls_store(params, ctx=_create_store_context())
 
 
 async def execute_read(params: ReadParams) -> str | FileReadResult:
@@ -340,10 +353,15 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     In sandbox mode, the adapter validates paths against the configured root and
     denies symlinks before performing IO.
     """
-    from inspect_ai.util._store_model import store_as
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
+    # Check mode first to avoid duplicate logging
+    if not _use_sandbox_fs():
+        # Store mode: delegate to store function which handles its own logging
+        return await read_store(params, ctx=_create_store_context())
+
+    # Sandbox mode: handle logging here since we're not delegating to store
     _t0 = _log_tool_event(
         name="files:read",
         phase="start",
@@ -519,109 +537,55 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                     _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0)
                     return joined_output
             except Exception:
-                # Graceful fallback to store-backed mode
-                pass
+                # Graceful fallback to store-backed mode - try the store function
+                try:
+                    return await read_store(params, ctx=_create_store_context())
+                except ToolException as e:
+                    # As a last resort in sandbox mode, try a direct bash read before erroring
+                    if "not found" in str(e):
+                        try:
+                            import shlex as _shlex
 
-    # Store-backed with timeout guard
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        content = files.get_file(params.file_path)
-    if content is None:
-        # As a last resort in sandbox mode, try a direct bash read before erroring
-        if _use_sandbox_fs():
-            try:
-                import shlex as _shlex
+                            from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
 
-                from inspect_ai.tool._tools._bash_session import bash_session as _bash_session
-
-                start_line = max(1, int(params.offset) + 1)
-                end_line = -1 if (params.limit is None or params.limit <= 0) else (start_line + int(params.limit) - 1)
-                sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
-                bash = _bash_session()
-                with anyio.fail_after(_default_tool_timeout()):
-                    sed_result = await bash(
-                        action="run", command=f"sed -n '{sed_range}' {_shlex.quote(params.file_path)}"
-                    )
-                raw3 = getattr(sed_result, "stdout", None)
-                if raw3 and str(raw3).strip() != "":
-                    lines = str(raw3).splitlines()
-                    if params.limit is not None and params.limit > 0:
-                        lines = lines[: int(params.limit)]
-                    if _use_typed_results():
-                        nopad_lines, _ = _format_lines(lines, start_line, pad=False)
-                        _log_tool_event(
-                            name="files:read",
-                            phase="end",
-                            extra={"ok": True, "lines": len(nopad_lines)},
-                            t0=_t0,
-                        )
-                        return FileReadResult(
-                            lines=nopad_lines,
-                            summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
-                        )
-                    _padded, joined_output = _format_lines(lines, start_line, pad=True)
-                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0)
-                    return joined_output
-            except Exception:
-                pass
-        _log_tool_event(
-            name="files:read",
-            phase="error",
-            extra={"ok": False, "error": "FileNotFound"},
-            t0=_t0,
-        )
-        raise ToolException(  # noqa: N806
-            f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
-        )
-
-    if not content or content.strip() == "":
-        if _use_typed_results():
-            _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-            return FileReadResult(lines=[], summary=empty_message)
-        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-        return empty_message
-
-    # Enforce byte ceiling to prevent OOM and long stalls
-    content_bytes = len(content.encode("utf-8"))
-    max_bytes = _max_bytes()
-    if content_bytes > max_bytes:
-        _log_tool_event(
-            name="files:read",
-            phase="error",
-            extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": content_bytes, "max_bytes": max_bytes},
-            t0=_t0,
-        )
-        raise ToolException(
-            f"File exceeds maximum size limit: {content_bytes:,} bytes > {max_bytes:,} bytes. "
-            f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
-        )
-
-    lines = content.splitlines()
-    start_idx = params.offset
-    end_idx = min(start_idx + params.limit, len(lines))
-
-    if start_idx >= len(lines):
-        raise ToolException(  # noqa: N806
-            f"Line offset {params.offset} exceeds file length ({len(lines)} lines). "
-            f"Use an offset between 0 and {len(lines) - 1}."
-        )
-
-    selected_lines = lines[start_idx:end_idx]
-    # Format with correct line numbers starting from offset + 1
-    _padded, joined_output = _format_lines(selected_lines, start_idx + 1, pad=True)
-
-    if _use_typed_results():
-        nopad_lines, _ = _format_lines(selected_lines, start_idx + 1, pad=False)
-        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(nopad_lines)}, t0=_t0)
-        return FileReadResult(
-            lines=nopad_lines,
-            summary=(
-                f"Read {len(nopad_lines)} lines from {params.file_path} "
-                f"(lines {start_idx + 1}-{start_idx + len(nopad_lines)})"
-            ),
-        )
-    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(selected_lines)}, t0=_t0)
-    return joined_output
+                            start_line = max(1, int(params.offset) + 1)
+                            end_line = (
+                                -1
+                                if (params.limit is None or params.limit <= 0)
+                                else (start_line + int(params.limit) - 1)
+                            )
+                            sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
+                            bash = _bash_session()
+                            with anyio.fail_after(_default_tool_timeout()):
+                                sed_result = await bash(
+                                    action="run", command=f"sed -n '{sed_range}' {_shlex.quote(params.file_path)}"
+                                )
+                            raw3 = getattr(sed_result, "stdout", None)
+                            if raw3 and str(raw3).strip() != "":
+                                lines = str(raw3).splitlines()
+                                if params.limit is not None and params.limit > 0:
+                                    lines = lines[: int(params.limit)]
+                                if _use_typed_results():
+                                    nopad_lines, _ = _format_lines(lines, start_line, pad=False)
+                                    _log_tool_event(
+                                        name="files:read",
+                                        phase="end",
+                                        extra={"ok": True, "lines": len(nopad_lines)},
+                                        t0=_t0,
+                                    )
+                                    return FileReadResult(
+                                        lines=nopad_lines,
+                                        summary=f"Read {len(nopad_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                                    )
+                                _padded, joined_output = _format_lines(lines, start_line, pad=True)
+                                _log_tool_event(
+                                    name="files:read", phase="end", extra={"ok": True, "lines": len(lines)}, t0=_t0
+                                )
+                                return joined_output
+                        except Exception:
+                            pass
+                    # Re-raise the original store exception
+                    raise
 
 
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
@@ -635,10 +599,15 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
     In sandbox mode, the adapter validates the path against the root and denies
     symlinks before writing. Content is not sanitized; ensure trusted input.
     """
-    from inspect_ai.util._store_model import store_as
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
+    # Check mode first to avoid duplicate logging
+    if not _use_sandbox_fs():
+        # Store mode: delegate to store function which handles its own logging
+        return await write_store(params, ctx=_create_store_context())
+
+    # Sandbox mode: handle logging here since we're not delegating to store
     _t0 = _log_tool_event(
         name="files:write",
         phase="start",
@@ -740,36 +709,8 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
                 except Exception:
                     pass
 
-    # Store-backed with timeout guard
-    # Keep store-mode simple: single put_file to the final key (no temp swap)
-    # Policy check (store) — optional
-    try:
-        _policy = globals().get("_check_policy")
-        if _policy is not None:
-            _policy(os.path.join(_fs_root(), params.file_path), "write")
-    except ToolException:
-        _match = globals().get("_match_path_policy")
-        kind, rule = (None, None)
-        if _match is not None:
-            kind, rule = _match(os.path.join(_fs_root(), params.file_path))
-        _log_tool_event(
-            name="files:write",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
-            t0=_t0,
-        )
-        raise
-    lock = _get_lock(params.file_path, params.instance)
-    async with lock:
-        with anyio.fail_after(_default_tool_timeout()):
-            files = store_as(Files, instance=params.instance)
-            files.put_file(params.file_path, params.content)
-
-    if _use_typed_results():
-        _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-        return FileWriteResult(path=params.file_path, summary=summary)
-    _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
-    return summary
+    # Fallback to store mode if sandbox fails
+    return await write_store(params, ctx=_create_store_context())
 
 
 async def execute_edit(params: EditParams) -> str | FileEditResult:
@@ -784,10 +725,15 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     In sandbox mode, the adapter validates the path and denies symlinks before
     applying the edit. String replacement is not validated; ensure trusted input.
     """
-    from inspect_ai.util._store_model import store_as
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
+    # Check mode first to avoid duplicate logging
+    if not _use_sandbox_fs():
+        # Store mode: delegate to store function which handles its own logging
+        return await edit_store(params, ctx=_create_store_context())
+
+    # Sandbox mode: handle logging here since we're not delegating to store
     _t0 = _log_tool_event(
         name="files:edit",
         phase="start",
@@ -1024,126 +970,8 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                 # Let store-mode path handle the operation on timeouts
                 pass
 
-    # Store-backed: perform the full read-modify-write under a per-path lock
-    lock = _get_lock(params.file_path, params.instance)
-    async with lock:
-        with anyio.fail_after(_default_tool_timeout()):
-            files = store_as(Files, instance=params.instance)
-            content = files.get_file(params.file_path)
-        if content is None:
-            _log_tool_event(
-                name="files:edit",
-                phase="error",
-                extra={"ok": False, "error": "FileNotFound"},
-                t0=_t0,
-            )
-            raise ToolException(  # noqa: N806
-                f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
-            )
-
-        if params.old_string not in content:
-            _log_tool_event(
-                name="files:edit",
-                phase="error",
-                extra={"ok": False, "error": "StringNotFound"},
-                t0=_t0,
-            )
-            raise ToolException(
-                f"String '{params.old_string}' not found in file '{params.file_path}'. "
-                f"Please check the exact text to replace."
-            )
-
-    # Policy check (store) — optional
-    try:
-        _policy = globals().get("_check_policy")
-        if _policy is not None:
-            _policy(os.path.join(_fs_root(), params.file_path), "edit")
-    except ToolException:
-        _match = globals().get("_match_path_policy")
-        kind, rule = (None, None)
-        if _match is not None:
-            kind, rule = _match(os.path.join(_fs_root(), params.file_path))
-        _log_tool_event(
-            name="files:edit",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
-            t0=_t0,
-        )
-        raise
-
-    # Count replacements for accurate reporting
-    if params.replace_all:
-        replacement_count = content.count(params.old_string)
-        updated = content.replace(params.old_string, params.new_string)
-    else:
-        replacement_count = 1
-        updated = content.replace(params.old_string, params.new_string, 1)
-
-    # Validate expected_count when provided
-    if params.expected_count is not None:
-        expected = int(params.expected_count)
-        actual = replacement_count if params.replace_all else 1
-        if expected != actual:
-            _log_tool_event(
-                name="files:edit",
-                phase="error",
-                extra={"ok": False, "error": "ExpectedCountMismatch", "expected": expected, "actual": actual},
-                t0=_t0,
-            )
-            raise ToolException(f"ExpectedCountMismatch: expected {expected}, got {actual}")
-
-    # Enforce byte ceiling on the updated content
-    updated_bytes = len(updated.encode("utf-8"))
-    max_bytes = _max_bytes()
-    if updated_bytes > max_bytes:
-        _log_tool_event(
-            name="files:edit",
-            phase="error",
-            extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
-            t0=_t0,
-        )
-        raise ToolException(
-            f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
-            f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
-        )
-
-    # If dry_run, do not persist changes
-    if params.dry_run:
-        to_report = replacement_count if params.replace_all else 1
-        summary = f"(dry_run) Would update file {params.file_path} replacing {to_report} occurrence(s)"
-        if _use_typed_results():
-            _log_tool_event(
-                name="files:edit",
-                phase="end",
-                extra={"ok": True, "replaced": to_report, "dry_run": True},
-                t0=_t0,
-            )
-            return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
-        _log_tool_event(
-            name="files:edit",
-            phase="end",
-            extra={"ok": True, "replaced": to_report, "dry_run": True},
-            t0=_t0,
-        )
-        return summary
-
-    # Single write in store mode
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        files.put_file(params.file_path, updated)
-
-    summary = f"Updated file {params.file_path}"
-    to_report = replacement_count if params.replace_all else 1
-    if _use_typed_results():
-        _log_tool_event(
-            name="files:edit",
-            phase="end",
-            extra={"ok": True, "replaced": to_report},
-            t0=_t0,
-        )
-        return FileEditResult(path=params.file_path, replaced=to_report, summary=summary)
-    _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": to_report}, t0=_t0)
-    return summary
+    # Fallback to store mode if sandbox fails
+    return await edit_store(params, ctx=_create_store_context())
 
 
 async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
@@ -1153,7 +981,6 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
     - Sandbox: delete is disabled to avoid accidental host‑FS deletion.
     - Store: delete is supported against the in‑memory `Files` store.
     """
-    from inspect_ai.util._store_model import store_as
 
     # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
@@ -1180,34 +1007,7 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
         raise ToolException("SandboxUnsupported")
 
     # Store-backed with timeout guard
-    # Policy check (store) — enforce before deletion
-    try:
-        _check_policy(os.path.join(_fs_root(), params.file_path), "delete")
-    except ToolException:
-        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.file_path))
-        _log_tool_event(
-            name="files:delete",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
-            t0=_t0,
-        )
-        raise
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        # Check if file exists before deletion for proper messaging
-        file_exists = files.get_file(params.file_path) is not None
-        files.delete_file(params.file_path)
-
-    if file_exists:
-        summary = f"Deleted file {params.file_path}"
-    else:
-        summary = f"File {params.file_path} did not exist (delete operation was idempotent)"
-
-    if _use_typed_results():
-        _log_tool_event(name="files:delete", phase="end", extra={"ok": True, "existed": file_exists}, t0=_t0)
-        return FileDeleteResult(path=params.file_path, summary=summary)
-    _log_tool_event(name="files:delete", phase="end", extra={"ok": True, "existed": file_exists}, t0=_t0)
-    return summary
+    return await delete_store(params, ctx=_create_store_context())
 
 
 async def execute_trash(params: TrashParams) -> str | FileTrashResult:
@@ -1224,8 +1024,6 @@ async def execute_trash(params: TrashParams) -> str | FileTrashResult:
       alternative that keeps an audit trail via logs and path.
     """
     import time as _time
-
-    from inspect_ai.util._store_model import store_as
 
     _t0 = _log_tool_event(
         name="files:trash",
@@ -1288,41 +1086,8 @@ async def execute_trash(params: TrashParams) -> str | FileTrashResult:
             # Fallback to store-mode implementation
             pass
 
-    # Store-mode trash: move key under .trash/<ts>/
-    # Policy check (store) — destructive on source
-    try:
-        _check_policy(os.path.join(root, params.file_path), "trash")
-    except ToolException:
-        kind, rule = _match_path_policy(os.path.join(root, params.file_path))
-        _log_tool_event(
-            name="files:trash",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.file_path},
-            t0=_t0,
-        )
-        raise
-
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        content = files.get_file(params.file_path)
-        if content is None:
-            _log_tool_event(name="files:trash", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
-            raise ToolException(f"File '{params.file_path}' not found")
-        # Compute destination key
-        dst_key = f".trash/{ts}/{params.file_path.lstrip('/')}"
-        files.put_file(dst_key, content)
-        files.delete_file(params.file_path)
-
-    summary = f"Trashed {params.file_path} -> {dst_key}"
-    _log_tool_event(
-        name="files:trash",
-        phase="end",
-        extra={"ok": True, "action": "trash", "src": params.file_path, "dst": dst_key},
-        t0=_t0,
-    )
-    if _use_typed_results():
-        return FileTrashResult(src=params.file_path, dst=dst_key, summary=summary)
-    return summary
+    # Store-backed mode with timeout guard
+    return await trash_store(params, ctx=_create_store_context(), timestamp=lambda: _time.time())
 
 
 # The main files tool
@@ -1463,25 +1228,12 @@ async def execute_mkdir(params: MkdirParams) -> str:
                 return f"Created directory {params.dir_path}"
             except Exception:
                 pass
-    # Store: enforce policy even though directory entries are implicit
-    try:
-        _check_policy(os.path.join(_fs_root(), params.dir_path), "mkdir")
-    except ToolException:
-        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.dir_path))
-        _log_tool_event(
-            name="files:mkdir",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dir_path},
-            t0=_t0,
-        )
-        raise
-    _log_tool_event(name="files:mkdir", phase="end", extra={"ok": True, "mode": "store"}, t0=_t0)
-    return f"Created directory {params.dir_path}"
+    # Store-backed mode with timeout guard
+    return await mkdir_store(params, ctx=_create_store_context())
 
 
 async def execute_move(params: MoveParams) -> str | FileMoveResult:
     """Execute move/rename command."""
-    from inspect_ai.util._store_model import store_as
 
     _t0 = _log_tool_event(
         name="files:move",
@@ -1520,40 +1272,12 @@ async def execute_move(params: MoveParams) -> str | FileMoveResult:
                     return summary
             except Exception:
                 pass
-    # Store: rename file key if exists (policy enforced on destination)
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        content = files.get_file(params.src_path)
-    if content is None:
-        _log_tool_event(name="files:move", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
-        raise ToolException(f"Source '{params.src_path}' not found")
-    # Policy check for destination (store)
-    try:
-        _check_policy(os.path.join(_fs_root(), params.dst_path), "move")
-    except ToolException:
-        kind, rule = _match_path_policy(os.path.join(_fs_root(), params.dst_path))
-        _log_tool_event(
-            name="files:move",
-            phase="error",
-            extra={"ok": False, "error": "PolicyDenied", "policy_rule": rule, "path": params.dst_path},
-            t0=_t0,
-        )
-        raise
-    lock = _get_lock(params.src_path, params.instance)
-    async with lock:
-        files.put_file(params.dst_path, content)
-        files.delete_file(params.src_path)
-    summary = f"Moved {params.src_path} -> {params.dst_path}"
-    if _use_typed_results():
-        _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
-        return FileMoveResult(src=params.src_path, dst=params.dst_path, summary=summary)
-    _log_tool_event(name="files:move", phase="end", extra={"ok": True}, t0=_t0)
-    return summary
+    # Store-backed mode with timeout guard
+    return await move_store(params, ctx=_create_store_context())
 
 
 async def execute_stat(params: StatParams) -> str | FileStatResult:
     """Execute stat command to query existence/type/size."""
-    from inspect_ai.util._store_model import store_as
 
     _t0 = _log_tool_event(
         name="files:stat",
@@ -1575,22 +1299,5 @@ async def execute_stat(params: StatParams) -> str | FileStatResult:
                 return f"{params.path}: {kind}{'' if size is None else f' ({size} bytes)'}"
         except Exception:
             pass
-    # Store: derive from keys
-    with anyio.fail_after(_default_tool_timeout()):
-        files = store_as(Files, instance=params.instance)
-        content = files.get_file(params.path)
-        exists = content is not None
-        if exists:
-            is_dir = False
-            size = len(content.encode("utf-8"))
-        else:
-            # Treat any prefix match as a directory
-            prefix = params.path.rstrip("/") + "/"
-            is_dir = any(k.startswith(prefix) for k in files.list_files())
-            size = None
-    if _use_typed_results():
-        _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
-        return FileStatResult(path=params.path, exists=exists or is_dir, is_dir=is_dir, size=size)
-    _log_tool_event(name="files:stat", phase="end", extra={"ok": True}, t0=_t0)
-    kind = "dir" if is_dir else ("file" if exists else "missing")
-    return f"{params.path}: {kind}{'' if size is None else f' ({size} bytes)'}"
+    # Store-backed mode with timeout guard
+    return await stat_store(params, ctx=_create_store_context())
