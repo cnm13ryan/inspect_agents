@@ -175,13 +175,18 @@ if not _HAS_PYTEST_BENCHMARK:  # pragma: no cover - exercised only when plugin m
 
         return _runner
 
-    def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
-        # Register the 'benchmark' marker to avoid unknown-mark warnings when
-        # the real plugin isn't installed.
-        try:
-            config.addinivalue_line("markers", "benchmark: no-op when pytest-benchmark is unavailable")
-        except Exception:
-            pass
+
+def _register_benchmark_marker(config) -> None:
+    """Ensure the fallback benchmark marker is only registered when needed."""
+
+    if _HAS_PYTEST_BENCHMARK:
+        return
+
+    try:
+        config.addinivalue_line("markers", "benchmark: no-op when pytest-benchmark is unavailable")
+    except Exception:
+        pass
+
 
 # Guard/cleanup fixture for approval-related tests that stub inspect_ai modules
 # and register global approvers. Ensures isolation across tests.
@@ -347,30 +352,7 @@ def _call_tools_module_guard():  # pragma: no cover - test infrastructure
 
 
 def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
-    # Ensure common markers are known regardless of optional plugins
-    try:
-        config.addinivalue_line("markers", "benchmark: present even if pytest-benchmark is unavailable")
-    except Exception:
-        pass
-    try:
-        config.addinivalue_line("markers", "network: allow real network for this test")
-    except Exception:
-        pass
-    # Register repo markers used for selection/guides to avoid unknown-mark warnings
-    for _m in [
-        "approvals",
-        "handoff",
-        "filters",
-        "kill_switch",
-        "timeout",
-        "truncation",
-        "parallel",
-        "model_flags",
-    ]:
-        try:
-            config.addinivalue_line("markers", f"{_m}: repository-defined test marker")
-        except Exception:
-            pass
+    _register_benchmark_marker(config)
 
 
 # Optional dependency shim for `jsonlines` managed via fixture to ensure cleanup.
