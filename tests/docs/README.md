@@ -4,6 +4,7 @@ Central index of testing guides for this repository. Tests default to offline, f
 
 ## Structure
 - unit: fast, isolated tests (`tests/unit/**`).
+  - Each `inspect_agents/<domain>/` has its own [README](../unit/inspect_agents/) with scope, fixtures, and selection examples.
   - `inspect_agents/approvals`: approval policies, handoff exclusivity, kill-switch.
   - `inspect_agents/filters`: input/output filters and quarantine modes.
   - `inspect_agents/fs`: files tool + sandbox FS behaviors.
@@ -15,6 +16,10 @@ Central index of testing guides for this repository. Tests default to offline, f
   - `inspect_agents/config`: YAML loader + limits.
   - `inspect_agents/logging`: transcript + redaction logic.
   - `inspect_agents/migration`: legacy→deep agent migration path.
+  - `inspect_agents/observability`: observability and monitoring.
+  - `inspect_agents/planner`: planning functionality.
+  - `inspect_agents/profiles`: profiles management.
+  - `inspect_agents/run`: run-related functionality.
 - integration: end-to-end and script-driven tests (`tests/integration/**`).
   - `examples/`, `research/` consolidated here.
   - Offline-hardening: a root autouse fixture clears approvals, disables
@@ -81,3 +86,23 @@ Recent tidy-up:
 ## Conventions
 - Keep tests deterministic; set env in-tests via `monkeypatch`.
 - Prefer small, behavior-focused tests; use fixtures for shared setup.
+
+## Domain-Specific READMEs
+
+For detailed guidance on each unit test domain, see the individual READMEs:
+
+- [Approvals](../unit/inspect_agents/approvals/README.md) – approval policies, handoff exclusivity, kill-switch
+- [Config](../unit/inspect_agents/config/README.md) – YAML loader + limits
+- [Filters](../unit/inspect_agents/filters/README.md) – input/output filters and quarantine modes
+- [Filesystem](../unit/inspect_agents/fs/README.md) – files tool + sandbox FS behaviors
+- [Iterative](../unit/inspect_agents/iterative/README.md) – iterative agent limits, productive time
+- [Logging](../unit/inspect_agents/logging/README.md) – transcript + redaction logic
+- [Migration](../unit/inspect_agents/migration/README.md) – legacy→deep agent migration path
+- [Model](../unit/inspect_agents/model/README.md) – model resolution + role mapping
+- [Observability](../unit/inspect_agents/observability/README.md) – observability and monitoring
+- [Planner](../unit/inspect_agents/planner/README.md) – planning functionality
+- [Profiles](../unit/inspect_agents/profiles/README.md) – profiles management
+- [Run](../unit/inspect_agents/run/README.md) – run-related functionality
+- [Schema](../unit/inspect_agents/schema/README.md) – pydantic models, typed results
+- [State](../unit/inspect_agents/state/README.md) – store-backed state shims
+- [Tools](../unit/inspect_agents/tools/README.md) – tool schemas, observability, todos tool
