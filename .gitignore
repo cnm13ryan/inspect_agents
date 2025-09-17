@@ -239,3 +239,6 @@ logs/
 
 # Ignore vendored pytest deps removed from repo
 tests/.pytest-deps/
+
+# Prompt drafts
+prompts/
