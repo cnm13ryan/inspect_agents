@@ -38,6 +38,9 @@ from .files_models import (
     TrashParams,
     WriteParams,
 )
+from .files_ops_sandbox import (
+    ls_sandbox,
+)
 from .files_ops_store import (
     StoreOpsContext,
     delete_store,
@@ -282,60 +285,13 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
         args={"instance": params.instance},
     )
 
-    # Sandbox FS mode: use adapter to run ls via bash session
+    # Sandbox FS mode: delegate to sandbox operations
     if _use_sandbox_fs():
-        adapter = _get_sandbox_adapter()
-        if await adapter.preflight("bash session"):
-            try:
-                root = _fs_root()
-                file_list = await adapter.ls(root)
-
-                # Optional policy enforcement on ls results (feature-flagged)
-                if _truthy(os.getenv("INSPECT_FS_POLICY_ENFORCE_READS")):
-                    try:
-                        # Filter out denied paths; emit a structured error for each denied entry
-                        allowed: list[str] = []
-                        for name in file_list:
-                            abs_path = os.path.join(root, name)
-                            kind, rule = _match_path_policy(abs_path)
-                            if kind == "deny":
-                                _log_tool_event(
-                                    name="files:ls",
-                                    phase="error",
-                                    extra={
-                                        "ok": False,
-                                        "error": "PolicyDenied",
-                                        "policy_rule": rule,
-                                        "path": name,
-                                    },
-                                    t0=_t0,
-                                )
-                                continue
-                            allowed.append(name)
-                        # Ensure deterministic ordering when policy is enforced
-                        file_list = sorted(allowed)
-                    except Exception:
-                        # Policy evaluation must not crash ls; fall back to original list
-                        pass
-
-                if _use_typed_results():
-                    _log_tool_event(
-                        name="files:ls",
-                        phase="end",
-                        extra={"ok": True, "count": len(file_list)},
-                        t0=_t0,
-                    )
-                    return FileListResult(files=file_list)
-                _log_tool_event(
-                    name="files:ls",
-                    phase="end",
-                    extra={"ok": True, "count": len(file_list)},
-                    t0=_t0,
-                )
-                return file_list
-            except Exception:
-                # Graceful fallback to store-backed mode
-                pass
+        try:
+            return await ls_sandbox(params, log_tool_event=_log_tool_event)
+        except Exception:
+            # Graceful fallback to store-backed mode
+            pass
 
     # Store-backed mode (in-memory Files store) with timeout guard
     return await ls_store(params, ctx=_create_store_context())
