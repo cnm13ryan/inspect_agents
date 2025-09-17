@@ -61,6 +61,7 @@ GUIDES = {
     "subagent": DOCS_DIR / "TESTING_SUBAGENTS_HANDOFFS.md",
     "filters": DOCS_DIR / "TESTING_FILTERS.md",
     "kill_switch": DOCS_DIR / "TESTING_APPROVALS_POLICIES.md",
+    "sandbox_e2e": DOCS_DIR / "TESTING_E2E.md",
     "timeout": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
     "tool_timeouts": DOCS_DIR / "TESTING_TOOL_TIMEOUTS.md",
     "truncation": DOCS_DIR / "TESTING_LIMITS_TRUNCATION.md",
