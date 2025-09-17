@@ -53,7 +53,7 @@ def test_two_parallel_tools_both_execute():
     assert set(funcs) == {"echo_a", "echo_b"}
 
 
-def test_handoff_tool_declares_serial_execution():
+def test_parallel_limits_handoff_tool_declares_serial_execution():
     # Build a single subagent handoff tool
     tools = build_subagents(
         configs=[
