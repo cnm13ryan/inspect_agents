@@ -77,20 +77,11 @@ def _format_standard_tools_section(all_tools: list[object]) -> str:
 
 
 def _built_in_tools():
-    # Local imports to avoid importing inspect_ai at module import time
-    from inspect_agents.tools import (
-        edit_file,
-        ls,
-        read_file,
-        standard_tools,
-        update_todo_status,
-        write_file,
-        write_todos,
-    )
+    # Local import to avoid importing inspect_ai at module import time
+    from inspect_agents.tools import full_safe_preset
 
-    base = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
-    # Append optional standard tools (enabled via env flags)
-    return base + standard_tools()
+    # Mirrors full_safe_preset() so defaults stay in sync with curated presets
+    return full_safe_preset()
 
 
 def build_supervisor(
@@ -106,7 +97,9 @@ def build_supervisor(
 
     Args:
         prompt: Base instructions to prepend before standard guidance.
-        tools: Additional Tools/ToolDefs/ToolSources to provide.
+        tools: Additional Tools/ToolDefs/ToolSources to provide. Pass the result of
+            ``inspect_agents.tools.minimal_fs_preset()`` or ``full_safe_preset()``
+            when you disable defaults but still want curated bundles.
         include_defaults: When True (default), prepend the built-in Todo/FS tools
             and mention them in the prompt. When False, skip automatic tool
             injection and omit the Todo section so custom deployments can supply
@@ -188,7 +181,10 @@ def build_iterative_agent(
 ):
     """Thin passthrough to the iterative supervisor (no submit semantics).
 
-    Exposed here for a consistent surface alongside `build_supervisor()`.
+    Exposed here for a consistent surface alongside `build_supervisor()`. When
+    opting out of defaults via ``include_defaults=False``, reuse
+    ``inspect_agents.tools.minimal_fs_preset()`` or ``full_safe_preset()`` to
+    assemble sanctioned tool bundles without reimplementing policy checks.
     See `inspect_agents.iterative.build_iterative_agent` for parameter docs.
     """
     # Import locally to avoid heavy imports at module load
