@@ -39,6 +39,9 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
   - Advanced: set `include_defaults=False` on `build_supervisor`, `build_iterative_agent`,
     or YAML configs to opt out of auto-injected todos/files while keeping prompts aligned
     with your custom toolchain.
+  - Curated presets: call `inspect_agents.tools.minimal_fs_preset()` (Todos + FS) or
+    `inspect_agents.tools.full_safe_preset()` (Todos + FS + env-gated standard tools)
+    to rebuild safe bundles when you disable defaults.
 - ✅ Optional standard tools (gated by env flags):
   - `INSPECT_ENABLE_THINK` (default on), `INSPECT_ENABLE_WEB_SEARCH` (auto when provider keys set),
     `INSPECT_ENABLE_EXEC`, `INSPECT_ENABLE_WEB_BROWSER`, `INSPECT_ENABLE_TEXT_EDITOR_TOOL` (default off)
