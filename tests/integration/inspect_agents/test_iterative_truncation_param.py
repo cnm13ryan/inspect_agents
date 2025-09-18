@@ -8,6 +8,7 @@ from inspect_ai.tool._tool_def import ToolDef
 from inspect_ai.tool._tool_params import ToolParams
 
 from inspect_agents.iterative import build_iterative_agent
+from inspect_agents.tools import read_file
 
 pytestmark = pytest.mark.truncation
 
@@ -78,3 +79,95 @@ def test_iterative_param_caps_tool_output(monkeypatch):
     end = text.index("<END_TOOL_OUTPUT>")
     payload = text[start:end].strip("\n")
     assert len(payload.encode("utf-8")) == 4096
+
+
+@pytest.mark.parametrize(
+    ("include_defaults", "tool_factory", "expected_count"),
+    [
+        (True, lambda: [], 0),
+        (False, lambda: [read_file()], 1),
+    ],
+)
+def test_iterative_emits_defaults_telemetry(monkeypatch, include_defaults, tool_factory, expected_count):
+    events: list[dict[str, object]] = []
+
+    def _capture(name, phase, args=None, extra=None, t0=None):
+        events.append({"name": name, "phase": phase, "args": args, "extra": extra})
+        return 0.0 if t0 is None else t0
+
+    monkeypatch.setattr("inspect_agents.observability.log_tool_event", _capture)
+
+    build_iterative_agent(
+        prompt="Instrument defaults",
+        tools=tool_factory(),
+        include_defaults=include_defaults,
+        max_steps=1,
+    )
+
+    telemetry = [ev for ev in events if ev["name"] == "agent_defaults"]
+    assert telemetry, "expected agent_defaults telemetry"
+
+    record = telemetry[-1]
+    extra = record["extra"] or {}
+    assert extra["builder"] == "iterative"
+    assert extra["include_defaults"] is include_defaults
+    assert extra["include_defaults_source"] == "explicit"
+    assert extra["caller_supplied_tool_count"] == expected_count
+    assert extra["caller_supplied_replacements"] is bool(expected_count)
+    assert extra["feature_flag"] == "INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS"
+    assert extra["feature_flag_state"] == "unset"
+    assert extra["active_tool_count"] >= expected_count
+    assert isinstance(extra.get("code_only"), bool)
+
+
+@pytest.mark.parametrize(
+    ("env_value", "expected_default"),
+    [
+        ("0", False),
+        ("1", True),
+    ],
+)
+def test_iterative_include_defaults_env(monkeypatch, env_value, expected_default):
+    events: list[dict[str, object]] = []
+
+    def _capture(name, phase, args=None, extra=None, t0=None):
+        events.append({"name": name, "phase": phase, "args": args, "extra": extra})
+        return 0.0 if t0 is None else t0
+
+    monkeypatch.setattr("inspect_agents.observability.log_tool_event", _capture)
+    monkeypatch.setenv("INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS", env_value)
+
+    build_iterative_agent(prompt="Env override", tools=[], max_steps=1)
+
+    telemetry = [ev for ev in events if ev["name"] == "agent_defaults"]
+    assert telemetry, "expected agent_defaults telemetry"
+
+    record = telemetry[-1]
+    extra = record["extra"] or {}
+    assert extra["builder"] == "iterative"
+    assert extra["include_defaults"] is expected_default
+    assert extra["include_defaults_source"] == "env"
+    assert extra["feature_flag_state"] == env_value
+    assert extra["active_tool_count"] >= (1 if expected_default else 0)
+
+
+def test_iterative_include_defaults_env_can_be_overridden(monkeypatch):
+    events: list[dict[str, object]] = []
+
+    def _capture(name, phase, args=None, extra=None, t0=None):
+        events.append({"name": name, "phase": phase, "args": args, "extra": extra})
+        return 0.0 if t0 is None else t0
+
+    monkeypatch.setattr("inspect_agents.observability.log_tool_event", _capture)
+    monkeypatch.setenv("INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS", "0")
+
+    build_iterative_agent(prompt="Explicit", include_defaults=True, max_steps=1)
+
+    telemetry = [ev for ev in events if ev["name"] == "agent_defaults"]
+    assert telemetry, "expected agent_defaults telemetry"
+
+    record = telemetry[-1]
+    extra = record["extra"] or {}
+    assert extra["include_defaults"] is True
+    assert extra["include_defaults_source"] == "explicit"
+    assert extra["feature_flag_state"] == "0"

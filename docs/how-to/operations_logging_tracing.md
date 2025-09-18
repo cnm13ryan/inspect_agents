@@ -59,6 +59,11 @@ Fields include `tool`, `phase` (`start|end|error`), optional `duration_ms`, and 
 - Redaction keys: `api_key`, `authorization`, `token`, `password`, `file_text`, `content`. 〖F:src/inspect_agents/approval.py†L113-L124〗
 - Truncation: long string fields shortened (default 200 chars) — set `INSPECT_TOOL_OBS_TRUNCATE` to adjust. 〖F:src/inspect_agents/tools.py†L46-L53〗 〖F:src/inspect_agents/tools.py†L79-L116〗
 
+### Default tool inclusion telemetry
+When you call `build_supervisor(...)` or `build_iterative_agent(...)`, Inspect Agents emits a single `tool_event` named `agent_defaults` summarizing whether built-in tools were injected. The payload includes the builder (`supervisor` or `iterative`), the final `include_defaults` decision, how many caller-supplied tools were provided, and whether replacements were supplied when defaults are disabled. The log also records a future-facing feature flag name (`INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS`) and its current state so deployments can correlate opt-outs with config rollout plans. The `include_defaults_source` field explains whether the value came from the explicit argument, the environment flag, or the built-in default, and additional context such as the total active tool count and `code_only` mode accompanies the event.
+
+Use it to audit custom profiles that disable defaults and confirm they provision alternative tooling before launching experiments. Setting `INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS=0/1` globally flips the default tool injection; the resulting record will note the environment source while still allowing explicit overrides per call. Each builder call emits at most one record, keeping transcripts low-noise while still capturing opt-out adoption.
+
 ## Common patterns
 - Find all approval rejections/terminations:
 ```bash
