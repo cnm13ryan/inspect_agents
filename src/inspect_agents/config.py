@@ -39,6 +39,7 @@ class SupervisorCfg(BaseModel):
     attempts: int | None = None
     truncation: Literal["auto", "disabled"] | None = None
     model: Any | None = None
+    include_defaults: bool | None = None
 
 
 class SubAgentCfg(BaseModel):
@@ -330,9 +331,12 @@ def build_from_config(
 
     # Build supervisor
     sup = cfg.supervisor
+    include_defaults = True if sup.include_defaults is None else bool(sup.include_defaults)
+
     agent = build_supervisor(
         prompt=sup.prompt,
         tools=sub_tools,
+        include_defaults=include_defaults,
         attempts=sup.attempts or 1,
         model=model or sup.model,
         truncation=sup.truncation or "disabled",

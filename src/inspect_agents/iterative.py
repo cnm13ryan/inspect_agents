@@ -99,15 +99,16 @@ def _base_tools(*, code_only: bool = False) -> list[object]:
     return fs_tools + standard_tools()
 
 
-def _default_system_message(*, code_only: bool = False) -> str:
+def _default_system_message(*, code_only: bool = False, include_defaults: bool = True) -> str:
     base = (
         "You are an iterative coding agent.\n"
         "- Work in small, verifiable steps (one tool call per message).\n"
-        "- Read or edit files as needed; keep the repo tidy and reproducible.\n"
         "- Prefer updating existing files over creating many new ones.\n"
         "- If a step requires execution, use bash responsibly and capture outputs.\n"
         "- Continue improving until time is up or explicit stop.\n"
     )
+    if include_defaults:
+        base += "- Read or edit files as needed; keep the repo tidy and reproducible.\n"
     if code_only:
         base += "- Code-only mode: no exec/search/browser tools are available; prefer read/edit file tools.\n"
     return base
@@ -122,6 +123,7 @@ def build_iterative_agent(
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
     code_only: bool = False,
+    include_defaults: bool = True,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
@@ -157,7 +159,8 @@ def build_iterative_agent(
 
     Args:
         prompt: System instructions. If None, a sensible default is used.
-        tools: Tools to expose. Defaults to Files tools plus any enabled standard tools.
+        tools: Tools to expose. Defaults to Files tools plus any enabled standard tools
+            when `include_defaults=True`. When False, the caller must pass tools.
         model: Inspect model identifier or object. If None, current active model is used.
         real_time_limit_sec: Wall‑clock time budget for the agent (excludes provider retry backoff best‑effort). If None, falls back to the env var `INSPECT_ITERATIVE_TIME_LIMIT` (seconds) when set.
         max_steps: Hard cap on loop steps. If None, falls back to the env var `INSPECT_ITERATIVE_MAX_STEPS` when set.
@@ -198,9 +201,14 @@ def build_iterative_agent(
     from inspect_ai.model._model import get_model
     # Lightweight, provider-agnostic pruning already imported above
 
-    sys_message = prompt or _default_system_message(code_only=code_only)
+    sys_message = prompt or _default_system_message(
+        code_only=code_only,
+        include_defaults=include_defaults,
+    )
     step_nudge = continue_message or _default_continue_message()
-    active_tools = list(tools or _base_tools(code_only=code_only))
+    base_tools = _base_tools(code_only=code_only) if include_defaults else []
+    extra_tools = list(tools or [])
+    active_tools = base_tools + extra_tools if include_defaults else extra_tools
 
     @agent(name="iterative_supervisor")
     def _iterative() -> Any:

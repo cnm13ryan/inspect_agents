@@ -32,10 +32,13 @@ python examples/inspect/quickstart_toy.py
 Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. Inspect Agents removes overhead with an Inspect‑AI‑native workflow: typed state (todos/files), built‑in tools, and rich transcripts/traces by default. You can run a toy agent offline in seconds (see Quickstart above).
 
 ## Key Features
-- ✅ Inspect‑native tools: Todos + virtual filesystem
-  - Default: in‑memory “store” (ephemeral; isolated per run)
+- ✅ Inspect-native tools: Todos + virtual filesystem
+  - Default: in-memory “store” (ephemeral; isolated per run)
   - Optional: sandbox (routes through Inspect’s `text_editor`/`bash_session`; delete disabled)
   - Sandbox quickstart: see [docs/how-to/filesystem_sandbox_quickstart.md](docs/how-to/filesystem_sandbox_quickstart.md)
+  - Advanced: set `include_defaults=False` on `build_supervisor`, `build_iterative_agent`,
+    or YAML configs to opt out of auto-injected todos/files while keeping prompts aligned
+    with your custom toolchain.
 - ✅ Optional standard tools (gated by env flags):
   - `INSPECT_ENABLE_THINK` (default on), `INSPECT_ENABLE_WEB_SEARCH` (auto when provider keys set),
     `INSPECT_ENABLE_EXEC`, `INSPECT_ENABLE_WEB_BROWSER`, `INSPECT_ENABLE_TEXT_EDITOR_TOOL` (default off)
