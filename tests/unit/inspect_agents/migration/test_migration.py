@@ -59,3 +59,30 @@ def test_create_deep_agent_minimal_flow():
     # Verify todos updated in Store
     todos = store_as(Todos).get_todos()
     assert any(t.content == "do x" for t in todos)
+
+
+def test_create_deep_agent_respects_include_defaults(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_resolver(names, *, include_defaults):
+        captured["include_defaults"] = include_defaults
+        return []
+
+    monkeypatch.setattr("inspect_agents.migration._resolve_builtin_tools", fake_resolver)
+
+    async def _dummy_agent(state):  # pragma: no cover - stub only
+        return state
+
+    def fake_react(**kwargs):
+        captured.update(kwargs)
+        return _dummy_agent
+
+    monkeypatch.setattr("inspect_ai.agent._react.react", fake_react)
+
+    agent_obj = create_deep_agent(tools=[], instructions="Hello", include_defaults=False)
+
+    assert callable(agent_obj)
+    assert captured["include_defaults"] is False
+    assert captured["tools"] == []
+    prompt = captured["prompt"]
+    assert "Todo & Filesystem Tools" not in prompt
