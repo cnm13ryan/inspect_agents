@@ -85,6 +85,50 @@ def default_tool_timeout() -> float:
     return float_env("INSPECT_AGENTS_TOOL_TIMEOUT", 15.0)
 
 
+_FALSEY = {"0", "false", "no", "off"}
+_FEATURE_FLAG_INCLUDE_DEFAULTS = "INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS"
+
+
+def include_defaults_env() -> tuple[bool | None, str | None]:
+    """Return (bool, raw) for the include-defaults feature flag.
+
+    - True/False when the environment specifies an explicit toggle.
+    - (None, raw) when unset or invalid so callers can fall back to defaults
+      while still surfacing the provided text in telemetry.
+    """
+
+    raw = os.getenv(_FEATURE_FLAG_INCLUDE_DEFAULTS)
+    if raw is None:
+        return None, None
+
+    value = raw.strip()
+    if value == "":
+        return None, raw
+
+    lowered = value.lower()
+    if truthy(lowered):
+        return True, raw
+    if lowered in _FALSEY:
+        return False, raw
+    return None, raw
+
+
+def resolve_include_defaults(explicit: bool | None) -> tuple[bool, str, str | None]:
+    """Resolve include-defaults preference with env override semantics.
+
+    Returns a tuple of `(include_defaults, source, env_raw)` where `source` is
+    one of "explicit", "env", or "default". Defaults to True when neither an
+    explicit argument nor an env override is provided.
+    """
+
+    env_value, env_raw = include_defaults_env()
+    if explicit is not None:
+        return bool(explicit), "explicit", env_raw
+    if env_value is not None:
+        return env_value, "env", env_raw
+    return True, "default", env_raw
+
+
 __all__ = [
     "truthy",
     "int_env",
@@ -93,4 +137,6 @@ __all__ = [
     "max_tool_output_env",
     "typed_results_enabled",
     "default_tool_timeout",
+    "include_defaults_env",
+    "resolve_include_defaults",
 ]
