@@ -5,12 +5,13 @@ from collections.abc import Sequence
 from typing import Any
 
 from . import fs as _fs
+from .settings import resolve_include_defaults
 
 
 def _resolve_builtin_tools(
     names: list[str] | None,
     *,
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
 ) -> list[object]:
     from inspect_agents import tools as builtin
 
@@ -22,8 +23,10 @@ def _resolve_builtin_tools(
         "edit_file": builtin.edit_file,
     }
 
+    include_defaults_bool, _, _ = resolve_include_defaults(include_defaults)
+
     if names is None:
-        selected = list(name_to_ctor.keys()) if include_defaults else []
+        selected = list(name_to_ctor.keys()) if include_defaults_bool else []
     else:
         selected = names
     return [name_to_ctor[n]() for n in selected if n in name_to_ctor]
@@ -225,7 +228,7 @@ def create_deep_agent(
     interrupt_config: dict[str, Any] | None = None,
     attempts: int = 1,
     truncation: str = "disabled",
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
 ) -> object:
     """Drop-in constructor with deepagents-style compatibility (backed by Inspect).
 
@@ -234,10 +237,12 @@ def create_deep_agent(
     parity.
 
     Args:
-        include_defaults: When True (default), inject the built-in todo/filesystem
-            tools and describe them in the prompt for compatibility. When False,
-            skip automatic injection so callers can provide their own toolchain
-            without prompt drift.
+        include_defaults: When None (default), defer to the environment toggle
+            `INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS` (defaults True when unset).
+            When True, inject the built-in todo/filesystem tools and describe
+            them in the prompt for compatibility. When False, skip automatic
+            injection so callers can provide their own toolchain without prompt
+            drift.
     """
     from inspect_ai.agent._agent import agent as as_agent
     from inspect_ai.agent._react import react
@@ -250,9 +255,11 @@ def create_deep_agent(
     )
 
     # Resolve built-ins and optional sub-agents
+    resolved_include_defaults, _, _ = resolve_include_defaults(include_defaults)
+
     base_tools = _resolve_builtin_tools(
         builtin_tools,
-        include_defaults=include_defaults,
+        include_defaults=resolved_include_defaults,
     )
     extra_tools = list(tools or [])
 
@@ -261,7 +268,7 @@ def create_deep_agent(
 
     # Build top-level ReAct supervisor
     tail_chunks = [BASE_PROMPT_HEADER]
-    if include_defaults:
+    if resolved_include_defaults:
         tail_chunks.append(BASE_PROMPT_TODOS)
     std_section = _format_standard_tools_section(base_tools + extra_tools)
     if std_section:
