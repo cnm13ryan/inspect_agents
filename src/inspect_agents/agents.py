@@ -97,6 +97,7 @@ def build_supervisor(
     prompt: str,
     tools: Sequence[object] | None = None,
     *,
+    include_defaults: bool = True,
     attempts: int = 1,
     model: object | None = None,
     truncation: str = "disabled",
@@ -106,6 +107,10 @@ def build_supervisor(
     Args:
         prompt: Base instructions to prepend before standard guidance.
         tools: Additional Tools/ToolDefs/ToolSources to provide.
+        include_defaults: When True (default), prepend the built-in Todo/FS tools
+            and mention them in the prompt. When False, skip automatic tool
+            injection and omit the Todo section so custom deployments can supply
+            their own toolchain without prompt drift.
         attempts: Max attempts for submit-terminated loop.
         model: Optional Inspect model (string/Model/Agent). If None, uses default.
         truncation: Overflow policy for long conversations ("disabled" or "auto").
@@ -116,17 +121,20 @@ def build_supervisor(
     from inspect_ai.agent._react import react
 
     # Compose prompt with clear tool sections (Todo/FS + Standard)
-    tools = list(tools or [])
-    builtins = _built_in_tools()
-    tools = builtins + tools
+    extra_tools = list(tools or [])
+    builtins = _built_in_tools() if include_defaults else []
+    tools = builtins + extra_tools
 
-    full_prompt = (
-        (prompt or "").rstrip()
-        + "\n\n"
-        + BASE_PROMPT_HEADER
-        + BASE_PROMPT_TODOS
-        + _format_standard_tools_section(builtins)
-    )
+    tail_chunks = [BASE_PROMPT_HEADER]
+    if include_defaults:
+        tail_chunks.append(BASE_PROMPT_TODOS)
+    std_section = _format_standard_tools_section(tools)
+    if std_section:
+        tail_chunks.append(std_section)
+    tail = "".join(tail_chunks)
+
+    prefix = (prompt or "").rstrip()
+    full_prompt = tail if not prefix else f"{prefix}\n\n{tail}"
 
     return react(
         prompt=full_prompt,
@@ -142,6 +150,7 @@ def build_basic_submit_agent(
     *,
     prompt: str,
     tools: Sequence[object] | None = None,
+    include_defaults: bool = True,
     attempts: int = 1,
     model: object | None = None,
     truncation: str = "disabled",
@@ -154,6 +163,7 @@ def build_basic_submit_agent(
     return build_supervisor(
         prompt=prompt,
         tools=tools,
+        include_defaults=include_defaults,
         attempts=attempts,
         model=model,
         truncation=truncation,
@@ -165,6 +175,7 @@ def build_iterative_agent(
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
     code_only: bool = False,
+    include_defaults: bool = True,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
@@ -187,6 +198,7 @@ def build_iterative_agent(
         prompt=prompt,
         tools=tools,
         code_only=code_only,
+        include_defaults=include_defaults,
         model=model,
         real_time_limit_sec=real_time_limit_sec,
         max_steps=max_steps,
