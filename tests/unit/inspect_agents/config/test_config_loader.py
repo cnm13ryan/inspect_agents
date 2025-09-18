@@ -4,7 +4,7 @@ import pytest
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
 
-from inspect_agents.config import load_and_build, load_yaml
+from inspect_agents.config import build_from_config, load_and_build, load_yaml
 from inspect_agents.run import run_agent
 
 
@@ -65,6 +65,34 @@ def test_minimal_yaml_builds_and_runs(monkeypatch):
     agent_obj, tools, approvals, limits = load_and_build(yaml_txt, model=toy_submit_model())
     result = asyncio.run(run_agent(agent_obj, "start", approval=approvals, limits=limits))
     assert "DONE" in (result.output.completion or "")
+
+
+def test_include_defaults_flag_forwarded(monkeypatch):
+    yaml_txt = """
+    supervisor:
+      prompt: "Skip defaults"
+      include_defaults: false
+    """
+
+    cfg = load_yaml(yaml_txt)
+
+    captured: dict[str, object] = {}
+
+    def fake_build_supervisor(*, prompt, tools, include_defaults, **kwargs):
+        captured["prompt"] = prompt
+        captured["tools"] = list(tools)
+        captured["include_defaults"] = include_defaults
+        return object()
+
+    monkeypatch.setattr("inspect_agents.config.build_supervisor", fake_build_supervisor)
+
+    agent, tools, approvals, limits = build_from_config(cfg)
+
+    assert captured["include_defaults"] is False
+    assert captured["prompt"].startswith("Skip defaults")
+    assert tools == []
+    assert approvals == []
+    assert limits == []
 
 
 def test_subagent_declared_and_handoff_tool_present(monkeypatch):
