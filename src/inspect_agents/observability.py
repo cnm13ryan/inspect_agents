@@ -13,6 +13,7 @@ from .settings import max_tool_output_env as _max_tool_output_env
 # Public exports
 __all__ = [
     "log_tool_event",
+    "log_agent_defaults_event",
     "maybe_emit_effective_tool_output_limit_log",
     "get_effective_tool_output_limit",
 ]
@@ -239,3 +240,45 @@ def log_tool_event(
         maybe_emit_effective_tool_output_limit_log()
 
     return now if phase == "start" else (t0 or now)
+
+
+def log_agent_defaults_event(
+    *,
+    builder: str,
+    include_defaults: bool,
+    caller_supplied_tool_count: int,
+    feature_flag_env: str = "INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS",
+    feature_flag_state: str | None = None,
+    include_defaults_source: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Emit telemetry for include_defaults usage on agent construction.
+
+    Telemetry is best-effort; failures are swallowed to avoid impacting callers.
+    """
+    if feature_flag_state is None:
+        try:
+            flag_val = os.getenv(feature_flag_env)
+        except Exception:
+            flag_val = None
+    else:
+        flag_val = feature_flag_state
+
+    payload: dict[str, Any] = {
+        "builder": builder,
+        "include_defaults": bool(include_defaults),
+        "caller_supplied_tool_count": int(caller_supplied_tool_count),
+        "caller_supplied_replacements": bool(caller_supplied_tool_count > 0),
+        "feature_flag": feature_flag_env,
+        "feature_flag_state": flag_val if flag_val is not None else "unset",
+    }
+    if include_defaults_source:
+        payload.setdefault("include_defaults_source", include_defaults_source)
+    if extra:
+        for key, value in extra.items():
+            payload.setdefault(key, value)
+
+    try:
+        log_tool_event(name="agent_defaults", phase="info", extra=payload)
+    except Exception:
+        pass

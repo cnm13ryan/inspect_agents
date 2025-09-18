@@ -35,7 +35,9 @@ from .iterative_runtime import (
     _remaining_timeout,
     _should_emit_progress,
 )
+from .observability import log_agent_defaults_event
 from .settings import max_tool_output_env as _max_tool_output_env
+from .settings import resolve_include_defaults
 
 # Bind transcript and error types at import time to avoid order-dependent
 # re-import issues in test environments that stub inspect_ai submodules.
@@ -123,7 +125,7 @@ def build_iterative_agent(
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
     code_only: bool = False,
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
@@ -160,7 +162,11 @@ def build_iterative_agent(
     Args:
         prompt: System instructions. If None, a sensible default is used.
         tools: Tools to expose. Defaults to Files tools plus any enabled standard tools
-            when `include_defaults=True`. When False, the caller must pass tools.
+            when the resolved include-defaults setting is True.
+        include_defaults: When None (default), defer to the environment toggle
+            `INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS` (defaults to True when unset).
+            When True, expose the built-in Files + standard tools. When False,
+            the caller must pass tools explicitly.
         model: Inspect model identifier or object. If None, current active model is used.
         real_time_limit_sec: Wall‑clock time budget for the agent (excludes provider retry backoff best‑effort). If None, falls back to the env var `INSPECT_ITERATIVE_TIME_LIMIT` (seconds) when set.
         max_steps: Hard cap on loop steps. If None, falls back to the env var `INSPECT_ITERATIVE_MAX_STEPS` when set.
@@ -201,14 +207,28 @@ def build_iterative_agent(
     from inspect_ai.model._model import get_model
     # Lightweight, provider-agnostic pruning already imported above
 
+    resolved_include_defaults, include_source, env_raw = resolve_include_defaults(include_defaults)
+
     sys_message = prompt or _default_system_message(
         code_only=code_only,
-        include_defaults=include_defaults,
+        include_defaults=resolved_include_defaults,
     )
     step_nudge = continue_message or _default_continue_message()
-    base_tools = _base_tools(code_only=code_only) if include_defaults else []
+    base_tools = _base_tools(code_only=code_only) if resolved_include_defaults else []
     extra_tools = list(tools or [])
-    active_tools = base_tools + extra_tools if include_defaults else extra_tools
+    active_tools = base_tools + extra_tools if resolved_include_defaults else extra_tools
+
+    log_agent_defaults_event(
+        builder="iterative",
+        include_defaults=resolved_include_defaults,
+        caller_supplied_tool_count=len(extra_tools),
+        feature_flag_state=env_raw,
+        include_defaults_source=include_source,
+        extra={
+            "code_only": bool(code_only),
+            "active_tool_count": len(active_tools),
+        },
+    )
 
     @agent(name="iterative_supervisor")
     def _iterative() -> Any:
