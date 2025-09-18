@@ -243,6 +243,33 @@ def standard_tools() -> list[object]:
     return tools
 
 
+def minimal_fs_preset() -> list[object]:
+    """Return Todo and filesystem wrapper tools only.
+
+    Each call constructs fresh tool instances so callers do not share state
+    between agents or test runs.
+    """
+
+    return [
+        write_todos(),
+        update_todo_status(),
+        write_file(),
+        read_file(),
+        ls(),
+        edit_file(),
+    ]
+
+
+def full_safe_preset() -> list[object]:
+    """Return the minimal preset plus any enabled standard tools.
+
+    Standard tools remain gated by environment flags via ``standard_tools()``
+    so deployments can opt into exec/search/browser capabilities explicitly.
+    """
+
+    return minimal_fs_preset() + standard_tools()
+
+
 def write_todos():  # -> Tool
     """Update the shared todo list.
 
