@@ -7,7 +7,11 @@ from typing import Any
 from . import fs as _fs
 
 
-def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
+def _resolve_builtin_tools(
+    names: list[str] | None,
+    *,
+    include_defaults: bool = True,
+) -> list[object]:
     from inspect_agents import tools as builtin
 
     name_to_ctor = {
@@ -18,7 +22,10 @@ def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
         "edit_file": builtin.edit_file,
     }
 
-    selected = list(name_to_ctor.keys()) if names is None else names
+    if names is None:
+        selected = list(name_to_ctor.keys()) if include_defaults else []
+    else:
+        selected = names
     return [name_to_ctor[n]() for n in selected if n in name_to_ctor]
 
 
@@ -218,27 +225,52 @@ def create_deep_agent(
     interrupt_config: dict[str, Any] | None = None,
     attempts: int = 1,
     truncation: str = "disabled",
+    include_defaults: bool = True,
 ) -> object:
     """Drop-in constructor with deepagents-style compatibility (backed by Inspect).
 
     Maps the familiar legacy deepagents surface to Inspect's ReAct agent,
     sub-agents, and optional approval policies. Unused params are accepted for
     parity.
+
+    Args:
+        include_defaults: When True (default), inject the built-in todo/filesystem
+            tools and describe them in the prompt for compatibility. When False,
+            skip automatic injection so callers can provide their own toolchain
+            without prompt drift.
     """
     from inspect_ai.agent._agent import agent as as_agent
     from inspect_ai.agent._react import react
 
-    from inspect_agents.agents import BASE_PROMPT, build_subagents
+    from inspect_agents.agents import (
+        BASE_PROMPT_HEADER,
+        BASE_PROMPT_TODOS,
+        _format_standard_tools_section,
+        build_subagents,
+    )
 
     # Resolve built-ins and optional sub-agents
-    base_tools = _resolve_builtin_tools(builtin_tools)
+    base_tools = _resolve_builtin_tools(
+        builtin_tools,
+        include_defaults=include_defaults,
+    )
     extra_tools = list(tools or [])
 
     if subagents:
         extra_tools.extend(build_subagents(subagents, base_tools))
 
     # Build top-level ReAct supervisor
-    full_prompt = (instructions or "").rstrip() + "\n\n" + BASE_PROMPT
+    tail_chunks = [BASE_PROMPT_HEADER]
+    if include_defaults:
+        tail_chunks.append(BASE_PROMPT_TODOS)
+    std_section = _format_standard_tools_section(base_tools + extra_tools)
+    if std_section:
+        tail_chunks.append(std_section)
+
+    tail = "".join(tail_chunks)
+
+    prefix = (instructions or "").rstrip()
+    full_prompt = tail if not prefix else f"{prefix}\n\n{tail}"
     base_agent = react(
         prompt=full_prompt,
         tools=base_tools + extra_tools,
