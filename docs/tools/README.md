@@ -31,6 +31,28 @@ Tools are grouped as follows:
 
 See also: ../guides/tool-umbrellas.md and ../guides/stateless-vs-stateful-tools-harmonized.md.
 
+## Presets
+
+Use curated presets to rebuild safe tool bundles when you disable automatic
+defaults (`include_defaults=False` on agents or YAML configs):
+
+- `inspect_agents.tools.minimal_fs_preset()` — Todos + filesystem wrappers only.
+- `inspect_agents.tools.full_safe_preset()` — Minimal preset plus any
+  env-gated standard tools returned by `standard_tools()`.
+
+Example:
+
+```python
+from inspect_agents.agents import build_supervisor
+from inspect_agents.tools import full_safe_preset
+
+agent = build_supervisor(
+    prompt="Review the patch notes and summarize",
+    include_defaults=False,
+    tools=full_safe_preset(),
+)
+```
+
 ## Return Types Summary
 
 Many tools support two return styles controlled by the `INSPECT_AGENTS_TYPED_RESULTS` env var.
