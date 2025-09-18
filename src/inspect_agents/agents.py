@@ -11,6 +11,9 @@ via the default `submit()` tool provided by Inspect.
 from collections.abc import Sequence
 from typing import Any, NotRequired, TypedDict
 
+from .observability import log_agent_defaults_event
+from .settings import resolve_include_defaults
+
 # Base prompt modeled for legacy compatibility (deepagents-style base_prompt);
 # see migration.py and docs/design/deepagents_implementation_prompts.md.
 BASE_PROMPT_HEADER = "You have access to a number of tools.\n\n"
@@ -88,7 +91,7 @@ def build_supervisor(
     prompt: str,
     tools: Sequence[object] | None = None,
     *,
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
     attempts: int = 1,
     model: object | None = None,
     truncation: str = "disabled",
@@ -100,10 +103,11 @@ def build_supervisor(
         tools: Additional Tools/ToolDefs/ToolSources to provide. Pass the result of
             ``inspect_agents.tools.minimal_fs_preset()`` or ``full_safe_preset()``
             when you disable defaults but still want curated bundles.
-        include_defaults: When True (default), prepend the built-in Todo/FS tools
-            and mention them in the prompt. When False, skip automatic tool
-            injection and omit the Todo section so custom deployments can supply
-            their own toolchain without prompt drift.
+        include_defaults: When None (default), fall back to the environment
+            toggle `INSPECT_AGENTS_INCLUDE_DEFAULT_TOOLS` (defaults to True when
+            unset). When True, prepend the built-in Todo/FS tools and mention
+            them in the prompt. When False, skip automatic injection so custom
+            deployments can supply their own toolchain without prompt drift.
         attempts: Max attempts for submit-terminated loop.
         model: Optional Inspect model (string/Model/Agent). If None, uses default.
         truncation: Overflow policy for long conversations ("disabled" or "auto").
@@ -114,12 +118,23 @@ def build_supervisor(
     from inspect_ai.agent._react import react
 
     # Compose prompt with clear tool sections (Todo/FS + Standard)
+    resolved_include_defaults, include_source, env_raw = resolve_include_defaults(include_defaults)
+
     extra_tools = list(tools or [])
-    builtins = _built_in_tools() if include_defaults else []
+    builtins = _built_in_tools() if resolved_include_defaults else []
     tools = builtins + extra_tools
 
+    log_agent_defaults_event(
+        builder="supervisor",
+        include_defaults=resolved_include_defaults,
+        caller_supplied_tool_count=len(extra_tools),
+        feature_flag_state=env_raw,
+        include_defaults_source=include_source,
+        extra={"active_tool_count": len(tools)},
+    )
+
     tail_chunks = [BASE_PROMPT_HEADER]
-    if include_defaults:
+    if resolved_include_defaults:
         tail_chunks.append(BASE_PROMPT_TODOS)
     std_section = _format_standard_tools_section(tools)
     if std_section:
@@ -143,7 +158,7 @@ def build_basic_submit_agent(
     *,
     prompt: str,
     tools: Sequence[object] | None = None,
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
     attempts: int = 1,
     model: object | None = None,
     truncation: str = "disabled",
@@ -168,7 +183,7 @@ def build_iterative_agent(
     prompt: str | None = None,
     tools: Sequence[object] | None = None,
     code_only: bool = False,
-    include_defaults: bool = True,
+    include_defaults: bool | None = None,
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
