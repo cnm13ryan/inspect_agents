@@ -39,6 +39,17 @@ def test_research_example_offline_smoke(monkeypatch, tmp_path):
     # Write logs to a temp dir (offline is enforced by the root env guard)
     monkeypatch.setenv("INSPECT_LOG_DIR", str(tmp_path))
 
+    import inspect_agents.observability as observability
+
+    captured_events: list[dict[str, object]] = []
+    original_log_tool_event = observability.log_tool_event
+
+    def _capture(name, phase, args=None, extra=None, t0=None):
+        captured_events.append({"name": name, "phase": phase, "extra": extra})
+        return original_log_tool_event(name, phase, args=args, extra=extra, t0=t0)
+
+    monkeypatch.setattr(observability, "log_tool_event", _capture)
+
     # Root autouse fixture handles environment hardening (approvals cleared,
     # optional tools disabled, provider keys unset, and NO_NETWORK=1).
 
@@ -78,3 +89,8 @@ def test_research_example_offline_smoke(monkeypatch, tmp_path):
     # Transcript assertions
     path = write_transcript()
     assert os.path.exists(path)
+    defaults_events = [ev for ev in captured_events if ev["name"] == "agent_defaults"]
+    assert defaults_events, "expected agent_defaults telemetry"
+    assert any(ev.get("extra", {}).get("builder") == "supervisor" for ev in defaults_events)
+    assert any(ev.get("extra", {}).get("include_defaults") is True for ev in defaults_events)
+    assert any(ev.get("extra", {}).get("include_defaults_source") == "default" for ev in defaults_events)
