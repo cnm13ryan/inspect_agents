@@ -19,8 +19,7 @@ def inventory_value(inventory: dict[str, int], demand_profiles: dict[str, Demand
 def compute_net_worth(state: SimulatorState) -> float:
     storage_val = inventory_value(state.storage_inventory, state.demand_profiles)
     machine_val = inventory_value(state.machine_inventory, state.demand_profiles)
-    outstanding = sum(order.total_cost for order in state.outstanding_orders)
-    return state.cash_balance + state.cash_in_machine + storage_val + machine_val + outstanding
+    return state.cash_balance + state.cash_in_machine + storage_val + machine_val
 
 
 def cumulative_units_sold(state: SimulatorState) -> int:
