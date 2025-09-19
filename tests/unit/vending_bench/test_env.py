@@ -1,5 +1,7 @@
 """Unit tests for VendingEnv core functionality."""
 
+import pytest
+
 from examples.vending_bench import EnvConfig, VendingEnv
 
 
@@ -104,3 +106,36 @@ def test_summary():
     assert len(summary.outstanding_orders) == 1
     assert summary.net_worth > 0
     assert summary.units_sold_total == 0
+
+
+def test_morning_update_preserves_machine_cash():
+    """Machine cash should persist until explicitly collected."""
+
+    env = VendingEnv()
+    env.state.cash_in_machine = 50.0
+    env.state.machine_inventory = {sku: 0 for sku in env.state.demand_profiles}
+
+    starting_balance = env.state.cash_balance
+
+    env.morning_update()
+
+    assert env.state.cash_in_machine >= 50.0
+    assert env.state.cash_balance == pytest.approx(starting_balance - env.config.daily_fee)
+
+
+def test_bankruptcy_requires_grace_period():
+    """Bankruptcy should only trigger after 10 consecutive negative days."""
+
+    env = VendingEnv()
+    env.state.cash_balance = -1.0
+    env.state.machine_inventory = {sku: 0 for sku in env.state.demand_profiles}
+
+    for day in range(9):
+        env.end_of_day()
+        assert not env.state.bankrupt
+        assert env.state.negative_balance_days == day + 1
+
+    env.end_of_day()
+
+    assert env.state.bankrupt
+    assert env.state.negative_balance_days == 10
