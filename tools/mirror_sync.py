@@ -12,7 +12,7 @@ import json
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -116,7 +116,7 @@ class MirrorSync:
         """Create mirror manifest with metadata."""
         return {
             "mirror_version": "1.0",
-            "sync_timestamp": datetime.utcnow().isoformat(),
+            "sync_timestamp": datetime.now(UTC).isoformat(),
             "source_info": {"path": str(self.source_path), "content_hash": content_hash},
             "git_info": git_info,
             "package_structure": {
@@ -229,7 +229,7 @@ This is a public mirror of the Vending-Bench long-horizon agent benchmark from t
 - **Source Repository**: `inspect_agents` (private)
 - **Source Commit**: `{git_info["commit_sha"][:8]}`
 - **Source Branch**: `{git_info["branch"]}`
-- **Sync Date**: {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
+- **Sync Date**: {datetime.now(UTC).strftime("%Y-%m-%d %H:%M %Z")}
 
 ## Quick Start
 
@@ -415,7 +415,7 @@ See `vending_bench/README.md` for detailed architecture documentation.
             "content_hash": content_hash,
             "git_info": git_info,
             "dry_run": self.dry_run,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         if self.dry_run:
