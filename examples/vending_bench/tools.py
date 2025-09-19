@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+from inspect_agents.exceptions import ToolException
+
 from .runtime import get_env, increment_tool_count
 
 if TYPE_CHECKING:
@@ -96,6 +98,69 @@ class WebSearchResult(BaseModel):
 
     query: str
     results: list[dict[str, Any]]
+
+
+def _require_non_empty_string(name: str, value: str | None) -> str:
+    """Ensure a string parameter is provided."""
+
+    if value is None:
+        raise ToolException(f"{name} is required to complete this action. Please provide the {name}.")
+
+    sanitized = value.strip()
+    if not sanitized:
+        raise ToolException(f"{name} cannot be empty. Please provide a specific {name}.")
+
+    return sanitized
+
+
+def _require_positive_int(name: str, value: int | None) -> int:
+    """Ensure an integer parameter is positive."""
+
+    if value is None:
+        raise ToolException(f"{name} is required to complete this action. Please provide the {name}.")
+
+    if isinstance(value, bool):  # bool is a subclass of int; do not accept
+        raise ToolException(f"{name} must be a whole number greater than zero. Please provide a positive integer.")
+
+    if not isinstance(value, int):
+        raise ToolException(f"{name} must be a whole number greater than zero. Please provide a positive integer.")
+
+    if value <= 0:
+        raise ToolException(f"{name} must be greater than zero. Please provide a positive value for {name}.")
+
+    return value
+
+
+def _require_positive_float(name: str, value: float | int | None) -> float:
+    """Ensure a numeric parameter is a positive float."""
+
+    if value is None:
+        raise ToolException(f"{name} is required to complete this action. Please provide the {name}.")
+
+    if isinstance(value, bool):
+        raise ToolException(f"{name} must be a positive number. Please provide a numeric value greater than zero.")
+
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        raise ToolException(f"{name} must be a positive number. Please provide a numeric value greater than zero.")
+
+    if numeric <= 0:
+        raise ToolException(f"{name} must be greater than zero. Please provide a positive value for {name}.")
+
+    return numeric
+
+
+def _require_known_sku(env: Any, sku: str) -> None:
+    """Ensure the SKU exists in the environment catalog."""
+
+    demand_profiles = getattr(env.state, "demand_profiles", {})
+    if sku not in demand_profiles:
+        known_skus = sorted(demand_profiles.keys())
+        preview = ", ".join(known_skus[:5]) if known_skus else "no registered SKUs"
+        raise ToolException(
+            f"Unknown SKU '{sku}'. Please choose a valid SKU from the machine inventory (e.g., {preview})."
+        )
 
 
 def _log_tool_event(
@@ -296,10 +361,8 @@ def restock_machine() -> Tool:
 
     from inspect_ai.tool._tool import tool
 
-    from inspect_agents.exceptions import ToolException
-
     @tool(name="restock_machine")
-    def restock_machine_impl(sku: str, quantity: int) -> RestockMachineResult:
+    def restock_machine_impl(sku: str | None = None, quantity: int | None = None) -> RestockMachineResult:
         """Restock vending machine from storage inventory.
 
         Args:
@@ -307,40 +370,57 @@ def restock_machine() -> Tool:
             quantity: Number of units to restock
         """
 
-        if quantity <= 0:
-            raise ValueError("quantity must be positive")
+        validated_sku = _require_non_empty_string("sku", sku)
+        validated_quantity = _require_positive_int("quantity", quantity)
 
-        t0 = _log_tool_event(name="restock_machine", phase="start", args={"sku": sku, "quantity": quantity})
+        t0 = _log_tool_event(
+            name="restock_machine",
+            phase="start",
+            args={"sku": validated_sku, "quantity": validated_quantity},
+        )
 
         try:
             env = get_env()
 
-            # Check storage availability before restocking
-            available = env.state.storage_inventory.get(sku, 0)
-            if available < quantity:
-                raise ToolException(f"Insufficient storage inventory for {sku}: have {available}, need {quantity}")
+            _require_known_sku(env, validated_sku)
 
-            env.restock(sku, quantity)
+            # Check storage availability before restocking
+            available = env.state.storage_inventory.get(validated_sku, 0)
+            if available < validated_quantity:
+                raise ToolException(
+                    f"Insufficient storage inventory for {validated_sku}: have {available}, need {validated_quantity}"
+                )
+
+            env.restock(validated_sku, validated_quantity)
             env.advance_time(15)  # 15 minutes for restocking
 
             result = RestockMachineResult(
-                sku=sku,
-                quantity_restocked=quantity,
-                new_machine_inventory=env.state.machine_inventory.get(sku, 0),
-                remaining_storage=env.state.storage_inventory.get(sku, 0),
+                sku=validated_sku,
+                quantity_restocked=validated_quantity,
+                new_machine_inventory=env.state.machine_inventory.get(validated_sku, 0),
+                remaining_storage=env.state.storage_inventory.get(validated_sku, 0),
             )
 
             _log_tool_event(
                 name="restock_machine",
                 phase="end",
-                extra={"sku": sku, "quantity": quantity, "new_machine_inventory": result.new_machine_inventory},
+                extra={
+                    "sku": validated_sku,
+                    "quantity": validated_quantity,
+                    "new_machine_inventory": result.new_machine_inventory,
+                },
                 t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="restock_machine", phase="error", extra={"error": str(e), "sku": sku}, t0=t0)
+            _log_tool_event(
+                name="restock_machine",
+                phase="error",
+                extra={"error": str(e), "sku": validated_sku},
+                t0=t0,
+            )
             if isinstance(e, ToolException):
                 raise
             raise ToolException(f"Restock failed: {str(e)}")
@@ -353,10 +433,8 @@ def set_price() -> Tool:
 
     from inspect_ai.tool._tool import tool
 
-    from inspect_agents.exceptions import ToolException
-
     @tool(name="set_price")
-    def set_price_impl(sku: str, price: float) -> SetPriceResult:
+    def set_price_impl(sku: str | None = None, price: float | int | None = None) -> SetPriceResult:
         """Set the selling price for a product.
 
         Args:
@@ -364,30 +442,44 @@ def set_price() -> Tool:
             price: New selling price (must be positive)
         """
 
-        if price <= 0:
-            raise ValueError("price must be positive")
+        validated_sku = _require_non_empty_string("sku", sku)
+        validated_price = _require_positive_float("price", price)
 
-        t0 = _log_tool_event(name="set_price", phase="start", args={"sku": sku, "price": price})
+        t0 = _log_tool_event(
+            name="set_price",
+            phase="start",
+            args={"sku": validated_sku, "price": validated_price},
+        )
 
         try:
             env = get_env()
 
-            # Get old price
-            old_price = env.state.prices.get(sku, env.state.demand_profiles[sku].product.base_price)
+            _require_known_sku(env, validated_sku)
 
-            env.set_price(sku, price)
+            # Get old price
+            old_price = env.state.prices.get(validated_sku, env.state.demand_profiles[validated_sku].product.base_price)
+
+            env.set_price(validated_sku, validated_price)
             env.advance_time(5)  # 5 minutes for price change
 
-            result = SetPriceResult(sku=sku, old_price=old_price, new_price=price)
+            result = SetPriceResult(sku=validated_sku, old_price=old_price, new_price=validated_price)
 
             _log_tool_event(
-                name="set_price", phase="end", extra={"sku": sku, "old_price": old_price, "new_price": price}, t0=t0
+                name="set_price",
+                phase="end",
+                extra={"sku": validated_sku, "old_price": old_price, "new_price": validated_price},
+                t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="set_price", phase="error", extra={"error": str(e), "sku": sku}, t0=t0)
+            _log_tool_event(
+                name="set_price",
+                phase="error",
+                extra={"error": str(e), "sku": validated_sku},
+                t0=t0,
+            )
             if isinstance(e, ToolException):
                 raise
             raise ToolException(f"Price setting failed: {str(e)}")
@@ -400,10 +492,8 @@ def place_order() -> Tool:
 
     from inspect_ai.tool._tool import tool
 
-    from inspect_agents.exceptions import ToolException
-
     @tool(name="place_order")
-    def place_order_impl(sku: str, quantity: int) -> PlaceOrderResult:
+    def place_order_impl(sku: str | None = None, quantity: int | None = None) -> PlaceOrderResult:
         """Place supplier order for inventory with automatic cost deduction.
 
         Args:
@@ -411,15 +501,21 @@ def place_order() -> Tool:
             quantity: Number of units to order
         """
 
-        if quantity <= 0:
-            raise ValueError("quantity must be positive")
+        validated_sku = _require_non_empty_string("sku", sku)
+        validated_quantity = _require_positive_int("quantity", quantity)
 
-        t0 = _log_tool_event(name="place_order", phase="start", args={"sku": sku, "quantity": quantity})
+        t0 = _log_tool_event(
+            name="place_order",
+            phase="start",
+            args={"sku": validated_sku, "quantity": validated_quantity},
+        )
 
         try:
             env = get_env()
 
-            order = env.place_order(sku, quantity)
+            _require_known_sku(env, validated_sku)
+
+            order = env.place_order(validated_sku, validated_quantity)
             env.advance_time(30)  # 30 minutes for order processing
 
             result = PlaceOrderResult(
@@ -445,7 +541,12 @@ def place_order() -> Tool:
             return result
 
         except Exception as e:
-            _log_tool_event(name="place_order", phase="error", extra={"error": str(e), "sku": sku}, t0=t0)
+            _log_tool_event(
+                name="place_order",
+                phase="error",
+                extra={"error": str(e), "sku": validated_sku},
+                t0=t0,
+            )
             if isinstance(e, ToolException):
                 raise
             raise ToolException(f"Order placement failed: {str(e)}")
