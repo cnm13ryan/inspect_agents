@@ -19,6 +19,7 @@ from examples.vending_bench.tools import (
     check_financial_status,
     check_inventory,
     collect_cash,
+    get_machine_inventory,
     physical_agent_tools,
     place_order,
     restock_machine,
@@ -47,6 +48,7 @@ class TestToolParameterValidation:
             collect_cash(),
             wait_for_next_day(),
             ai_web_search(),
+            get_machine_inventory(),
         ]
 
         for tool in tools:
@@ -129,6 +131,14 @@ class TestToolIntegration:
         assert tool is not None
 
     @patch("inspect_ai.util._store_model.store_as")
+    def test_get_machine_inventory_tool(self, mock_store_as, mock_env):
+        """Test machine inventory snapshot tool creation."""
+        mock_store_as.return_value = mock_env
+
+        tool = get_machine_inventory()
+        assert tool is not None
+
+    @patch("inspect_ai.util._store_model.store_as")
     def test_place_order_insufficient_cash(self, mock_store_as, mock_env):
         """Test order placement with insufficient cash."""
         # Set low cash balance
@@ -190,7 +200,7 @@ class TestToolCollections:
             getattr(tool, "__registry_info__", None).name if hasattr(tool, "__registry_info__") else None
             for tool in tools
         ]
-        expected_tools = ["restock_machine", "set_price", "collect_cash", "check_inventory"]
+        expected_tools = ["restock_machine", "set_price", "collect_cash", "check_inventory", "get_machine_inventory"]
 
         for expected in expected_tools:
             assert expected in tool_names, f"Missing tool: {expected}"
