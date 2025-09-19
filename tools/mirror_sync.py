@@ -9,12 +9,17 @@ This tool prepares the mirror package structure that the CI pipeline will sync t
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_RELEASE_NOTES_DIR = REPO_ROOT / "mirror-repo" / "release-notes"
+RELEASE_NOTES_SCRIPT = REPO_ROOT / "mirror-repo" / "scripts" / "generate_release_notes.py"
 
 
 class MirrorSyncError(Exception):
@@ -26,7 +31,14 @@ class MirrorSyncError(Exception):
 class MirrorSync:
     """Handles packaging and preparation of mirror artifacts."""
 
-    def __init__(self, source_dir: str, target_dir: str, dry_run: bool = False):
+    def __init__(
+        self,
+        source_dir: str,
+        target_dir: str,
+        dry_run: bool = False,
+        release_version: str | None = None,
+        release_notes_dir: str | Path | None = None,
+    ) -> None:
         """
         Initialize mirror sync.
 
@@ -34,10 +46,14 @@ class MirrorSync:
             source_dir: Source directory to mirror (e.g., "examples/vending_bench")
             target_dir: Target directory for mirror preparation
             dry_run: If True, only show what would be done
+            release_version: Optional release tag (mirror-vX.Y.Z) to validate notes for
+            release_notes_dir: Optional override for release notes directory
         """
         self.source_path = Path(source_dir).resolve()
         self.target_path = Path(target_dir).resolve()
         self.dry_run = dry_run
+        self.release_version = release_version
+        self.release_notes_dir = Path(release_notes_dir).resolve() if release_notes_dir else None
 
         if not self.source_path.exists():
             raise MirrorSyncError(f"Source directory does not exist: {self.source_path}")
@@ -368,6 +384,51 @@ See `vending_bench/README.md` for detailed architecture documentation.
 
         print(f"Created package structure in {self.target_path}")
 
+    def validate_release_notes(self, git_info: dict[str, Any], manifest_path: Path) -> None:
+        """Run release-note validation if a release version is configured."""
+        if not self.release_version:
+            return
+
+        if self.dry_run:
+            print(f"[DRY RUN] Would validate release notes for {self.release_version}")
+            return
+
+        script_path = RELEASE_NOTES_SCRIPT
+        if not script_path.exists():
+            raise MirrorSyncError(f"Release notes validator not found: {script_path}")
+
+        notes_dir = self.release_notes_dir or DEFAULT_RELEASE_NOTES_DIR
+        if not notes_dir.exists():
+            raise MirrorSyncError(f"Release notes directory not found: {notes_dir}")
+
+        if not manifest_path.exists():
+            raise MirrorSyncError(f"Manifest not found for validation: {manifest_path}")
+
+        cmd = [
+            sys.executable,
+            str(script_path),
+            "validate",
+            "--version",
+            self.release_version,
+            "--notes-dir",
+            str(notes_dir),
+            "--manifest-path",
+            str(manifest_path),
+            "--require-source-commit",
+            git_info["commit_sha"],
+        ]
+
+        print(f"Validating release notes for {self.release_version}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            stdout = result.stdout.strip()
+            stderr = result.stderr.strip()
+            details = "\n".join(filter(None, [stdout, stderr]))
+            message = "Release notes validation failed"
+            if details:
+                message = f"{message}\n{details}"
+            raise MirrorSyncError(message)
+
     def sync(self) -> dict[str, Any]:
         """
         Perform the complete mirror sync process.
@@ -399,13 +460,16 @@ See `vending_bench/README.md` for detailed architecture documentation.
         self.create_mirror_readme(git_info)
 
         # Write manifest
+        manifest_path = self.target_path / "mirror-manifest.json"
         if not self.dry_run:
-            manifest_path = self.target_path / "mirror-manifest.json"
             with open(manifest_path, "w") as f:
                 json.dump(manifest, f, indent=2)
             print(f"Created manifest at {manifest_path}")
         else:
             print("[DRY RUN] Would create mirror-manifest.json")
+
+        # Validate release notes if requested
+        self.validate_release_notes(git_info, manifest_path)
 
         # Create sync report
         report = {
@@ -441,12 +505,30 @@ def main():
     )
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without making changes")
     parser.add_argument("--output-manifest", help="Write sync report to specified file")
+    parser.add_argument("--release-version", help="Release tag to validate notes for (mirror-vX.Y.Z)")
+    parser.add_argument("--release-notes-dir", help="Override release notes directory")
 
     args = parser.parse_args()
 
+    release_version = args.release_version
+    if not release_version:
+        env_tag = (
+            os.environ.get("MIRROR_RELEASE_TAG") or os.environ.get("GITHUB_REF_NAME") or os.environ.get("GITHUB_REF")
+        )
+        if env_tag:
+            candidate = env_tag.split("/")[-1]
+            if candidate.startswith("mirror-v"):
+                release_version = candidate
+
     try:
         # Create mirror sync instance
-        mirror_sync = MirrorSync(args.source, args.target, dry_run=args.dry_run)
+        mirror_sync = MirrorSync(
+            args.source,
+            args.target,
+            dry_run=args.dry_run,
+            release_version=release_version,
+            release_notes_dir=args.release_notes_dir,
+        )
 
         # Perform sync
         report = mirror_sync.sync()
