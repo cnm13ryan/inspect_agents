@@ -275,6 +275,164 @@ def scratchpad_read() -> Tool:
     return scratchpad_read_impl
 
 
+def scratchpad_summarise() -> Tool:
+    """Summarise older scratchpad entries into a compact note."""
+
+    from inspect_ai.tool._tool import tool
+
+    @tool(name="scratchpad_summarise")
+    def scratchpad_summarise_impl(top_n: int = 5, max_chars: int = 1024) -> ScratchpadResult:
+        """Condense the oldest scratchpad notes and replace them with a summary.
+
+        Args:
+            top_n: Maximum number of oldest, unsummarised entries to condense.
+            max_chars: Soft character budget for the generated summary text.
+        """
+
+        if top_n <= 0:
+            raise ValueError("top_n must be a positive integer")
+        if max_chars <= 0:
+            raise ValueError("max_chars must be a positive integer")
+
+        t0 = _log_memory_event(
+            name="scratchpad_summarise",
+            phase="start",
+            args={"top_n": top_n, "max_chars": max_chars},
+        )
+
+        try:
+            memory_store = get_memory_store()
+
+            eligible_entries = [
+                entry
+                for entry in memory_store.scratchpad
+                if not entry.metadata.get("summary") and not entry.metadata.get("summarised")
+            ]
+
+            if not eligible_entries:
+                result = ScratchpadResult(entries=[], total_count=len(memory_store.scratchpad), operation="summarise")
+                _log_memory_event(
+                    name="scratchpad_summarise",
+                    phase="end",
+                    extra={"summarised_ids": [], "created_summary": None, "vector_flagged": 0},
+                    t0=t0,
+                )
+                return result
+
+            eligible_entries.sort(key=lambda entry: entry.timestamp)
+            entries_to_summarise = eligible_entries[:top_n]
+            source_ids = [entry.id for entry in entries_to_summarise]
+
+            combined_tags = sorted({tag for entry in entries_to_summarise for tag in entry.tags})
+            if "summary" not in combined_tags:
+                combined_tags.append("summary")
+
+            total_source_chars = sum(len(entry.content) for entry in entries_to_summarise)
+            day_span = {
+                "first_day": min(entry.day for entry in entries_to_summarise),
+                "last_day": max(entry.day for entry in entries_to_summarise),
+            }
+
+            summary_lines = []
+            for entry in entries_to_summarise:
+                normalized_content = " ".join(entry.content.strip().split())
+                if normalized_content:
+                    summary_lines.append(f"Day {entry.day}: {normalized_content}")
+
+            if not summary_lines:
+                summary_text = "Summary generated from empty entries."
+            else:
+                summary_text = " \n".join(summary_lines)
+
+            if len(summary_text) > max_chars:
+                summary_text = summary_text[: max_chars - 3].rstrip() + "..."
+
+            summary_day = day_span["last_day"]
+
+            summary_entry = ScratchpadEntry(
+                id=memory_store._generate_id(),
+                content=summary_text,
+                timestamp=time.time(),
+                day=summary_day,
+                tags=combined_tags,
+                metadata={
+                    "summary": True,
+                    "summarised": True,
+                    "source_ids": source_ids,
+                    "source_char_count": total_source_chars,
+                    "summary_char_count": len(summary_text),
+                    "compression_ratio": (total_source_chars / max(len(summary_text), 1))
+                    if total_source_chars
+                    else 1.0,
+                    "source_day_span": day_span,
+                },
+            )
+
+            remaining_entries = [entry for entry in memory_store.scratchpad if entry.id not in source_ids]
+            memory_store.scratchpad = remaining_entries
+            memory_store.scratchpad.append(summary_entry)
+
+            vector_flagged = 0
+            if memory_store.vector_store:
+                source_id_set = set(source_ids)
+                for vector_entry in memory_store.vector_store:
+                    source_metadata = vector_entry.metadata.get("source_ids")
+                    if isinstance(source_metadata, list):
+                        if any(source_id in source_id_set for source_id in source_metadata):
+                            if not vector_entry.metadata.get("summarised"):
+                                vector_entry.metadata["summarised"] = True
+                                vector_flagged += 1
+                    elif isinstance(source_metadata, str) and source_metadata in source_id_set:
+                        if not vector_entry.metadata.get("summarised"):
+                            vector_entry.metadata["summarised"] = True
+                            vector_flagged += 1
+
+            vector_summary_entry = VectorEntry(
+                id=memory_store._generate_id(),
+                content=summary_text,
+                metadata={
+                    "summary": True,
+                    "summarised": True,
+                    "source_ids": source_ids,
+                    "source_day_span": day_span,
+                    "source_char_count": total_source_chars,
+                },
+                timestamp=time.time(),
+            )
+            memory_store.vector_store.append(vector_summary_entry)
+
+            result = ScratchpadResult(
+                entries=[summary_entry],
+                total_count=len(memory_store.scratchpad),
+                operation="summarise",
+            )
+
+            _log_memory_event(
+                name="scratchpad_summarise",
+                phase="end",
+                extra={
+                    "summarised_ids": source_ids,
+                    "created_summary": summary_entry.id,
+                    "vector_summary": vector_summary_entry.id,
+                    "vector_flagged": vector_flagged,
+                },
+                t0=t0,
+            )
+
+            return result
+
+        except Exception as exc:  # pragma: no cover - defensive logging
+            _log_memory_event(
+                name="scratchpad_summarise",
+                phase="error",
+                extra={"error": str(exc)},
+                t0=t0,
+            )
+            raise
+
+    return scratchpad_summarise_impl
+
+
 def kv_set() -> Tool:
     """Set key-value data in memory store."""
 
@@ -508,6 +666,7 @@ def memory_tools() -> list[Tool]:
     return [
         scratchpad_append(),
         scratchpad_read(),
+        scratchpad_summarise(),
         kv_set(),
         kv_get(),
         kv_list(),
@@ -521,6 +680,7 @@ def supervisor_memory_tools() -> list[Tool]:
     return [
         scratchpad_append(),
         scratchpad_read(),
+        scratchpad_summarise(),
         kv_set(),
         kv_get(),
         kv_list(),
