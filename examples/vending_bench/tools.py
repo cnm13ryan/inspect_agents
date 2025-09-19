@@ -40,6 +40,15 @@ class InventoryCheckResult(BaseModel):
     total_units: int
 
 
+class MachineInventoryOverviewResult(BaseModel):
+    """Summarised view of machine inventory for supervisors."""
+
+    total_units: int
+    unique_skus: int
+    sku_totals: dict[str, int]
+    low_stock_skus: list[dict[str, int]]
+
+
 class FinancialStatusResult(BaseModel):
     """Result from financial status check."""
 
@@ -96,6 +105,23 @@ class WebSearchResult(BaseModel):
 
     query: str
     results: list[dict[str, Any]]
+
+
+def _inventory_snapshot(location: str) -> tuple[dict[str, int], int]:
+    """Return a copy of inventory and total units for a given location."""
+
+    env = get_env()
+
+    if location == "storage":
+        inventory = dict(env.state.storage_inventory)
+    elif location == "machine":
+        inventory = dict(env.state.machine_inventory)
+    else:
+        raise ValueError("location must be 'storage' or 'machine'")
+
+    total_units = sum(inventory.values())
+
+    return inventory, total_units
 
 
 def _log_tool_event(
@@ -219,14 +245,7 @@ def check_inventory() -> Tool:
         t0 = _log_tool_event(name="check_inventory", phase="start", args={"location": location})
 
         try:
-            env = get_env()
-
-            if location == "storage":
-                inventory = dict(env.state.storage_inventory)
-            else:  # machine
-                inventory = dict(env.state.machine_inventory)
-
-            total_units = sum(inventory.values())
+            inventory, total_units = _inventory_snapshot(location)
 
             result = InventoryCheckResult(location=location, inventory=inventory, total_units=total_units)
 
@@ -241,6 +260,86 @@ def check_inventory() -> Tool:
             raise
 
     return check_inventory_impl
+
+
+def check_storage_inventory() -> Tool:
+    """Supervisor wrapper for storage inventory details."""
+
+    from inspect_ai.tool._tool import tool
+
+    @tool(name="check_storage_inventory")
+    def check_storage_inventory_impl() -> InventoryCheckResult:
+        """Return storage inventory using the underlying inventory snapshot."""
+
+        t0 = _log_tool_event(name="check_storage_inventory", phase="start")
+
+        try:
+            inventory, total_units = _inventory_snapshot("storage")
+
+            result = InventoryCheckResult(location="storage", inventory=inventory, total_units=total_units)
+
+            _log_tool_event(name="check_storage_inventory", phase="end", extra={"total_units": total_units}, t0=t0)
+
+            return result
+
+        except Exception as e:
+            _log_tool_event(name="check_storage_inventory", phase="error", extra={"error": str(e)}, t0=t0)
+            raise
+
+    return check_storage_inventory_impl
+
+
+def check_machine_overview() -> Tool:
+    """Supervisor wrapper exposing summarised machine inventory data."""
+
+    from inspect_ai.tool._tool import tool
+
+    @tool(name="check_machine_overview")
+    def check_machine_overview_impl(low_stock_threshold: int = 5) -> MachineInventoryOverviewResult:
+        """Provide aggregated machine inventory totals without slot-level detail.
+
+        Args:
+            low_stock_threshold: Units at or below which SKUs are considered low stock.
+        """
+
+        if low_stock_threshold < 0:
+            raise ValueError("low_stock_threshold must be non-negative")
+
+        t0 = _log_tool_event(
+            name="check_machine_overview", phase="start", args={"low_stock_threshold": low_stock_threshold}
+        )
+
+        try:
+            inventory, total_units = _inventory_snapshot("machine")
+            unique_skus = len(inventory)
+
+            low_stock_skus = [
+                {"sku": sku, "units": units}
+                for sku, units in sorted(inventory.items(), key=lambda item: item[1])
+                if units <= low_stock_threshold
+            ]
+
+            result = MachineInventoryOverviewResult(
+                total_units=total_units,
+                unique_skus=unique_skus,
+                sku_totals=inventory,
+                low_stock_skus=low_stock_skus,
+            )
+
+            _log_tool_event(
+                name="check_machine_overview",
+                phase="end",
+                extra={"total_units": total_units, "unique_skus": unique_skus, "low_stock_count": len(low_stock_skus)},
+                t0=t0,
+            )
+
+            return result
+
+        except Exception as e:
+            _log_tool_event(name="check_machine_overview", phase="error", extra={"error": str(e)}, t0=t0)
+            raise
+
+    return check_machine_overview_impl
 
 
 def check_financial_status() -> Tool:
@@ -606,7 +705,8 @@ def supervisor_tools() -> list[Tool]:
     """Return list of tools available to the supervisor agent."""
     return [
         check_email(),
-        check_inventory(),
+        check_storage_inventory(),
+        check_machine_overview(),
         check_financial_status(),
         place_order(),
         wait_for_next_day(),
@@ -629,6 +729,8 @@ def all_vending_tools() -> list[Tool]:
     return [
         check_email(),
         check_inventory(),
+        check_storage_inventory(),
+        check_machine_overview(),
         check_financial_status(),
         restock_machine(),
         set_price(),
