@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from .runtime import get_env, increment_tool_count
+from .state import aggregate_sku_quantities, serialize_machine_inventory
 
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
@@ -38,6 +39,7 @@ class InventoryCheckResult(BaseModel):
     location: str
     inventory: dict[str, int]
     total_units: int
+    slots: list[list[dict[str, Any] | None]] | None = None
 
 
 class FinancialStatusResult(BaseModel):
@@ -54,17 +56,55 @@ class RestockMachineResult(BaseModel):
     """Result from restock operation."""
 
     sku: str
+    row: int
+    column: int
     quantity_restocked: int
-    new_machine_inventory: int
+    slot_quantity: int
+    slot_capacity: int
     remaining_storage: int
+
+
+class SlotPriceUpdate(BaseModel):
+    """Input payload describing a slot price update."""
+
+    row: int
+    column: int
+    price: float
+
+
+class SlotPriceUpdateResult(BaseModel):
+    """Output payload for a slot price update."""
+
+    row: int
+    column: int
+    sku: str
+    old_price: float
+    new_price: float
 
 
 class SetPriceResult(BaseModel):
     """Result from price setting operation."""
 
-    sku: str
-    old_price: float
-    new_price: float
+    updates: list[SlotPriceUpdateResult]
+
+
+class MachineInventorySlot(BaseModel):
+    """Slot-level snapshot for machine inventory."""
+
+    row: int
+    column: int
+    sku: str | None
+    quantity: int
+    price: float | None
+    capacity: int | None
+
+
+class MachineInventoryResult(BaseModel):
+    """Structured slot-level machine inventory payload."""
+
+    sku_totals: dict[str, int]
+    total_units: int
+    slots: list[MachineInventorySlot]
 
 
 class PlaceOrderResult(BaseModel):
@@ -223,12 +263,19 @@ def check_inventory() -> Tool:
 
             if location == "storage":
                 inventory = dict(env.state.storage_inventory)
+                slots = None
             else:  # machine
-                inventory = dict(env.state.machine_inventory)
+                inventory = aggregate_sku_quantities(env.state.machine_inventory)
+                slots = serialize_machine_inventory(env.state.machine_inventory)
 
             total_units = sum(inventory.values())
 
-            result = InventoryCheckResult(location=location, inventory=inventory, total_units=total_units)
+            result = InventoryCheckResult(
+                location=location,
+                inventory=inventory,
+                total_units=total_units,
+                slots=slots,
+            )
 
             _log_tool_event(
                 name="check_inventory", phase="end", extra={"location": location, "total_units": total_units}, t0=t0
@@ -241,6 +288,51 @@ def check_inventory() -> Tool:
             raise
 
     return check_inventory_impl
+
+
+def get_machine_inventory() -> Tool:
+    """Return slot-level machine inventory snapshot."""
+
+    from inspect_ai.tool._tool import tool
+
+    @tool(name="get_machine_inventory")
+    def get_machine_inventory_impl() -> MachineInventoryResult:
+        t0 = _log_tool_event(name="get_machine_inventory", phase="start", args={})
+
+        try:
+            env = get_env()
+            totals = aggregate_sku_quantities(env.state.machine_inventory)
+            slots: list[MachineInventorySlot] = []
+            for row_idx, row in enumerate(env.state.machine_inventory):
+                for col_idx, slot in enumerate(row):
+                    slots.append(
+                        MachineInventorySlot(
+                            row=row_idx,
+                            column=col_idx,
+                            sku=slot.sku if slot else None,
+                            quantity=slot.quantity if slot else 0,
+                            price=slot.price if slot else None,
+                            capacity=slot.capacity if slot else None,
+                        )
+                    )
+
+            total_units = sum(totals.values())
+            result = MachineInventoryResult(sku_totals=totals, total_units=total_units, slots=slots)
+
+            _log_tool_event(
+                name="get_machine_inventory",
+                phase="end",
+                extra={"total_units": total_units, "slot_count": len(slots)},
+                t0=t0,
+            )
+
+            return result
+
+        except Exception as e:
+            _log_tool_event(name="get_machine_inventory", phase="error", extra={"error": str(e)}, t0=t0)
+            raise
+
+    return get_machine_inventory_impl
 
 
 def check_financial_status() -> Tool:
@@ -299,18 +391,24 @@ def restock_machine() -> Tool:
     from inspect_agents.exceptions import ToolException
 
     @tool(name="restock_machine")
-    def restock_machine_impl(sku: str, quantity: int) -> RestockMachineResult:
+    def restock_machine_impl(sku: str, quantity: int, row: int, column: int) -> RestockMachineResult:
         """Restock vending machine from storage inventory.
 
         Args:
             sku: Product SKU to restock
             quantity: Number of units to restock
+            row: Target machine row (0-indexed)
+            column: Target machine column (0-indexed)
         """
 
         if quantity <= 0:
             raise ValueError("quantity must be positive")
 
-        t0 = _log_tool_event(name="restock_machine", phase="start", args={"sku": sku, "quantity": quantity})
+        t0 = _log_tool_event(
+            name="restock_machine",
+            phase="start",
+            args={"sku": sku, "quantity": quantity, "row": row, "column": column},
+        )
 
         try:
             env = get_env()
@@ -320,27 +418,50 @@ def restock_machine() -> Tool:
             if available < quantity:
                 raise ToolException(f"Insufficient storage inventory for {sku}: have {available}, need {quantity}")
 
-            env.restock(sku, quantity)
+            env.restock(sku, quantity, row=row, column=column)
             env.advance_time(15)  # 15 minutes for restocking
+
+            slot = env.state.machine_inventory[row][column]
+            if slot is None:
+                raise ToolException(f"slot ({row}, {column}) unavailable after restock")
+            capacity = (
+                slot.capacity
+                if slot and slot.capacity is not None
+                else env.state.demand_profiles[sku].product.slot_capacity
+            )
 
             result = RestockMachineResult(
                 sku=sku,
+                row=row,
+                column=column,
                 quantity_restocked=quantity,
-                new_machine_inventory=env.state.machine_inventory.get(sku, 0),
+                slot_quantity=slot.quantity if slot else 0,
+                slot_capacity=capacity,
                 remaining_storage=env.state.storage_inventory.get(sku, 0),
             )
 
             _log_tool_event(
                 name="restock_machine",
                 phase="end",
-                extra={"sku": sku, "quantity": quantity, "new_machine_inventory": result.new_machine_inventory},
+                extra={
+                    "sku": sku,
+                    "quantity": quantity,
+                    "row": row,
+                    "column": column,
+                    "slot_quantity": result.slot_quantity,
+                },
                 t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="restock_machine", phase="error", extra={"error": str(e), "sku": sku}, t0=t0)
+            _log_tool_event(
+                name="restock_machine",
+                phase="error",
+                extra={"error": str(e), "sku": sku, "row": row, "column": column},
+                t0=t0,
+            )
             if isinstance(e, ToolException):
                 raise
             raise ToolException(f"Restock failed: {str(e)}")
@@ -356,38 +477,81 @@ def set_price() -> Tool:
     from inspect_agents.exceptions import ToolException
 
     @tool(name="set_price")
-    def set_price_impl(sku: str, price: float) -> SetPriceResult:
-        """Set the selling price for a product.
+    def set_price_impl(updates: list[SlotPriceUpdate]) -> SetPriceResult:
+        """Set selling prices for machine slots.
 
         Args:
-            sku: Product SKU to update
-            price: New selling price (must be positive)
+            updates: List of slot updates with row, column, and target price
         """
 
-        if price <= 0:
-            raise ValueError("price must be positive")
+        if not updates:
+            raise ValueError("updates must not be empty")
 
-        t0 = _log_tool_event(name="set_price", phase="start", args={"sku": sku, "price": price})
+        for update in updates:
+            if update.price <= 0:
+                raise ValueError("price must be positive")
+
+        t0 = _log_tool_event(
+            name="set_price",
+            phase="start",
+            args={
+                "updates": [update.model_dump() for update in updates],
+            },
+        )
 
         try:
             env = get_env()
 
-            # Get old price
-            old_price = env.state.prices.get(sku, env.state.demand_profiles[sku].product.base_price)
+            snapshot: dict[tuple[int, int], tuple[str, float]] = {}
+            for update in updates:
+                slot = env.state.machine_inventory[update.row][update.column]
+                if slot is None or slot.sku is None:
+                    raise ToolException(f"slot ({update.row}, {update.column}) is empty")
+                product = env.state.demand_profiles[slot.sku].product
+                old_price = slot.price if slot.price is not None else product.base_price
+                snapshot[(update.row, update.column)] = (slot.sku, old_price)
 
-            env.set_price(sku, price)
+            env.set_price({(upd.row, upd.column): upd.price for upd in updates})
             env.advance_time(5)  # 5 minutes for price change
 
-            result = SetPriceResult(sku=sku, old_price=old_price, new_price=price)
+            results = [
+                SlotPriceUpdateResult(
+                    row=upd.row,
+                    column=upd.column,
+                    sku=snapshot[(upd.row, upd.column)][0],
+                    old_price=snapshot[(upd.row, upd.column)][1],
+                    new_price=upd.price,
+                )
+                for upd in updates
+            ]
+
+            result = SetPriceResult(updates=results)
 
             _log_tool_event(
-                name="set_price", phase="end", extra={"sku": sku, "old_price": old_price, "new_price": price}, t0=t0
+                name="set_price",
+                phase="end",
+                extra={
+                    "updated_slots": [
+                        {
+                            "row": upd.row,
+                            "column": upd.column,
+                            "new_price": upd.price,
+                        }
+                        for upd in updates
+                    ]
+                },
+                t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="set_price", phase="error", extra={"error": str(e), "sku": sku}, t0=t0)
+            _log_tool_event(
+                name="set_price",
+                phase="error",
+                extra={"error": str(e), "updates": [upd.model_dump() for upd in updates]},
+                t0=t0,
+            )
             if isinstance(e, ToolException):
                 raise
             raise ToolException(f"Price setting failed: {str(e)}")
@@ -514,7 +678,8 @@ def wait_for_next_day() -> Tool:
                     "cash_balance": latest_report.cash_balance,
                     "cash_in_machine": latest_report.cash_in_machine,
                     "storage_inventory": latest_report.storage_inventory,
-                    "machine_inventory": latest_report.machine_inventory,
+                    "machine_inventory": serialize_machine_inventory(latest_report.machine_inventory),
+                    "machine_inventory_totals": aggregate_sku_quantities(latest_report.machine_inventory),
                     "units_sold": latest_report.units_sold,
                     "deliveries": latest_report.deliveries,
                 }
@@ -621,6 +786,7 @@ def physical_agent_tools() -> list[Tool]:
         set_price(),
         collect_cash(),
         check_inventory(),
+        get_machine_inventory(),
     ]
 
 
@@ -636,4 +802,5 @@ def all_vending_tools() -> list[Tool]:
         collect_cash(),
         wait_for_next_day(),
         ai_web_search(),
+        get_machine_inventory(),
     ]
