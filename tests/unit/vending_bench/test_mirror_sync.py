@@ -417,6 +417,77 @@ class TestFullSync:
         assert not (target_dir / "mirror-manifest.json").exists()
 
 
+class TestReleaseNotesValidation:
+    """Test release note validation integration."""
+
+    @patch("subprocess.check_output")
+    def test_validation_runs_when_release_version_set(self, mock_check_output, tmp_path, monkeypatch):
+        """Ensure validator is invoked with expected arguments."""
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        target_dir = tmp_path / "target"
+
+        (source_dir / "main.py").write_text("main content")
+
+        mock_check_output.side_effect = [
+            "abc123\n",
+            "2025-09-19 12:00:00\n",
+            "main\n",
+            "",
+        ]
+
+        captured: dict[str, object] = {}
+
+        def fake_run(cmd, capture_output, text):
+            captured["cmd"] = cmd
+            captured["capture_output"] = capture_output
+            captured["text"] = text
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        mirror_sync = MirrorSync(
+            str(source_dir),
+            str(target_dir),
+            release_version="mirror-v1.2.3",
+        )
+        mirror_sync.sync()
+
+        assert captured["cmd"][2] == "validate"
+        assert "mirror-v1.2.3" in captured["cmd"]
+        assert str(target_dir / "mirror-manifest.json") in captured["cmd"]
+
+    @patch("subprocess.check_output")
+    def test_validation_failure_raises(self, mock_check_output, tmp_path, monkeypatch):
+        """Validator failures should surface as MirrorSyncError."""
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        target_dir = tmp_path / "target"
+
+        (source_dir / "main.py").write_text("main content")
+
+        mock_check_output.side_effect = [
+            "abc123\n",
+            "2025-09-19 12:00:00\n",
+            "main\n",
+            "",
+        ]
+
+        def failing_run(cmd, capture_output, text):
+            return subprocess.CompletedProcess(cmd, 1, stdout="out", stderr="err")
+
+        monkeypatch.setattr(subprocess, "run", failing_run)
+
+        mirror_sync = MirrorSync(
+            str(source_dir),
+            str(target_dir),
+            release_version="mirror-v1.2.3",
+        )
+
+        with pytest.raises(MirrorSyncError, match="Release notes validation failed"):
+            mirror_sync.sync()
+
+
 class TestErrorHandling:
     """Test error handling scenarios."""
 
