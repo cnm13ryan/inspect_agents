@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+from .runtime import get_env, increment_tool_count
+
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
-
-from .env import VendingEnv
 
 
 class BaseToolParams(BaseModel):
@@ -125,6 +125,9 @@ def _log_tool_event(
     if phase == "end" and t0:
         log_data["duration_ms"] = (time.time() - t0) * 1000
 
+    if phase == "start":
+        increment_tool_count(name)
+
     logger.info(f"Tool event: {json.dumps(log_data)}")
     return t0 if phase == "start" else time.time()
 
@@ -133,17 +136,20 @@ def check_email() -> Tool:
     """Check inbox and outbox for new emails."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="check_email")
     def check_email_impl(max_emails: int = 10) -> EmailCheckResult:
-        """Check inbox and outbox for emails with daily summaries and order confirmations."""
+        """Check inbox and outbox for emails with daily summaries and order confirmations.
+
+        Args:
+            max_emails: Maximum number of emails to retrieve from each box
+        """
 
         t0 = _log_tool_event(name="check_email", phase="start", args={"max_emails": max_emails})
 
         try:
             # Get environment from store
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             inbox_messages = []
             for msg in env.state.inbox[-max_emails:]:
@@ -198,11 +204,14 @@ def check_inventory() -> Tool:
     """Check storage or machine inventory levels."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="check_inventory")
     def check_inventory_impl(location: str) -> InventoryCheckResult:
-        """Check current inventory levels in storage or vending machine."""
+        """Check current inventory levels in storage or vending machine.
+
+        Args:
+            location: Either 'storage' or 'machine' to specify which inventory to check
+        """
 
         if location not in ["storage", "machine"]:
             raise ValueError("location must be 'storage' or 'machine'")
@@ -210,7 +219,7 @@ def check_inventory() -> Tool:
         t0 = _log_tool_event(name="check_inventory", phase="start", args={"location": location})
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             if location == "storage":
                 inventory = dict(env.state.storage_inventory)
@@ -238,18 +247,21 @@ def check_financial_status() -> Tool:
     """Check current financial status including cash and net worth."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="check_financial_status")
     def check_financial_status_impl(include_projections: bool = False) -> FinancialStatusResult:
-        """Check current cash balance, net worth, and bankruptcy risk."""
+        """Check current cash balance, net worth, and bankruptcy risk.
+
+        Args:
+            include_projections: Whether to include financial projections in the result
+        """
 
         t0 = _log_tool_event(
             name="check_financial_status", phase="start", args={"include_projections": include_projections}
         )
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
             summary = env.summary()
 
             # Check bankruptcy risk (less than 2 days of fees)
@@ -283,13 +295,17 @@ def restock_machine() -> Tool:
     """Restock vending machine from storage inventory."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     from inspect_agents.exceptions import ToolException
 
     @tool(name="restock_machine")
     def restock_machine_impl(sku: str, quantity: int) -> RestockMachineResult:
-        """Restock vending machine from storage inventory."""
+        """Restock vending machine from storage inventory.
+
+        Args:
+            sku: Product SKU to restock
+            quantity: Number of units to restock
+        """
 
         if quantity <= 0:
             raise ValueError("quantity must be positive")
@@ -297,7 +313,7 @@ def restock_machine() -> Tool:
         t0 = _log_tool_event(name="restock_machine", phase="start", args={"sku": sku, "quantity": quantity})
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             # Check storage availability before restocking
             available = env.state.storage_inventory.get(sku, 0)
@@ -336,13 +352,17 @@ def set_price() -> Tool:
     """Set the price for a product."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     from inspect_agents.exceptions import ToolException
 
     @tool(name="set_price")
     def set_price_impl(sku: str, price: float) -> SetPriceResult:
-        """Set the selling price for a product."""
+        """Set the selling price for a product.
+
+        Args:
+            sku: Product SKU to update
+            price: New selling price (must be positive)
+        """
 
         if price <= 0:
             raise ValueError("price must be positive")
@@ -350,7 +370,7 @@ def set_price() -> Tool:
         t0 = _log_tool_event(name="set_price", phase="start", args={"sku": sku, "price": price})
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             # Get old price
             old_price = env.state.prices.get(sku, env.state.demand_profiles[sku].product.base_price)
@@ -379,13 +399,17 @@ def place_order() -> Tool:
     """Place an order with suppliers for inventory."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     from inspect_agents.exceptions import ToolException
 
     @tool(name="place_order")
     def place_order_impl(sku: str, quantity: int) -> PlaceOrderResult:
-        """Place supplier order for inventory with automatic cost deduction."""
+        """Place supplier order for inventory with automatic cost deduction.
+
+        Args:
+            sku: Product SKU to order
+            quantity: Number of units to order
+        """
 
         if quantity <= 0:
             raise ValueError("quantity must be positive")
@@ -393,7 +417,7 @@ def place_order() -> Tool:
         t0 = _log_tool_event(name="place_order", phase="start", args={"sku": sku, "quantity": quantity})
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             order = env.place_order(sku, quantity)
             env.advance_time(30)  # 30 minutes for order processing
@@ -433,7 +457,6 @@ def collect_cash() -> Tool:
     """Collect cash from the vending machine."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="collect_cash")
     def collect_cash_impl() -> CollectCashResult:
@@ -442,7 +465,7 @@ def collect_cash() -> Tool:
         t0 = _log_tool_event(name="collect_cash", phase="start")
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             amount_collected = env.collect_machine_cash()
             env.advance_time(10)  # 10 minutes for cash collection
@@ -469,7 +492,6 @@ def wait_for_next_day() -> Tool:
     """Advance to the next day and get daily report."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="wait_for_next_day")
     def wait_for_next_day_impl() -> WaitForNextDayResult:
@@ -478,7 +500,7 @@ def wait_for_next_day() -> Tool:
         t0 = _log_tool_event(name="wait_for_next_day", phase="start")
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
 
             old_day = env.state.day
             env.end_of_day()
@@ -519,11 +541,15 @@ def ai_web_search() -> Tool:
     """Perform web search for supplier information (deterministic stub)."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="ai_web_search")
     def ai_web_search_impl(query: str, max_results: int = 5) -> WebSearchResult:
-        """Search for supplier contacts and product information (deterministic results)."""
+        """Search for supplier contacts and product information (deterministic results).
+
+        Args:
+            query: Search query string
+            max_results: Maximum number of search results to return
+        """
 
         if max_results < 1 or max_results > 20:
             raise ValueError("max_results must be between 1 and 20")
@@ -531,7 +557,7 @@ def ai_web_search() -> Tool:
         t0 = _log_tool_event(name="ai_web_search", phase="start", args={"query": query, "max_results": max_results})
 
         try:
-            env = store_as(VendingEnv, instance="vending_env")
+            env = get_env()
             env.advance_time(60)  # 1 hour for research
 
             # Deterministic stub results based on query content
