@@ -15,13 +15,14 @@ from examples.vending_bench.memory import (
 )
 from examples.vending_bench.tools import (
     ai_web_search,
-    check_email,
     check_financial_status,
     check_inventory,
     collect_cash,
     physical_agent_tools,
     place_order,
+    read_email,
     restock_machine,
+    send_email,
     set_price,
     supervisor_tools,
     wait_for_next_day,
@@ -38,7 +39,8 @@ class TestToolParameterValidation:
 
         # Test that tools exist and are callable
         tools = [
-            check_email(),
+            read_email(),
+            send_email(),
             check_inventory(),
             check_financial_status(),
             restock_machine(),
@@ -93,14 +95,23 @@ class TestToolIntegration:
         return MemoryStore()
 
     @patch("inspect_ai.util._store_model.store_as")
-    def test_check_email_tool_success(self, mock_store_as, mock_env):
-        """Test successful email check operation."""
+    def test_read_email_tool_success(self, mock_store_as, mock_env):
+        """Test successful email read operation."""
         mock_store_as.return_value = mock_env
 
-        tool = check_email()
+        tool = read_email()
         assert tool is not None
         assert hasattr(tool, "__registry_info__")
         # Note: Actual execution requires async context and full Inspect setup
+
+    @patch("inspect_ai.util._store_model.store_as")
+    def test_send_email_tool_success(self, mock_store_as, mock_env):
+        """Test successful email send operation."""
+        mock_store_as.return_value = mock_env
+
+        tool = send_email()
+        assert tool is not None
+        assert hasattr(tool, "__registry_info__")
 
     @patch("inspect_ai.util._store_model.store_as")
     def test_check_inventory_tool_success(self, mock_store_as, mock_env):
@@ -170,7 +181,8 @@ class TestToolCollections:
             for tool in tools
         ]
         expected_tools = [
-            "check_email",
+            "read_email",
+            "send_email",
             "check_inventory",
             "check_financial_status",
             "place_order",
@@ -232,7 +244,7 @@ class TestToolCollections:
         }
 
         # Physical agent should not have access to high-level tools
-        forbidden_for_physical = {"place_order", "wait_for_next_day", "ai_web_search", "check_email"}
+        forbidden_for_physical = {"place_order", "wait_for_next_day", "ai_web_search", "read_email", "send_email"}
         physical_overlap = physical_names.intersection(forbidden_for_physical)
         assert len(physical_overlap) == 0, f"Physical agent has forbidden tools: {physical_overlap}"
 
@@ -293,10 +305,12 @@ class TestDeterministicBehavior:
         # Different operations should have consistent time costs
         # This is more of a design verification test
 
-        # Restock: 15 minutes
-        # Price change: 5 minutes
-        # Order placement: 30 minutes
-        # Cash collection: 10 minutes
+        # Read email: 5 minutes
+        # Send email: 25 minutes
+        # Restock: 75 minutes
+        # Price change: 300 minutes (5 hours)
+        # Order placement: 25 minutes (email-based)
+        # Cash collection: 300 minutes (5 hours)
         # Web search: 60 minutes
 
         # These values are embedded in the tool implementations
@@ -314,7 +328,7 @@ class TestObservabilityHooks:
         mock_log_event.return_value = 12345.0
 
         # Create a tool (this should work without full Inspect context)
-        tool = check_email()
+        tool = read_email()
         assert tool is not None
 
         # Note: Full logging verification requires async execution context
