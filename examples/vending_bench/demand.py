@@ -7,13 +7,20 @@ import random
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from .state import DemandProfile
+from .state import DemandProfile, Slot
 
 
 @dataclass
 class DemandOutcome:
     units_sold: dict[str, int]
+    slot_sales: dict[tuple[int, int], SlotSale]
     revenue: float
+
+
+@dataclass
+class SlotSale:
+    quantity: int = 0
+    revenue: float = 0.0
 
 
 class DemandModel:
@@ -80,26 +87,37 @@ class DemandModel:
         *,
         day: int,
         demand_profiles: dict[str, DemandProfile],
-        prices: dict[str, float],
-        machine_inventory: dict[str, int],
+        machine_inventory: list[list[Slot | None]],
     ) -> DemandOutcome:
-        stocked_classes = [
-            demand_profiles[sku].product.variety_class
-            for sku, qty in machine_inventory.items()
-            if qty > 0 and sku in demand_profiles
-        ]
+        sku_slots: dict[str, list[tuple[int, int, Slot]]] = {}
+        stocked_classes: list[str] = []
+        for row_idx, row in enumerate(machine_inventory):
+            for col_idx, slot in enumerate(row):
+                if slot is None or slot.sku is None or slot.quantity <= 0:
+                    continue
+                sku = slot.sku
+                sku_slots.setdefault(sku, []).append((row_idx, col_idx, slot))
+                profile = demand_profiles.get(sku)
+                if profile:
+                    stocked_classes.append(profile.product.variety_class)
         variety_factor = self._variety_penalty(stocked_classes)
         units_sold: dict[str, int] = {}
+        slot_sales: dict[tuple[int, int], SlotSale] = {}
         revenue = 0.0
 
         for sku, profile in demand_profiles.items():
-            available = machine_inventory.get(sku, 0)
+            slots = sku_slots.get(sku, [])
+            available = sum(slot.quantity for _, _, slot in slots)
             if available <= 0:
                 units_sold[sku] = 0
                 continue
 
             product = profile.product
-            price = prices.get(sku, product.base_price)
+            prices_for_sku = [slot.price for _, _, slot in slots if slot.price is not None]
+            if prices_for_sku:
+                price = min(prices_for_sku)
+            else:
+                price = product.base_price
             base_demand = product.base_daily_demand
             if product.base_price <= 0:
                 price_factor = 1.0
@@ -123,6 +141,20 @@ class DemandModel:
             demand = max(0.0, demand)
             sold = min(available, int(round(demand)))
             units_sold[sku] = sold
-            revenue += sold * price
 
-        return DemandOutcome(units_sold=units_sold, revenue=revenue)
+            remaining = sold
+            for row_idx, col_idx, slot in sorted(slots, key=lambda item: (item[0], item[1])):
+                if remaining <= 0:
+                    break
+                sell_qty = min(slot.quantity, remaining)
+                if sell_qty <= 0:
+                    continue
+                slot_price = slot.price if slot.price is not None else product.base_price
+                key = (row_idx, col_idx)
+                sale = slot_sales.setdefault(key, SlotSale())
+                sale.quantity += sell_qty
+                sale.revenue += sell_qty * slot_price
+                revenue += sell_qty * slot_price
+                remaining -= sell_qty
+
+        return DemandOutcome(units_sold=units_sold, slot_sales=slot_sales, revenue=revenue)
