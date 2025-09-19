@@ -107,12 +107,20 @@ Mirror releases follow semantic versioning: `mirror-v<major>.<minor>.<patch>`
 
 ### Release Notes
 
-Release notes are auto-generated and include:
-- Upstream commit references
-- Feature additions and changes
-- Bug fixes
-- Documentation updates
-- Breaking changes (if any)
+Release notes live in `release-notes/` and follow the Keep a Changelog categories used in the upstream `CHANGELOG.md`. Each `mirror-v<major>.<minor>.<patch>.md` entry must capture:
+- A concise summary of the release scope
+- Changes grouped under Added/Changed/Fixed/Docs
+- The exact upstream source commit (`git rev-parse HEAD`)
+- The SHA256 of the published `mirror-manifest.json` (if produced by the sync job)
+**Authoring workflow**
+1. Generate a draft entry from the template: `python scripts/generate_release_notes.py generate --version mirror-vX.Y.Z --manifest-path mirror-manifest.json` (omit `--manifest-path` if the manifest is not yet available).
+2. Edit the generated Markdown to replace placeholder bullets with the final summary, referencing upstream PRs where helpful.
+3. Validate before opening a PR: `python scripts/generate_release_notes.py validate --version mirror-vX.Y.Z --manifest-path mirror-manifest.json --require-source-commit $(git rev-parse HEAD)`.
+4. Commit the new file under `release-notes/` alongside the release tag request.
+
+**CI guardrails**
+- `ci/sync.yml` adds a `Validate Release Notes` job on `mirror-v*` tags that runs the same validation script; the pipeline fails if entries are missing or hashes do not match.
+- Run the validation script locally when iterating on release candidates to catch issues before pushing tags.
 
 ## Configuration Management
 
