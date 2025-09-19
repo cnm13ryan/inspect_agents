@@ -18,6 +18,8 @@ from examples.vending_bench.tools import (
     check_email,
     check_financial_status,
     check_inventory,
+    check_machine_overview,
+    check_storage_inventory,
     collect_cash,
     physical_agent_tools,
     place_order,
@@ -40,6 +42,8 @@ class TestToolParameterValidation:
         tools = [
             check_email(),
             check_inventory(),
+            check_storage_inventory(),
+            check_machine_overview(),
             check_financial_status(),
             restock_machine(),
             set_price(),
@@ -112,6 +116,24 @@ class TestToolIntegration:
         assert hasattr(tool, "__registry_info__")
 
     @patch("inspect_ai.util._store_model.store_as")
+    def test_check_machine_overview_tool_success(self, mock_store_as, mock_env):
+        """Test successful machine overview wrapper creation."""
+        mock_store_as.return_value = mock_env
+
+        tool = check_machine_overview()
+        assert tool is not None
+        assert hasattr(tool, "__registry_info__")
+
+    @patch("inspect_ai.util._store_model.store_as")
+    def test_check_storage_inventory_tool_success(self, mock_store_as, mock_env):
+        """Test successful storage inventory wrapper creation."""
+        mock_store_as.return_value = mock_env
+
+        tool = check_storage_inventory()
+        assert tool is not None
+        assert hasattr(tool, "__registry_info__")
+
+    @patch("inspect_ai.util._store_model.store_as")
     def test_restock_tool_insufficient_inventory(self, mock_store_as, mock_env):
         """Test restock tool with insufficient storage inventory."""
         mock_store_as.return_value = mock_env
@@ -171,7 +193,8 @@ class TestToolCollections:
         ]
         expected_tools = [
             "check_email",
-            "check_inventory",
+            "check_storage_inventory",
+            "check_machine_overview",
             "check_financial_status",
             "place_order",
             "wait_for_next_day",
@@ -232,13 +255,21 @@ class TestToolCollections:
         }
 
         # Physical agent should not have access to high-level tools
-        forbidden_for_physical = {"place_order", "wait_for_next_day", "ai_web_search", "check_email"}
+        forbidden_for_physical = {
+            "place_order",
+            "wait_for_next_day",
+            "ai_web_search",
+            "check_email",
+            "check_machine_overview",
+        }
         physical_overlap = physical_names.intersection(forbidden_for_physical)
         assert len(physical_overlap) == 0, f"Physical agent has forbidden tools: {physical_overlap}"
 
-        # Both can access inventory checking
-        assert "check_inventory" in supervisor_names
+        # Inventory access is split between detailed physical view and supervisor summary/storage wrappers
+        assert "check_machine_overview" in supervisor_names
+        assert "check_storage_inventory" in supervisor_names
         assert "check_inventory" in physical_names
+        assert "check_inventory" not in supervisor_names
 
 
 class TestErrorHandling:

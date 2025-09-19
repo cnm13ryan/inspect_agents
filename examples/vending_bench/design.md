@@ -27,7 +27,7 @@
 
 ## System Architecture
 - **Environment Simulator:** Python module owning core state (time, cash, inventories, orders, email, demand parameters) with deterministic transitions and scoring hooks.【F:examples/vending_bench/source_excerpts.md-L12-L16】
-- **Supervisor Agent:** Inspect ReAct supervisor configured with environment and memory tools plus transfer_to_vending; responsible for planning, supplier negotiation, and financial decisions.【F:examples/vending_bench/source_excerpts.md-L7-L7】【F:examples/vending_bench/source_excerpts.md-L27-L28】
+- **Supervisor Agent:** Inspect ReAct supervisor configured with environment and memory tools plus transfer_to_vending; responsible for planning, supplier negotiation, and financial decisions.【F:examples/vending_bench/source_excerpts.md-L7-L7】【F:examples/vending_bench/source_excerpts.md-L27-L28】 Machine stock visibility is restricted to the aggregated `check_machine_overview` wrapper while storage details route through `check_storage_inventory` to prevent leaking slot-level data across roles.
 - **Physical Sub-Agent:** Inspect ReAct sub-agent instantiated with restock/set-price/cash tools, handoff limits, and quarantine filters to execute mechanical actions.【F:examples/vending_bench/source_excerpts.md-L18-L21】【F:examples/vending_bench/source_excerpts.md-L27-L27】
 - **Memory Layer:** Scratchpad, key-value store, and vector database tools exposed via Inspect to manage long-term notes and embeddings.【F:examples/vending_bench/source_excerpts.md-L11-L12】【F:examples/vending_bench/source_excerpts.md-L23-L24】
 - **Evaluation Harness:** Runner that invokes `run_agent` with wall-clock, message, and token limits, collecting metrics and tool telemetry for analysis.【F:examples/vending_bench/source_excerpts.md-L24-L28】
