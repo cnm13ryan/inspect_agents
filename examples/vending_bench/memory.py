@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
+from .runtime import get_env, get_memory_store, increment_tool_count
+
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
 
@@ -139,6 +141,9 @@ def _log_memory_event(
     if phase == "end" and t0:
         log_data["duration_ms"] = (time.time() - t0) * 1000
 
+    if phase == "start":
+        increment_tool_count(f"memory:{name}")
+
     logger.info(f"Memory tool event: {json.dumps(log_data)}")
     return t0 if phase == "start" else time.time()
 
@@ -147,13 +152,18 @@ def scratchpad_append() -> Tool:
     """Append entry to scratchpad memory."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="scratchpad_append")
     def scratchpad_append_impl(
         content: str, tags: list[str] = None, metadata: dict[str, Any] = None
     ) -> ScratchpadResult:
-        """Append entry to scratchpad for daily notes and observations."""
+        """Append entry to scratchpad for daily notes and observations.
+
+        Args:
+            content: Text content to store in scratchpad
+            tags: Optional list of tags for categorization
+            metadata: Optional metadata dictionary
+        """
 
         tags = tags or []
         metadata = metadata or {}
@@ -163,14 +173,11 @@ def scratchpad_append() -> Tool:
         )
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
 
             # Get current environment day for context
             try:
-                from .env import VendingEnv
-
-                env = store_as(VendingEnv, instance="vending_env")
-                current_day = env.state.day
+                current_day = get_env().state.day
             except Exception:
                 current_day = 0
 
@@ -207,11 +214,16 @@ def scratchpad_read() -> Tool:
     """Read entries from scratchpad memory."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="scratchpad_read")
     def scratchpad_read_impl(limit: int = 50, tags: list[str] = None, days_back: int = 7) -> ScratchpadResult:
-        """Read entries from scratchpad with filtering by tags and time."""
+        """Read entries from scratchpad with filtering by tags and time.
+
+        Args:
+            limit: Maximum number of entries to return
+            tags: Optional list of tags to filter by
+            days_back: Number of days back to look for entries
+        """
 
         tags = tags or []
 
@@ -220,14 +232,11 @@ def scratchpad_read() -> Tool:
         )
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
 
             # Get current day for filtering
             try:
-                from .env import VendingEnv
-
-                env = store_as(VendingEnv, instance="vending_env")
-                current_day = env.state.day
+                current_day = get_env().state.day
             except Exception:
                 current_day = 999999  # If no env, return all
 
@@ -270,11 +279,16 @@ def kv_set() -> Tool:
     """Set key-value data in memory store."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="kv_set")
     def kv_set_impl(key: str, value: Any, ttl_days: int = 30) -> KeyValueResult:
-        """Store key-value data with expiration for supplier info and notes."""
+        """Store key-value data with expiration for supplier info and notes.
+
+        Args:
+            key: Storage key (max 100 chars)
+            value: Value to store
+            ttl_days: Time to live in days before expiration
+        """
 
         if not key.strip():
             raise ValueError("Key cannot be empty")
@@ -285,7 +299,7 @@ def kv_set() -> Tool:
         t0 = _log_memory_event(name="kv_set", phase="start", args={"key": key, "ttl_days": ttl_days})
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
             memory_store._cleanup_expired_kv()
 
             memory_store.key_value[key] = {"value": value, "timestamp": time.time(), "ttl_days": ttl_days}
@@ -309,16 +323,19 @@ def kv_get() -> Tool:
     """Get key-value data from memory store."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="kv_get")
     def kv_get_impl(key: str) -> KeyValueResult:
-        """Retrieve value by key from memory store."""
+        """Retrieve value by key from memory store.
+
+        Args:
+            key: Storage key to retrieve
+        """
 
         t0 = _log_memory_event(name="kv_get", phase="start", args={"key": key})
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
             memory_store._cleanup_expired_kv()
 
             data = memory_store.key_value.get(key)
@@ -342,16 +359,20 @@ def kv_list() -> Tool:
     """List keys in memory store."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="kv_list")
     def kv_list_impl(prefix: str = "", limit: int = 100) -> KeyValueResult:
-        """List all keys in memory store with optional prefix filter."""
+        """List all keys in memory store with optional prefix filter.
+
+        Args:
+            prefix: Optional prefix to filter keys by
+            limit: Maximum number of keys to return
+        """
 
         t0 = _log_memory_event(name="kv_list", phase="start", args={"prefix": prefix, "limit": limit})
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
             memory_store._cleanup_expired_kv()
 
             keys = list(memory_store.key_value.keys())
@@ -383,18 +404,22 @@ def vector_store() -> Tool:
     """Store content in vector database for semantic search."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="vector_store")
     def vector_store_impl(content: str, metadata: dict[str, Any] = None) -> VectorResult:
-        """Store content in vector database for later semantic search."""
+        """Store content in vector database for later semantic search.
+
+        Args:
+            content: Text content to store
+            metadata: Optional metadata dictionary
+        """
 
         metadata = metadata or {}
 
         t0 = _log_memory_event(name="vector_store", phase="start", args={"content_length": len(content)})
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
 
             entry = VectorEntry(
                 id=memory_store._generate_id(), content=content, metadata=metadata, timestamp=time.time()
@@ -424,11 +449,16 @@ def vector_search() -> Tool:
     """Search vector database for similar content."""
 
     from inspect_ai.tool._tool import tool
-    from inspect_ai.util._store_model import store_as
 
     @tool(name="vector_search")
     def vector_search_impl(query: str, limit: int = 10, similarity_threshold: float = 0.7) -> VectorResult:
-        """Search vector database for semantically similar content."""
+        """Search vector database for semantically similar content.
+
+        Args:
+            query: Search query text
+            limit: Maximum number of results to return
+            similarity_threshold: Minimum similarity score (0.0-1.0)
+        """
 
         if similarity_threshold < 0.0 or similarity_threshold > 1.0:
             raise ValueError("similarity_threshold must be between 0.0 and 1.0")
@@ -440,7 +470,7 @@ def vector_search() -> Tool:
         )
 
         try:
-            memory_store = store_as(MemoryStore, instance="vending_memory")
+            memory_store = get_memory_store()
 
             # Calculate similarities and filter
             scored_entries = []

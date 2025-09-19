@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 MINUTES_PER_DAY = 24 * 60
 
@@ -67,6 +68,7 @@ class DailyReport:
 
 @dataclass
 class SimulatorState:
+    telemetry: dict[str, Any] = field(default_factory=dict)
     day: int = 0
     minute: int = 0
     turns: int = 0
