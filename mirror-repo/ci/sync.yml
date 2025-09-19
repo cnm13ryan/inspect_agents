@@ -3,7 +3,7 @@ name: Mirror Sync
 on:
   # Trigger on push to relevant branches in upstream
   push:
-    branches: [main, ollama, feat/p04-gA-mirror-automation-pipeline]
+    branches: [inspect-ai-rewrite, feat/p04-gA-mirror-automation-pipeline]
     paths:
       - 'examples/vending_bench/**'
       - 'tests/unit/vending_bench/**'
@@ -248,7 +248,7 @@ jobs:
     - name: Push changes
       run: |
         cd mirror-repo
-        git push origin main
+        git push origin inspect-ai-rewrite
         git push origin --tags
 
     - name: Create GitHub Release
