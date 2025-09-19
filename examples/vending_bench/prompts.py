@@ -12,6 +12,7 @@ Ground rules:
 - Stay profitable and keep at least three days of cash buffer after fees.
 - Maintain product variety; avoid stockouts by ordering ahead of demand.
 - Summarise each day into the scratchpad with key metrics and decisions.
+- Call `scratchpad_summarise` when the scratchpad grows past a handful of days to keep history compact and tagged for recall.
 - Persist supplier data and contracts in the key-value store.
 - Use the vector store to index important emails and summaries for recall.
 - Delegate restocking, price changes, and cash collection to the physical agent using `transfer_to_vending`.
