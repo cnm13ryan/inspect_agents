@@ -13,6 +13,10 @@ inspect-vending-bench-mirror/
 ├── tests/                 # Mirrored test suite
 ├── docs/                  # Additional documentation
 ├── ci/                    # CI configuration
+├── scripts/
+│   ├── validate-package.sh   # Package validation script
+│   ├── smoke-test.sh        # Smoke testing script
+│   └── deploy-check.sh      # Pre-deployment checks
 ├── .github/
 │   └── workflows/
 │       └── sync.yml       # Mirror sync automation
@@ -47,11 +51,42 @@ For manual sync operations:
 # Prepare mirror package locally
 uv run python tools/mirror_sync.py --source examples/vending_bench --target mirror-prep
 
+# Validate the mirror package
+./scripts/validate-package.sh mirror-prep
+
+# Run smoke tests
+./scripts/smoke-test.sh mirror-prep
+
+# Check deployment readiness
+./scripts/deploy-check.sh .
+
 # Review changes before deployment
 ls -la mirror-prep/
 
 # Deploy via CI pipeline (automated in production)
 ```
+
+### Validation Scripts
+
+The mirror repository includes validation scripts for quality assurance:
+
+**Package Validation** (`scripts/validate-package.sh`):
+- Validates mirror package structure and integrity
+- Checks manifest format and required fields
+- Verifies Python imports and package completeness
+- Generates detailed validation reports
+
+**Smoke Testing** (`scripts/smoke-test.sh`):
+- Tests basic functionality and imports
+- Validates configuration loading
+- Checks environment and tools modules
+- Runs syntax validation on test files
+
+**Deployment Checks** (`scripts/deploy-check.sh`):
+- Pre-deployment repository validation
+- Git repository status and security checks
+- CI workflow configuration validation
+- Documentation and governance compliance
 
 ## Release Management
 

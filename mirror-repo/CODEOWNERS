@@ -1,0 +1,25 @@
+# Mirror Repository Code Owners
+#
+# This file defines the code owners for the Vending-Bench mirror repository.
+# Code owners are required to approve changes before they can be merged.
+#
+# Global owners for all files
+* @inspect-agents/mirror-maintainers
+
+# Critical files require additional approval
+/ci/ @inspect-agents/ci-maintainers @inspect-agents/mirror-maintainers
+/.github/ @inspect-agents/ci-maintainers @inspect-agents/mirror-maintainers
+/CODEOWNERS @inspect-agents/mirror-maintainers
+
+# Vending-bench core implementation
+/vending_bench/ @inspect-agents/vending-bench-maintainers @inspect-agents/mirror-maintainers
+
+# Test suite changes
+/tests/ @inspect-agents/vending-bench-maintainers @inspect-agents/mirror-maintainers
+
+# Documentation updates
+/README.md @inspect-agents/docs-maintainers @inspect-agents/mirror-maintainers
+/docs/ @inspect-agents/docs-maintainers
+
+# Mirror-specific configuration
+/mirror-manifest.json @inspect-agents/mirror-maintainers
