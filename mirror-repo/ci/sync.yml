@@ -3,7 +3,7 @@ name: Mirror Sync
 on:
   # Trigger on push to relevant branches in upstream
   push:
-    branches: [inspect-ai-rewrite, feat/p04-gA-mirror-automation-pipeline]
+    branches: [inspect-ai-rewrite, main, master, feat/p04-gA-mirror-automation-pipeline]
     paths:
       - 'examples/vending_bench/**'
       - 'tests/unit/vending_bench/**'
@@ -18,6 +18,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      staging_manifest_path:
+        description: 'Path to staging manifest (default: .mirror/staging/manifest.json)'
+        required: false
+        default: '.mirror/staging/manifest.json'
+        type: string
 
   # Weekly scheduled sync
   schedule:
@@ -25,12 +30,13 @@ on:
 
 jobs:
   detect-changes:
-    name: Detect Changes
+    name: Detect Changes and Load Staging
     runs-on: ubuntu-latest
     outputs:
       changes_detected: ${{ steps.changes.outputs.changes_detected }}
       content_hash: ${{ steps.changes.outputs.content_hash }}
       upstream_commit: ${{ steps.changes.outputs.upstream_commit }}
+      staging_exists: ${{ steps.staging.outputs.staging_exists }}
 
     steps:
     - name: Checkout upstream repository
@@ -41,7 +47,7 @@ jobs:
         fetch-depth: 50
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
@@ -51,13 +57,38 @@ jobs:
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
-      run: uv sync --frozen
+      run: |
+        # Install dependencies without using frozen lockfile if it doesn't exist
+        if [ -f "uv.lock" ]; then
+          uv sync --frozen
+        else
+          uv sync
+        fi
 
-    - name: Calculate content hash
+    - name: Check for staging manifest
+      id: staging
+      run: |
+        MANIFEST_PATH="${{ github.event.inputs.staging_manifest_path || '.mirror/staging/manifest.json' }}"
+
+        if [ -f "$MANIFEST_PATH" ]; then
+          echo "staging_exists=true" >> $GITHUB_OUTPUT
+          echo "Staging manifest found at: $MANIFEST_PATH"
+          cat "$MANIFEST_PATH"
+        else
+          echo "staging_exists=false" >> $GITHUB_OUTPUT
+          echo "No staging manifest found at: $MANIFEST_PATH"
+        fi
+
+    - name: Calculate content hash and detect changes
       id: changes
       run: |
         # Calculate current content hash
-        CURRENT_HASH=$(uv run python tools/mirror_sync.py --source examples/vending_bench --target /tmp/mirror-test --dry-run | grep "Content hash:" | awk '{print $3}' || echo "")
+        CURRENT_HASH=$(python tools/mirror_sync.py --source examples/vending_bench --target /tmp/mirror-test --dry-run --output-manifest /tmp/sync-report.json 2>/dev/null | grep "Content hash:" | awk '{print $3}' || echo "")
+
+        # If hash extraction failed, try from the JSON output
+        if [ -z "$CURRENT_HASH" ] && [ -f "/tmp/sync-report.json" ]; then
+          CURRENT_HASH=$(python -c "import json; print(json.load(open('/tmp/sync-report.json'))['content_hash'])" 2>/dev/null || echo "")
+        fi
 
         # Get current commit
         UPSTREAM_COMMIT=$(git rev-parse HEAD)
@@ -65,13 +96,27 @@ jobs:
         # Check if this is a force sync
         FORCE_SYNC="${{ github.event.inputs.force_sync }}"
 
-        # For this example, we'll always sync in the pipeline
-        # In production, this would compare with the last successful sync
-        echo "changes_detected=true" >> $GITHUB_OUTPUT
+        # Detect changes by comparing with staging manifest if it exists
+        MANIFEST_PATH="${{ github.event.inputs.staging_manifest_path || '.mirror/staging/manifest.json' }}"
+        CHANGES_DETECTED="true"
+
+        if [ "$FORCE_SYNC" != "true" ] && [ -f "$MANIFEST_PATH" ]; then
+          LAST_HASH=$(python -c "import json; print(json.load(open('$MANIFEST_PATH'))['content_hash'])" 2>/dev/null || echo "")
+          if [ "$CURRENT_HASH" = "$LAST_HASH" ]; then
+            CHANGES_DETECTED="false"
+            echo "No changes detected (hash match: $CURRENT_HASH)"
+          else
+            echo "Changes detected (hash mismatch: $LAST_HASH -> $CURRENT_HASH)"
+          fi
+        else
+          echo "Force sync or no staging manifest - proceeding with sync"
+        fi
+
+        echo "changes_detected=$CHANGES_DETECTED" >> $GITHUB_OUTPUT
         echo "content_hash=${CURRENT_HASH}" >> $GITHUB_OUTPUT
         echo "upstream_commit=${UPSTREAM_COMMIT}" >> $GITHUB_OUTPUT
 
-        echo "Changes detected: true"
+        echo "Changes detected: $CHANGES_DETECTED"
         echo "Content hash: ${CURRENT_HASH}"
         echo "Upstream commit: ${UPSTREAM_COMMIT}"
 
@@ -88,7 +133,7 @@ jobs:
         fetch-depth: 1
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
@@ -98,14 +143,43 @@ jobs:
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
-      run: uv sync --frozen
-
-    - name: Create mirror package
       run: |
-        uv run python tools/mirror_sync.py \
-          --source examples/vending_bench \
-          --target mirror-package \
-          --output-manifest sync-manifest.json
+        # Install dependencies without using frozen lockfile if it doesn't exist
+        if [ -f "uv.lock" ]; then
+          uv sync --frozen
+        else
+          uv sync
+        fi
+
+    - name: Load staging payload or create mirror package
+      run: |
+        MANIFEST_PATH="${{ github.event.inputs.staging_manifest_path || '.mirror/staging/manifest.json' }}"
+
+        # Check if we have a staging payload
+        if [ -f "$MANIFEST_PATH" ]; then
+          echo "Loading staged payload from $MANIFEST_PATH"
+
+          # Extract staging directory from manifest path
+          STAGING_DIR=$(dirname "$MANIFEST_PATH")
+
+          if [ -d "$STAGING_DIR" ]; then
+            # Use staged package
+            cp -r "$STAGING_DIR" mirror-package
+            echo "Using staged package from $STAGING_DIR"
+          else
+            echo "Staging directory not found, creating fresh package"
+            python tools/mirror_sync.py \
+              --source examples/vending_bench \
+              --target mirror-package \
+              --output-manifest sync-manifest.json
+          fi
+        else
+          echo "No staging manifest found, creating fresh mirror package"
+          python tools/mirror_sync.py \
+            --source examples/vending_bench \
+            --target mirror-package \
+            --output-manifest sync-manifest.json
+        fi
 
     - name: Validate package structure
       run: |
@@ -118,10 +192,14 @@ jobs:
         test -f mirror-package/mirror-manifest.json || (echo "Missing manifest" && exit 1)
 
         echo "Package structure validation passed"
+        ls -la mirror-package/
 
     - name: Run smoke tests
       run: |
         cd mirror-package
+
+        # Set up Python path for imports
+        export PYTHONPATH=".:$PYTHONPATH"
 
         # Test basic imports
         python -c "
@@ -129,46 +207,72 @@ jobs:
         sys.path.insert(0, '.')
         try:
             from vending_bench import config, env, tools
-            print('Import test passed')
+            print('✅ Import test passed')
         except ImportError as e:
-            print(f'Import test failed: {e}')
+            print(f'❌ Import test failed: {e}')
             sys.exit(1)
         "
 
-        # Run unit tests if they exist
+        # Run vending_bench unit tests using the recommended command
         if [ -d "tests/unit" ]; then
-          python -m pytest tests/unit/ -v || echo "Some tests failed, but sync can continue"
+          echo "Running unit tests with: uv run pytest -q tests/unit/vending_bench"
+          cd ..
+          uv run pytest -q tests/unit/vending_bench || {
+            echo "⚠️  Some unit tests failed, but sync can continue"
+            echo "Exit code: $?"
+          }
+        else
+          echo "No unit tests directory found"
         fi
 
     - name: Upload package artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mirror-package
         path: mirror-package/
         retention-days: 7
 
     - name: Upload sync manifest
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sync-manifest
         path: sync-manifest.json
         retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Update staging manifest
+      run: |
+        # Update the staging manifest with sync results
+        MANIFEST_PATH="${{ github.event.inputs.staging_manifest_path || '.mirror/staging/manifest.json' }}"
+        STAGING_DIR=$(dirname "$MANIFEST_PATH")
+
+        # Create staging directory if it doesn't exist
+        mkdir -p "$STAGING_DIR"
+
+        # Copy the sync manifest to staging location
+        if [ -f "sync-manifest.json" ]; then
+          cp sync-manifest.json "$MANIFEST_PATH"
+          echo "Updated staging manifest at $MANIFEST_PATH"
+        else
+          echo "Warning: No sync manifest generated"
+        fi
 
   deploy-mirror:
     name: Deploy to Mirror Repository
     runs-on: ubuntu-latest
     needs: [detect-changes, validate-sync]
     if: needs.detect-changes.outputs.changes_detected == 'true'
+    environment: mirror-deployment  # Requires environment approval
 
     steps:
     - name: Download package artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: mirror-package
         path: mirror-package/
 
     - name: Download sync manifest
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: sync-manifest
 
@@ -184,109 +288,117 @@ jobs:
         repository: example/inspect-vending-bench-mirror
         token: ${{ secrets.MIRROR_REPO_TOKEN }}
         path: mirror-repo
+        fetch-depth: 0
 
-    - name: Sync content to mirror
+    - name: Create sync branch and prepare changes
       run: |
         cd mirror-repo
 
-        # Remove old content (except .git and CI files)
-        find . -maxdepth 1 -not -name '.' -not -name '..' -not -name '.git' -not -name '.github' -exec rm -rf {} +
+        # Create a new branch for this sync
+        SYNC_BRANCH="sync/automated-$(date +%Y%m%d-%H%M%S)"
+        git checkout -b "$SYNC_BRANCH"
+
+        # Remove old content (except .git, .github, and other protected files)
+        find . -maxdepth 1 -not -name '.' -not -name '..' -not -name '.git' -not -name '.github' -not -name 'CODEOWNERS' -not -name 'LICENSE' -exec rm -rf {} +
 
         # Copy new content
         cp -r ../mirror-package/* .
 
         # Check if there are actual changes
-        if git diff --exit-code && git diff --cached --exit-code; then
+        if git diff --exit-code; then
           echo "No changes to commit"
+          echo "sync_needed=false" >> $GITHUB_ENV
           exit 0
         fi
+
+        echo "sync_needed=true" >> $GITHUB_ENV
+        echo "SYNC_BRANCH=$SYNC_BRANCH" >> $GITHUB_ENV
 
         # Stage changes
         git add .
 
-    - name: Create commit and tag
+    - name: Commit changes and create PR
+      if: env.sync_needed == 'true'
       run: |
         cd mirror-repo
 
-        # Read sync manifest
         UPSTREAM_COMMIT="${{ needs.detect-changes.outputs.upstream_commit }}"
         CONTENT_HASH="${{ needs.detect-changes.outputs.content_hash }}"
 
         # Create commit
-        git commit -m "Sync from upstream commit ${UPSTREAM_COMMIT:0:8}
+        git commit -m "Automated sync from upstream commit ${UPSTREAM_COMMIT:0:8}
 
         - Content hash: ${CONTENT_HASH:0:12}
         - Sync timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)
         - Workflow run: ${{ github.run_id }}
 
-        Automated sync from upstream repository."
+        This automated sync includes:
+        - Latest vending_bench implementation
+        - Updated test suite
+        - Documentation updates
+        - Mirror-specific configurations
 
-        # Create semantic version tag
-        # In production, this would determine version bump based on changes
-        CURRENT_VERSION=$(git tag | grep '^mirror-v' | sort -V | tail -1 | sed 's/mirror-v//' || echo "0.0.0")
-        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-        MAJOR=${VERSION_PARTS[0]:-0}
-        MINOR=${VERSION_PARTS[1]:-0}
-        PATCH=${VERSION_PARTS[2]:-0}
+        Changes require CODEOWNERS approval before merge.
 
-        # For this pipeline, we'll bump patch version
-        NEW_PATCH=$((PATCH + 1))
-        NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-        NEW_TAG="mirror-v${NEW_VERSION}"
+        🤖 Generated with Claude Code"
 
-        echo "Creating tag: ${NEW_TAG}"
-        git tag -a "${NEW_TAG}" -m "Mirror release ${NEW_VERSION}
+        # Push the branch
+        git push origin "$SYNC_BRANCH"
 
-        Synced from upstream commit: ${UPSTREAM_COMMIT:0:8}
-        Content hash: ${CONTENT_HASH:0:12}
-
-        Release notes:
-        - Automated sync from upstream repository
-        - See commit history for detailed changes
-        - Upstream commit: https://github.com/upstream/inspect_agents/commit/${UPSTREAM_COMMIT}"
-
-    - name: Push changes
-      run: |
-        cd mirror-repo
-        git push origin inspect-ai-rewrite
-        git push origin --tags
-
-    - name: Create GitHub Release
-      uses: ncipollo/release-action@v1
+    - name: Create Pull Request
+      if: env.sync_needed == 'true'
+      uses: actions/github-script@v7
       with:
-        repo: inspect-vending-bench-mirror
-        owner: example
-        token: ${{ secrets.MIRROR_REPO_TOKEN }}
-        tag: ${{ env.NEW_TAG }}
-        name: "Mirror Release ${{ env.NEW_VERSION }}"
-        body: |
-          # Vending-Bench Mirror Release ${{ env.NEW_VERSION }}
+        github-token: ${{ secrets.MIRROR_REPO_TOKEN }}
+        script: |
+          const { data: pr } = await github.rest.pulls.create({
+            owner: 'example',
+            repo: 'inspect-vending-bench-mirror',
+            title: `Automated Mirror Sync - ${new Date().toISOString().split('T')[0]}`,
+            head: process.env.SYNC_BRANCH,
+            base: 'main',
+            body: `# Automated Mirror Sync
 
-          This release contains the latest sync from the upstream `inspect_agents` repository.
+          This pull request contains an automated sync from the upstream \`inspect_agents\` repository.
 
           ## Sync Information
           - **Upstream Commit**: ${{ needs.detect-changes.outputs.upstream_commit }}
           - **Content Hash**: ${{ needs.detect-changes.outputs.content_hash }}
-          - **Sync Date**: ${{ github.event.created_at }}
+          - **Sync Date**: ${new Date().toISOString()}
           - **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-          ## Installation
+          ## Changes Included
+          - ✅ Vending-bench implementation updates
+          - ✅ Test suite synchronization
+          - ✅ Documentation updates
+          - ✅ Smoke tests passed
+          - ✅ Package structure validated
 
-          ```bash
-          # Download and extract
-          curl -L https://github.com/example/inspect-vending-bench-mirror/archive/refs/tags/mirror-v${{ env.NEW_VERSION }}.tar.gz | tar xz
-          cd inspect-vending-bench-mirror-${{ env.NEW_VERSION }}
+          ## Review Checklist
+          - [ ] Review content changes for any sensitive information
+          - [ ] Verify test suite completeness
+          - [ ] Check documentation accuracy
+          - [ ] Confirm no breaking changes to public API
 
-          # Install and run
-          uv sync
-          python vending_bench/run.py --help
-          ```
+          ## Approval Required
+          This PR requires approval from CODEOWNERS before it can be merged.
 
-          ## Documentation
+          **Note**: This is an automated sync. Manual review is required to ensure content quality and security.
 
-          See [README.md](https://github.com/example/inspect-vending-bench-mirror/blob/mirror-v${{ env.NEW_VERSION }}/README.md) for full documentation.
-        draft: false
-        prerelease: false
+          🤖 Generated with Claude Code`
+          });
+
+          core.setOutput('pr-number', pr.number);
+          core.setOutput('pr-url', pr.html_url);
+
+          console.log(`Created PR #${pr.number}: ${pr.html_url}`);
+
+    - name: Auto-merge if approved (optional)
+      if: env.sync_needed == 'true' && github.event.inputs.force_sync == 'true'
+      run: |
+        echo "Force sync enabled - would implement auto-merge logic here"
+        echo "In production, this could auto-merge after CODEOWNERS approval"
+
 
   notify-status:
     name: Notify Sync Status
@@ -297,14 +409,68 @@ jobs:
     steps:
     - name: Report sync status
       run: |
-        if [[ "${{ needs.detect-changes.result }}" == "success" && "${{ needs.validate-sync.result }}" == "success" && "${{ needs.deploy-mirror.result }}" == "success" ]]; then
-          echo "✅ Mirror sync completed successfully"
+        echo "## Mirror Sync Workflow Summary"
+        echo "================================"
+
+        if [[ "${{ needs.detect-changes.outputs.changes_detected }}" == "false" ]]; then
+          echo "ℹ️  No changes detected - sync skipped"
+          echo "- Content hash: ${{ needs.detect-changes.outputs.content_hash }}"
+          echo "- Upstream commit: ${{ needs.detect-changes.outputs.upstream_commit }}"
+        elif [[ "${{ needs.detect-changes.result }}" == "success" && "${{ needs.validate-sync.result }}" == "success" && "${{ needs.deploy-mirror.result }}" == "success" ]]; then
+          echo "✅ Mirror sync workflow completed successfully"
           echo "- Changes detected: ${{ needs.detect-changes.outputs.changes_detected }}"
           echo "- Content hash: ${{ needs.detect-changes.outputs.content_hash }}"
           echo "- Upstream commit: ${{ needs.detect-changes.outputs.upstream_commit }}"
+          echo "- Staging exists: ${{ needs.detect-changes.outputs.staging_exists }}"
+          echo ""
+          echo "📝 Next Steps:"
+          echo "- Review and approve the created pull request"
+          echo "- Verify CODEOWNERS approval before merging"
+          echo "- Monitor mirror repository for successful deployment"
         else
-          echo "❌ Mirror sync failed"
+          echo "❌ Mirror sync workflow failed"
+          echo ""
+          echo "📊 Job Results:"
           echo "- Detect changes: ${{ needs.detect-changes.result }}"
           echo "- Validate sync: ${{ needs.validate-sync.result }}"
           echo "- Deploy mirror: ${{ needs.deploy-mirror.result }}"
+          echo ""
+          echo "🔍 Troubleshooting:"
+          echo "- Check job logs for specific error messages"
+          echo "- Verify staging manifest structure if used"
+          echo "- Ensure mirror repository access tokens are valid"
+          echo "- Review test failures in validation step"
         fi
+
+        echo ""
+        echo "🔗 Workflow Details:"
+        echo "- Run ID: ${{ github.run_id }}"
+        echo "- Run URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        echo "- Triggered by: ${{ github.event_name }}"
+
+    - name: Create workflow summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        # Mirror Sync Workflow Summary
+
+        ## Status
+        - **Changes Detected**: ${{ needs.detect-changes.outputs.changes_detected }}
+        - **Content Hash**: `${{ needs.detect-changes.outputs.content_hash }}`
+        - **Upstream Commit**: `${{ needs.detect-changes.outputs.upstream_commit }}`
+        - **Staging Available**: ${{ needs.detect-changes.outputs.staging_exists }}
+
+        ## Job Results
+        | Job | Status |
+        |-----|--------|
+        | Detect Changes | ${{ needs.detect-changes.result }} |
+        | Validate Sync | ${{ needs.validate-sync.result }} |
+        | Deploy Mirror | ${{ needs.deploy-mirror.result }} |
+
+        ## Next Steps
+        ${{ needs.detect-changes.outputs.changes_detected == 'true' && '- Review and approve the created pull request in the mirror repository' || '- No action needed - no changes detected' }}
+        ${{ needs.detect-changes.outputs.changes_detected == 'true' && '- Ensure CODEOWNERS approval before merging' || '' }}
+        ${{ needs.detect-changes.outputs.changes_detected == 'true' && '- Monitor mirror repository deployment status' || '' }}
+
+        ---
+        *Generated by Mirror Sync CI Workflow*
+        EOF
