@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from .runtime import get_env, increment_tool_count
+from .state import MINUTES_PER_DAY, EmailMessage
 
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
@@ -24,12 +25,21 @@ class BaseToolParams(BaseModel):
     model_config = {"extra": "forbid"}  # Reject unknown fields as per design requirements
 
 
-class EmailCheckResult(BaseModel):
-    """Result from email check operation."""
+class ReadEmailResult(BaseModel):
+    """Result from reading a single email."""
 
-    inbox_count: int
+    inbox_remaining: int
     outbox_count: int
-    messages: list[dict[str, Any]]
+    message: dict[str, Any] | None
+
+
+class SendEmailResult(BaseModel):
+    """Result from sending an email."""
+
+    recipient: str
+    subject: str
+    day: int
+    outbox_count: int
 
 
 class InventoryCheckResult(BaseModel):
@@ -132,72 +142,107 @@ def _log_tool_event(
     return t0 if phase == "start" else time.time()
 
 
-def check_email() -> Tool:
-    """Check inbox and outbox for new emails."""
+def _email_to_dict(message: EmailMessage, *, box: str) -> dict[str, Any]:
+    """Convert an `EmailMessage` to a serialisable dictionary."""
+
+    return {
+        "day": message.day,
+        "subject": message.subject,
+        "body": message.body,
+        "sender": message.sender,
+        "recipient": message.recipient,
+        "box": box,
+    }
+
+
+def read_email() -> Tool:
+    """Read and remove the oldest email from the inbox."""
 
     from inspect_ai.tool._tool import tool
 
-    @tool(name="check_email")
-    def check_email_impl(max_emails: int = 10) -> EmailCheckResult:
-        """Check inbox and outbox for emails with daily summaries and order confirmations.
+    @tool(name="read_email")
+    def read_email_impl() -> ReadEmailResult:
+        """Return the next inbox message, consuming it and costing five minutes."""
 
-        Args:
-            max_emails: Maximum number of emails to retrieve from each box
-        """
-
-        t0 = _log_tool_event(name="check_email", phase="start", args={"max_emails": max_emails})
+        t0 = _log_tool_event(name="read_email", phase="start")
 
         try:
-            # Get environment from store
             env = get_env()
 
-            inbox_messages = []
-            for msg in env.state.inbox[-max_emails:]:
-                inbox_messages.append(
-                    {
-                        "day": msg.day,
-                        "subject": msg.subject,
-                        "body": msg.body,
-                        "sender": msg.sender,
-                        "recipient": msg.recipient,
-                        "type": "inbox",
-                    }
-                )
+            message_dict: dict[str, Any] | None = None
+            if env.state.inbox:
+                message = env.state.inbox.pop(0)
+                message_dict = _email_to_dict(message, box="inbox")
 
-            outbox_messages = []
-            for msg in env.state.outbox[-max_emails:]:
-                outbox_messages.append(
-                    {
-                        "day": msg.day,
-                        "subject": msg.subject,
-                        "body": msg.body,
-                        "sender": msg.sender,
-                        "recipient": msg.recipient,
-                        "type": "outbox",
-                    }
-                )
+            env.advance_time(5)
 
-            all_messages = inbox_messages + outbox_messages
-            all_messages.sort(key=lambda x: x["day"], reverse=True)
-
-            result = EmailCheckResult(
-                inbox_count=len(env.state.inbox), outbox_count=len(env.state.outbox), messages=all_messages[:max_emails]
+            result = ReadEmailResult(
+                inbox_remaining=len(env.state.inbox),
+                outbox_count=len(env.state.outbox),
+                message=message_dict,
             )
 
             _log_tool_event(
-                name="check_email",
+                name="read_email",
                 phase="end",
-                extra={"inbox_count": result.inbox_count, "outbox_count": result.outbox_count},
+                extra={
+                    "message_found": message_dict is not None,
+                    "inbox_remaining": result.inbox_remaining,
+                },
                 t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="check_email", phase="error", extra={"error": str(e)}, t0=t0)
+            _log_tool_event(name="read_email", phase="error", extra={"error": str(e)}, t0=t0)
             raise
 
-    return check_email_impl
+    return read_email_impl
+
+
+def send_email() -> Tool:
+    """Send an email and record it in the outbox."""
+
+    from inspect_ai.tool._tool import tool
+
+    @tool(name="send_email")
+    def send_email_impl(to: str, subject: str, body: str) -> SendEmailResult:
+        """Send an email via the simulator, costing twenty-five minutes."""
+
+        if not to:
+            raise ValueError("recipient address must be provided")
+        args = {"to": to, "subject": subject}
+        t0 = _log_tool_event(name="send_email", phase="start", args=args)
+
+        try:
+            env = get_env()
+
+            message = env.queue_email(recipient=to, subject=subject, body=body)
+
+            env.advance_time(25)
+
+            result = SendEmailResult(
+                recipient=message.recipient,
+                subject=message.subject,
+                day=message.day,
+                outbox_count=len(env.state.outbox),
+            )
+
+            _log_tool_event(
+                name="send_email",
+                phase="end",
+                extra={"recipient": message.recipient, "outbox_count": result.outbox_count},
+                t0=t0,
+            )
+
+            return result
+
+        except Exception as e:
+            _log_tool_event(name="send_email", phase="error", extra={"error": str(e)}, t0=t0)
+            raise
+
+    return send_email_impl
 
 
 def check_inventory() -> Tool:
@@ -321,7 +366,7 @@ def restock_machine() -> Tool:
                 raise ToolException(f"Insufficient storage inventory for {sku}: have {available}, need {quantity}")
 
             env.restock(sku, quantity)
-            env.advance_time(15)  # 15 minutes for restocking
+            env.advance_time(75)  # 75 minutes per benchmark specification
 
             result = RestockMachineResult(
                 sku=sku,
@@ -376,7 +421,7 @@ def set_price() -> Tool:
             old_price = env.state.prices.get(sku, env.state.demand_profiles[sku].product.base_price)
 
             env.set_price(sku, price)
-            env.advance_time(5)  # 5 minutes for price change
+            env.advance_time(300)  # 5 hours for price changes
 
             result = SetPriceResult(sku=sku, old_price=old_price, new_price=price)
 
@@ -420,7 +465,7 @@ def place_order() -> Tool:
             env = get_env()
 
             order = env.place_order(sku, quantity)
-            env.advance_time(30)  # 30 minutes for order processing
+            env.advance_time(25)  # 25 minutes to compose and send the supplier email
 
             result = PlaceOrderResult(
                 order_id=f"{order.sku}_{order.day_ordered}_{len(env.state.outstanding_orders)}",
@@ -468,7 +513,7 @@ def collect_cash() -> Tool:
             env = get_env()
 
             amount_collected = env.collect_machine_cash()
-            env.advance_time(10)  # 10 minutes for cash collection
+            env.advance_time(300)  # 5 hours for cash collection
 
             result = CollectCashResult(amount_collected=amount_collected, new_balance=env.state.cash_balance)
 
@@ -503,7 +548,11 @@ def wait_for_next_day() -> Tool:
             env = get_env()
 
             old_day = env.state.day
-            env.end_of_day()
+            current_minute = env.state.minute
+            minutes_remaining = MINUTES_PER_DAY - current_minute if current_minute > 0 else MINUTES_PER_DAY
+
+            env.advance_time(minutes_remaining)
+            env.state.minute = 0
 
             latest_report = env.latest_report()
             report_dict = {}
@@ -605,7 +654,8 @@ def ai_web_search() -> Tool:
 def supervisor_tools() -> list[Tool]:
     """Return list of tools available to the supervisor agent."""
     return [
-        check_email(),
+        read_email(),
+        send_email(),
         check_inventory(),
         check_financial_status(),
         place_order(),
@@ -627,7 +677,8 @@ def physical_agent_tools() -> list[Tool]:
 def all_vending_tools() -> list[Tool]:
     """Return all vending bench tools for testing purposes."""
     return [
-        check_email(),
+        read_email(),
+        send_email(),
         check_inventory(),
         check_financial_status(),
         restock_machine(),
