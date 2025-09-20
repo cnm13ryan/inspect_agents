@@ -10,12 +10,20 @@ from .config import EnvConfig
 from .demand import DemandModel
 from .metrics import compute_net_worth, cumulative_units_sold, daily_report
 from .state import (
+    LARGE_ITEM_ROWS,
+    MACHINE_COLUMNS,
+    MACHINE_ROWS,
     MINUTES_PER_DAY,
+    SMALL_ITEM_ROWS,
     DailyReport,
     DemandProfile,
     EmailMessage,
     Order,
     SimulatorState,
+    Slot,
+    aggregate_sku_quantities,
+    clone_machine_inventory,
+    serialize_machine_inventory,
 )
 from .supplier import SupplierModel
 
@@ -27,6 +35,7 @@ class EnvSummary:
     cash_in_machine: float
     storage_inventory: dict[str, int]
     machine_inventory: dict[str, int]
+    machine_slots: list[list[Slot | None]]
     outstanding_orders: Iterable[Order]
     net_worth: float
     units_sold_total: int
@@ -52,6 +61,27 @@ class VendingEnv:
             sku: DemandProfile(product=profile.product, noise_scale=profile.noise_scale)
             for sku, profile in catalogue.items()
         }
+
+    def _validate_slot_coordinates(self, row: int, column: int) -> None:
+        if row < 0 or row >= MACHINE_ROWS or column < 0 or column >= MACHINE_COLUMNS:
+            raise ValueError(f"slot coordinates out of range: ({row}, {column})")
+
+    def _validate_row_for_product(self, row: int, product_sku: str) -> None:
+        profile = self.state.demand_profiles.get(product_sku)
+        if profile is None:
+            raise ValueError(f"Unknown SKU {product_sku}")
+        size = profile.product.size
+        if size == "small" and row not in SMALL_ITEM_ROWS:
+            raise ValueError(f"SKU {product_sku} ({size}) must be placed in rows {SMALL_ITEM_ROWS}")
+        if size == "large" and row not in LARGE_ITEM_ROWS:
+            raise ValueError(f"SKU {product_sku} ({size}) must be placed in rows {LARGE_ITEM_ROWS}")
+
+    def _ensure_slot(self, row: int, column: int) -> Slot:
+        slot = self.state.machine_inventory[row][column]
+        if slot is None:
+            slot = Slot()
+            self.state.machine_inventory[row][column] = slot
+        return slot
 
     def advance_time(self, minutes: int | None = None) -> None:
         if minutes is None:
@@ -84,17 +114,23 @@ class VendingEnv:
         outcome = self._demand.simulate_day(
             day=self.state.day,
             demand_profiles=self.state.demand_profiles,
-            prices=self.state.prices,
             machine_inventory=self.state.machine_inventory,
         )
         revenue = outcome.revenue
-        for sku, sold in outcome.units_sold.items():
-            self.state.units_sold_today[sku] = sold
-            current = self.state.machine_inventory.get(sku, 0)
-            self.state.machine_inventory[sku] = max(0, current - sold)
-            self.state.cash_in_machine += sold * self.state.prices.get(
-                sku, self.state.demand_profiles[sku].product.base_price
-            )
+        for sku in self.state.demand_profiles.keys():
+            self.state.units_sold_today[sku] = outcome.units_sold.get(sku, 0)
+
+        for (row, column), sale in outcome.slot_sales.items():
+            slot = self.state.machine_inventory[row][column]
+            if slot is None:
+                continue
+            slot.quantity = max(0, slot.quantity - sale.quantity)
+            if slot.quantity == 0:
+                slot.sku = None
+                slot.price = None
+                slot.capacity = None
+
+        self.state.cash_in_machine += revenue
 
         self.state.cash_balance -= self.config.daily_fee
         if self.state.cash_balance < 0:
@@ -109,7 +145,7 @@ class VendingEnv:
             cash_balance=self.state.cash_balance,
             cash_in_machine=self.state.cash_in_machine,
             storage_inventory=dict(self.state.storage_inventory),
-            machine_inventory=dict(self.state.machine_inventory),
+            machine_inventory=clone_machine_inventory(self.state.machine_inventory),
             deliveries=deliveries,
         )
         self.state.daily_reports.append(report)
@@ -127,21 +163,51 @@ class VendingEnv:
         self.state.cash_in_machine = 0.0
         return amount
 
-    def restock(self, sku: str, quantity: int) -> None:
+    def restock(self, sku: str, quantity: int, *, row: int, column: int) -> None:
         if quantity <= 0:
             raise ValueError("quantity must be positive")
+
+        self._validate_slot_coordinates(row, column)
+        self._validate_row_for_product(row, sku)
+
         available = self.state.storage_inventory.get(sku, 0)
         if available < quantity:
             raise ValueError("insufficient storage inventory for restock")
-        self.state.storage_inventory[sku] = available - quantity
-        self.state.machine_inventory[sku] = self.state.machine_inventory.get(sku, 0) + quantity
 
-    def set_price(self, sku: str, price: float) -> None:
-        if sku not in self.state.demand_profiles:
+        profile = self.state.demand_profiles.get(sku)
+        if profile is None:
             raise ValueError(f"Unknown SKU {sku}")
-        if price <= 0:
-            raise ValueError("price must be positive")
-        self.state.prices[sku] = price
+
+        slot = self._ensure_slot(row, column)
+
+        if slot.sku is None:
+            slot.sku = sku
+            slot.capacity = profile.product.slot_capacity
+            slot.price = profile.product.base_price
+        elif slot.sku != sku:
+            raise ValueError(f"slot ({row}, {column}) currently holds SKU {slot.sku}")
+
+        if slot.capacity is None:
+            slot.capacity = profile.product.slot_capacity
+
+        if slot.quantity + quantity > slot.capacity:
+            raise ValueError(f"restock exceeds capacity {slot.capacity} for slot ({row}, {column})")
+
+        self.state.storage_inventory[sku] = available - quantity
+        slot.quantity += quantity
+
+    def set_price(self, slot_prices: dict[tuple[int, int], float]) -> None:
+        if not slot_prices:
+            raise ValueError("slot_prices must not be empty")
+
+        for (row, column), price in slot_prices.items():
+            if price <= 0:
+                raise ValueError("price must be positive")
+            self._validate_slot_coordinates(row, column)
+            slot = self.state.machine_inventory[row][column]
+            if slot is None or slot.sku is None:
+                raise ValueError(f"slot ({row}, {column}) is empty")
+            slot.price = price
 
     def queue_email(
         self,
@@ -180,12 +246,14 @@ class VendingEnv:
         return order
 
     def summary(self) -> EnvSummary:
+        machine_slots = clone_machine_inventory(self.state.machine_inventory)
         return EnvSummary(
             day=self.state.day,
             cash_balance=self.state.cash_balance,
             cash_in_machine=self.state.cash_in_machine,
             storage_inventory=dict(self.state.storage_inventory),
-            machine_inventory=dict(self.state.machine_inventory),
+            machine_inventory=aggregate_sku_quantities(machine_slots),
+            machine_slots=machine_slots,
             outstanding_orders=list(self.state.outstanding_orders),
             net_worth=compute_net_worth(self.state),
             units_sold_total=cumulative_units_sold(self.state),
@@ -195,13 +263,16 @@ class VendingEnv:
         return daily_report(self.state)
 
     def _format_report(self, report: DailyReport) -> str:
+        slot_repr = serialize_machine_inventory(report.machine_inventory)
+        sku_totals = aggregate_sku_quantities(report.machine_inventory)
         return (
             f"Day {report.day} summary\n"
             f"Revenue: ${report.revenue:.2f}\n"
             f"Cash balance: ${report.cash_balance:.2f}\n"
             f"Cash in machine: ${report.cash_in_machine:.2f}\n"
             f"Storage: {report.storage_inventory}\n"
-            f"Machine: {report.machine_inventory}\n"
+            f"Machine (slots): {slot_repr}\n"
+            f"Machine (totals): {sku_totals}\n"
             f"Deliveries: {report.deliveries}\n"
             f"Units sold: {report.units_sold}\n"
         )
