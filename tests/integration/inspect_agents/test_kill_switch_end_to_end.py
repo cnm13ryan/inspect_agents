@@ -7,9 +7,9 @@ subsequent tools are rejected, with standardized transcript events emitted.
 """
 
 import asyncio
-from dataclasses import asdict
 import sys
 import types
+from dataclasses import asdict
 
 import pytest
 

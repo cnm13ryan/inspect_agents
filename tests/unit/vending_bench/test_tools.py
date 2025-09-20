@@ -33,7 +33,6 @@ from examples.vending_bench.tools import (
     supervisor_tools,
     wait_for_next_day,
 )
-
 from inspect_agents.exceptions import ToolException
 
 
