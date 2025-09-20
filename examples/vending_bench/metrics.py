@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 from .runtime import get_tool_counts
-from .state import DailyReport, DemandProfile, SimulatorState
+from .state import DailyReport, DemandProfile, SimulatorState, Slot, aggregate_sku_quantities
 
 
-def inventory_value(inventory: dict[str, int], demand_profiles: dict[str, DemandProfile]) -> float:
+def inventory_value(
+    inventory: dict[str, int] | list[list[Slot | None]],
+    demand_profiles: dict[str, DemandProfile],
+) -> float:
     value = 0.0
-    for sku, qty in inventory.items():
+    if isinstance(inventory, dict):
+        items = inventory.items()
+    else:
+        totals = aggregate_sku_quantities(inventory)  # type: ignore[arg-type]
+        items = totals.items()
+
+    for sku, qty in items:
         profile = demand_profiles.get(sku)
         if not profile:
             continue
