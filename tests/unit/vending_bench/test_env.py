@@ -1,6 +1,9 @@
 """Unit tests for VendingEnv core functionality."""
 
+import pytest
+
 from examples.vending_bench import EnvConfig, VendingEnv
+from examples.vending_bench.state import aggregate_sku_quantities
 
 
 def test_env_initialization():
@@ -58,17 +61,64 @@ def test_day_rollover():
 
 
 def test_restock():
-    """Test restocking machine from storage."""
+    """Test restocking machine from storage with slot coordinates."""
     env = VendingEnv()
 
-    # Add some items to storage
     env.state.storage_inventory["coke"] = 10
 
-    # Restock machine
-    env.restock("coke", 5)
+    env.restock("coke", 5, row=0, column=0)
 
+    slot = env.state.machine_inventory[0][0]
+    assert slot is not None
+    assert slot.sku == "coke"
+    assert slot.quantity == 5
     assert env.state.storage_inventory["coke"] == 5
-    assert env.state.machine_inventory["coke"] == 5
+
+
+def test_restock_enforces_size_constraints():
+    """Small products may not be stocked in large-item rows and vice versa."""
+    env = VendingEnv()
+
+    env.state.storage_inventory["coke"] = 4
+    with pytest.raises(ValueError):
+        env.restock("coke", 2, row=2, column=0)
+
+    env.state.storage_inventory["chips"] = 4
+    with pytest.raises(ValueError):
+        env.restock("chips", 2, row=0, column=0)
+
+
+def test_restock_respects_capacity():
+    """Restocking beyond slot capacity raises an error."""
+    env = VendingEnv()
+
+    env.state.storage_inventory["coke"] = 10
+    env.restock("coke", 6, row=0, column=0)
+
+    with pytest.raises(ValueError):
+        env.restock("coke", 1, row=0, column=0)
+
+
+def test_demand_model_slot_sales_distribution():
+    """Demand simulation tracks per-slot sales quantities."""
+    env = VendingEnv()
+
+    env.state.storage_inventory["coke"] = 10
+    env.restock("coke", 2, row=0, column=0)
+    env.restock("coke", 4, row=0, column=1)
+
+    outcome = env._demand.simulate_day(
+        day=env.state.day,
+        demand_profiles=env.state.demand_profiles,
+        machine_inventory=env.state.machine_inventory,
+    )
+
+    total_slot_sales = sum(sale.quantity for sale in outcome.slot_sales.values())
+    assert total_slot_sales == outcome.units_sold["coke"]
+    assert (0, 0) in outcome.slot_sales
+    # Slot (0,1) should contribute when demand exceeds first slot quantity
+    if outcome.units_sold["coke"] > 2:
+        assert (0, 1) in outcome.slot_sales
 
 
 def test_place_order():
@@ -86,13 +136,29 @@ def test_place_order():
     assert len(env.state.outbox) == 1  # Email sent
 
 
+def test_set_price_updates_slot():
+    """Setting price for a slot updates its stored price."""
+    env = VendingEnv()
+
+    env.state.storage_inventory["coke"] = 6
+    env.restock("coke", 3, row=0, column=0)
+
+    slot = env.state.machine_inventory[0][0]
+    assert slot is not None
+
+    env.set_price({(0, 0): 2.0})
+
+    assert slot.price == 2.0
+
+
 def test_summary():
     """Test environment summary generation."""
     env = VendingEnv()
 
     # Set up some state
     env.state.storage_inventory["coke"] = 5
-    env.state.machine_inventory["chips"] = 3
+    env.state.storage_inventory["chips"] = 3
+    env.restock("chips", 3, row=2, column=0)
     env.place_order("water", 5)
 
     summary = env.summary()
@@ -101,6 +167,8 @@ def test_summary():
     assert summary.cash_balance < 500.0  # Order cost deducted
     assert summary.storage_inventory["coke"] == 5
     assert summary.machine_inventory["chips"] == 3
+    totals = aggregate_sku_quantities(summary.machine_slots)
+    assert totals["chips"] == 3
     assert len(summary.outstanding_orders) == 1
     assert summary.net_worth > 0
     assert summary.units_sold_total == 0
