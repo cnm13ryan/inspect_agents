@@ -918,7 +918,7 @@ def ai_web_search() -> Tool:
                         "specialties": ["coke", "water", "energy_drink"],
                         "min_orders": {"coke": 24, "water": 24, "energy_drink": 12},
                         "price_multiplier": 0.95,
-                        "lead_time": "2-5"
+                        "lead_time": "2-5",
                     },
                     {
                         "name": "QuickStock Vending Solutions",
@@ -930,7 +930,7 @@ def ai_web_search() -> Tool:
                         "specialties": ["chips", "chocolate_bar", "energy_drink"],
                         "min_orders": {"chips": 12, "chocolate_bar": 12, "energy_drink": 12},
                         "price_multiplier": 0.90,
-                        "lead_time": "1-3"
+                        "lead_time": "1-3",
                     },
                     {
                         "name": "Metro Wholesale Foods",
@@ -942,8 +942,8 @@ def ai_web_search() -> Tool:
                         "specialties": list(available_skus),
                         "min_orders": {sku: 18 for sku in available_skus},
                         "price_multiplier": 1.0,
-                        "lead_time": "3-6"
-                    }
+                        "lead_time": "3-6",
+                    },
                 ]
 
                 for supplier in suppliers_data:
@@ -953,24 +953,30 @@ def ai_web_search() -> Tool:
                         if sku in available_skus:
                             profile = env.state.demand_profiles[sku]
                             wholesale_price = profile.product.unit_cost * supplier["price_multiplier"]
-                            catalog.append({
-                                "sku": sku,
-                                "name": profile.product.name,
-                                "category": "beverage" if "beverage" in supplier["categories"] else profile.product.variety_class.lower(),
-                                "min_order": supplier["min_orders"].get(sku, 18),
-                                "wholesale_price": round(wholesale_price, 2),
-                                "lead_time_days": supplier["lead_time"]
-                            })
+                            catalog.append(
+                                {
+                                    "sku": sku,
+                                    "name": profile.product.name,
+                                    "category": "beverage"
+                                    if "beverage" in supplier["categories"]
+                                    else profile.product.variety_class.lower(),
+                                    "min_order": supplier["min_orders"].get(sku, 18),
+                                    "wholesale_price": round(wholesale_price, 2),
+                                    "lead_time_days": supplier["lead_time"],
+                                }
+                            )
 
                     if catalog:  # Only include suppliers with available products
-                        stub_results.append({
-                            "title": supplier["name"],
-                            "url": supplier["url"],
-                            "snippet": supplier["snippet"],
-                            "contact": {"email": supplier["email"], "phone": supplier["phone"]},
-                            "categories": supplier["categories"],
-                            "catalog": catalog
-                        })
+                        stub_results.append(
+                            {
+                                "title": supplier["name"],
+                                "url": supplier["url"],
+                                "snippet": supplier["snippet"],
+                                "contact": {"email": supplier["email"], "phone": supplier["phone"]},
+                                "categories": supplier["categories"],
+                                "catalog": catalog,
+                            }
+                        )
             elif any(term in normalized_query for term in ("product list", "snack", "catalogue", "pricing")):
                 stub_results = [
                     {
