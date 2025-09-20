@@ -276,8 +276,6 @@ class TestSetPriceClarificationLoop:
             assert update_result.old_price == 1.50  # From mock_env
 
 
-
-
 class TestClarificationLoopIntegration:
     """Integration tests for the full clarification loop behavior."""
 
