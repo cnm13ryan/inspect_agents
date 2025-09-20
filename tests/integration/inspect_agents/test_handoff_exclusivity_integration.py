@@ -11,9 +11,9 @@ dev/prod preset gates) to validate core semantics with the real policy engine.
 
 import asyncio
 import sys
+from dataclasses import asdict
 
 import pytest
-from dataclasses import asdict
 
 pytestmark = pytest.mark.handoff
 
