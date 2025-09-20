@@ -8,9 +8,12 @@ from examples.vending_bench.config import EnvConfig
 from examples.vending_bench.env import VendingEnv
 from examples.vending_bench.memory import (
     MemoryStore,
+    ScratchpadEntry,
+    VectorEntry,
     kv_set,
     memory_tools,
     scratchpad_append,
+    scratchpad_summarise,
     vector_search,
 )
 from examples.vending_bench.tools import (
@@ -229,6 +232,7 @@ class TestToolCollections:
         expected_tools = [
             "scratchpad_append",
             "scratchpad_read",
+            "scratchpad_summarise",
             "kv_set",
             "kv_get",
             "kv_list",
@@ -371,6 +375,70 @@ class TestObservabilityHooks:
         assert isinstance(t0, float)
 
         _log_memory_event("test_memory", "end", t0=t0)
+
+
+class TestScratchpadSummarise:
+    """Test the scratchpad summarisation workflow."""
+
+    def test_summarise_compacts_entries(self, monkeypatch):
+        """Summarisation should replace oldest entries with a summary note."""
+
+        memory_store = MemoryStore()
+        base_timestamp = 1_000_000.0
+
+        original_entries = []
+        for idx in range(3):
+            entry = ScratchpadEntry(
+                id=memory_store._generate_id(),
+                content=f"Sales note {idx}",
+                timestamp=base_timestamp + idx,
+                day=idx,
+                tags=["daily"],
+                metadata={},
+            )
+            memory_store.scratchpad.append(entry)
+            original_entries.append(entry)
+
+        vector_entry = VectorEntry(
+            id=memory_store._generate_id(),
+            content="Reference to first note",
+            metadata={"source_ids": [original_entries[0].id]},
+            timestamp=base_timestamp,
+        )
+        memory_store.vector_store.append(vector_entry)
+
+        monkeypatch.setattr("examples.vending_bench.memory.get_memory_store", lambda: memory_store)
+
+        tool = scratchpad_summarise()
+        result = tool(top_n=2, max_chars=256)
+
+        assert result.operation == "summarise"
+        assert len(result.entries) == 1
+
+        summary_entry = result.entries[0]
+        assert summary_entry.metadata["summary"] is True
+        assert set(summary_entry.metadata["source_ids"]) == {original_entries[0].id, original_entries[1].id}
+
+        remaining_ids = {entry.id for entry in memory_store.scratchpad}
+        assert original_entries[0].id not in remaining_ids
+        assert original_entries[1].id not in remaining_ids
+        assert original_entries[2].id in remaining_ids
+
+        assert memory_store.vector_store[0].metadata.get("summarised") is True
+        summary_vector = memory_store.vector_store[-1]
+        assert summary_vector.metadata.get("summary") is True
+        assert summary_vector.metadata.get("source_ids") == summary_entry.metadata["source_ids"]
+
+    def test_summarise_requires_positive_limits(self):
+        """Invalid limits should raise ValueError for deterministic usage."""
+
+        tool = scratchpad_summarise()
+
+        with pytest.raises(ValueError):
+            tool(top_n=0)
+
+        with pytest.raises(ValueError):
+            tool(top_n=1, max_chars=0)
 
 
 if __name__ == "__main__":
