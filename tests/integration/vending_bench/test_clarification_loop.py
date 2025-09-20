@@ -222,14 +222,14 @@ class TestSetPriceClarificationLoop:
     """Test clarification loop for set_price tool."""
 
     def test_set_price_empty_updates_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that empty updates list triggers ValueError."""
+        """ToolException clarifies when no price updates are provided."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
 
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(ToolException) as exc_info:
                 price_tool(updates=[])
 
-            assert "updates must not be empty" in str(exc_info.value)
+            assert "At least one price update is required" in str(exc_info.value)
 
     def test_set_price_empty_slot_triggers_exception(self, vending_tools_module, mock_env):
         """Test that updating an empty slot triggers ToolException."""
@@ -243,15 +243,15 @@ class TestSetPriceClarificationLoop:
             assert "slot (2, 2) is empty" in str(exc_info.value)
 
     def test_set_price_negative_price_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that negative price triggers ValueError."""
+        """ToolException clarifies when price is non-positive."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
             updates = [SlotPriceUpdate(row=1, column=1, price=-1.50)]
 
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(ToolException) as exc_info:
                 price_tool(updates=updates)
 
-            assert "price must be positive" in str(exc_info.value)
+            assert "price must be greater than zero" in str(exc_info.value)
 
     def test_set_price_successful_flow(self, vending_tools_module, mock_env):
         """Test that valid set_price parameters succeed."""

@@ -17,6 +17,7 @@ from examples.vending_bench.memory import (
     vector_search,
 )
 from examples.vending_bench.tools import (
+    SlotPriceUpdate,
     ai_web_search,
     check_financial_status,
     check_inventory,
@@ -32,6 +33,7 @@ from examples.vending_bench.tools import (
     supervisor_tools,
     wait_for_next_day,
 )
+from inspect_agents.exceptions import ToolException
 
 
 class TestToolParameterValidation:
@@ -185,6 +187,37 @@ class TestToolIntegration:
 
         tool = set_price()
         assert tool is not None
+
+    def test_set_price_requires_updates(self):
+        """Tool should prompt for updates when none are provided."""
+
+        tool = set_price()
+
+        with pytest.raises(ToolException) as excinfo:
+            tool([])
+
+        assert "At least one price update is required" in str(excinfo.value)
+
+    def test_set_price_rejects_non_positive_price(self):
+        """Tool should clarify when price is non-positive."""
+
+        tool = set_price()
+        updates = [SlotPriceUpdate(row=1, column=1, price=0.0)]
+
+        with pytest.raises(ToolException) as excinfo:
+            tool(updates)
+
+        assert "price must be greater than zero" in str(excinfo.value)
+
+    def test_set_price_rejects_invalid_coordinates(self):
+        """Tool should clarify when slot coordinates are invalid."""
+
+        tool = set_price()
+
+        with pytest.raises(ToolException) as excinfo:
+            tool([SlotPriceUpdate(row=0, column=1, price=1.0)])
+
+        assert "row must be greater than zero" in str(excinfo.value)
 
     @patch("inspect_ai.util._store_model.store_as")
     def test_get_machine_inventory_tool(self, mock_store_as, mock_env):
