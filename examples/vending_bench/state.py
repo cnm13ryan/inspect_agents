@@ -52,6 +52,9 @@ class DemandProfile:
     """Runtime demand parameters for a SKU."""
 
     product: Product
+    reference_price: float | None = None
+    base_daily_sales: float | None = None
+    price_elasticity: float | None = None
     noise_scale: float = 0.08
     weather_sensitivity: float = 0.05
     seasonal_amplitude: float = 0.1
@@ -109,6 +112,7 @@ class SimulatorState:
     outbox: list[EmailMessage] = field(default_factory=list)
     units_sold_today: dict[str, int] = field(default_factory=dict)
     daily_reports: list[DailyReport] = field(default_factory=list)
+    negative_balance_days: int = 0
     bankrupt: bool = False
 
     def reset_daily_counters(self) -> None:

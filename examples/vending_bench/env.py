@@ -51,14 +51,26 @@ class VendingEnv:
         )
         self.state.reset_daily_counters()
         self._rng = random.Random(self.config.seed)
-        self._demand = DemandModel(self.config.seed + 1, self.state.demand_profiles.keys())
+        self._demand = DemandModel(
+            self.config.seed + 1,
+            self.state.demand_profiles.keys(),
+            profiles=self.state.demand_profiles,
+        )
         self._supplier = SupplierModel(self.config.seed + 2)
         self._morning_initialised = False
 
     @staticmethod
     def _clone_profiles(catalogue: dict[str, DemandProfile]) -> dict[str, DemandProfile]:
         return {
-            sku: DemandProfile(product=profile.product, noise_scale=profile.noise_scale)
+            sku: DemandProfile(
+                product=profile.product,
+                reference_price=profile.reference_price,
+                base_daily_sales=profile.base_daily_sales,
+                price_elasticity=profile.price_elasticity,
+                noise_scale=profile.noise_scale,
+                weather_sensitivity=profile.weather_sensitivity,
+                seasonal_amplitude=profile.seasonal_amplitude,
+            )
             for sku, profile in catalogue.items()
         }
 
@@ -101,7 +113,25 @@ class VendingEnv:
         self.state.reset_daily_counters()
         self._morning_initialised = True
 
+    def _update_negative_balance_days(self) -> None:
+        days = getattr(self.state, "negative_balance_days", 0)
+        if self.state.cash_balance < 0:
+            days += 1
+        else:
+            days = 0
+        self.state.negative_balance_days = days
+        if days >= 10:
+            self.state.bankrupt = True
+
+    def _normalize_machine_inventory(self) -> None:
+        inventory = self.state.machine_inventory
+        if isinstance(inventory, list) and all(isinstance(row, list) for row in inventory):
+            return
+        self.state.machine_inventory = [[None for _ in range(MACHINE_COLUMNS)] for _ in range(MACHINE_ROWS)]
+
     def _process_morning_flow(self) -> None:
+        self._normalize_machine_inventory()
+
         # Deliver orders
         delivered, pending = self._supplier.split_deliveries(self.state.outstanding_orders, self.state.day)
         self.state.outstanding_orders = pending
@@ -133,10 +163,7 @@ class VendingEnv:
         self.state.cash_in_machine += revenue
 
         self.state.cash_balance -= self.config.daily_fee
-        if self.state.cash_balance < 0:
-            self.state.bankrupt = True
-
-        self.state.cash_balance += self.collect_machine_cash()
+        self._update_negative_balance_days()
 
         report = DailyReport(
             day=self.state.day,
@@ -161,6 +188,9 @@ class VendingEnv:
     def collect_machine_cash(self) -> float:
         amount = self.state.cash_in_machine
         self.state.cash_in_machine = 0.0
+        if amount != 0.0:
+            self.state.cash_balance += amount
+            self._update_negative_balance_days()
         return amount
 
     def restock(self, sku: str, quantity: int, *, row: int, column: int) -> None:
@@ -178,12 +208,14 @@ class VendingEnv:
         if profile is None:
             raise ValueError(f"Unknown SKU {sku}")
 
+        self._demand.ensure_profiles({sku: profile})
+
         slot = self._ensure_slot(row, column)
 
         if slot.sku is None:
             slot.sku = sku
             slot.capacity = profile.product.slot_capacity
-            slot.price = profile.product.base_price
+            slot.price = profile.reference_price if profile.reference_price is not None else profile.product.base_price
         elif slot.sku != sku:
             raise ValueError(f"slot ({row}, {column}) currently holds SKU {slot.sku}")
 
@@ -228,9 +260,11 @@ class VendingEnv:
         return message
 
     def place_order(self, sku: str, quantity: int) -> Order:
-        if sku not in self.state.demand_profiles:
+        profile = self.state.demand_profiles.get(sku)
+        if profile is None:
             raise ValueError(f"Unknown SKU {sku}")
-        product = self.state.demand_profiles[sku].product
+        self._demand.ensure_profiles({sku: profile})
+        product = profile.product
         order = self._supplier.create_order(product=product, quantity=quantity, day_ordered=self.state.day)
         total_cost = order.total_cost
         if self.state.cash_balance < total_cost:
