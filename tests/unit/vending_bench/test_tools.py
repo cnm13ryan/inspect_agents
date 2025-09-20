@@ -136,6 +136,28 @@ class TestToolIntegration:
         assert tool is not None
         # Note: Error handling testing requires async execution context
 
+    @patch("examples.vending_bench.tools.get_env")
+    def test_collect_cash_transfers_machine_funds(self, mock_get_env, mock_env):
+        """Collect cash tool should deposit machine funds and advance time."""
+
+        env = mock_env
+        env.state.minute = 0
+        env.state.cash_balance = -5.0
+        env.state.cash_in_machine = 40.0
+        env.state.negative_balance_days = 3
+
+        mock_get_env.return_value = env
+
+        tool = collect_cash()
+        result = tool()
+
+        assert result.amount_collected == pytest.approx(40.0)
+        assert result.new_balance == pytest.approx(35.0)
+        assert env.state.cash_balance == pytest.approx(35.0)
+        assert env.state.cash_in_machine == 0.0
+        assert env.state.negative_balance_days == 0
+        assert env.state.minute == 300
+
     @patch("inspect_ai.util._store_model.store_as")
     def test_set_price_invalid_sku(self, mock_store_as, mock_env):
         """Test price setting with invalid SKU."""
