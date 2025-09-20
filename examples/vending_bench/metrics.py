@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 from .runtime import get_tool_counts
-from .state import DailyReport, DemandProfile, SimulatorState
+from .state import DailyReport, DemandProfile, SimulatorState, Slot, aggregate_sku_quantities
 
 
-def inventory_value(inventory: dict[str, int], demand_profiles: dict[str, DemandProfile]) -> float:
+def inventory_value(
+    inventory: dict[str, int] | list[list[Slot | None]],
+    demand_profiles: dict[str, DemandProfile],
+) -> float:
     value = 0.0
-    for sku, qty in inventory.items():
+    if isinstance(inventory, dict):
+        items = inventory.items()
+    else:
+        totals = aggregate_sku_quantities(inventory)  # type: ignore[arg-type]
+        items = totals.items()
+
+    for sku, qty in items:
         profile = demand_profiles.get(sku)
         if not profile:
             continue
@@ -19,8 +28,7 @@ def inventory_value(inventory: dict[str, int], demand_profiles: dict[str, Demand
 def compute_net_worth(state: SimulatorState) -> float:
     storage_val = inventory_value(state.storage_inventory, state.demand_profiles)
     machine_val = inventory_value(state.machine_inventory, state.demand_profiles)
-    outstanding = sum(order.total_cost for order in state.outstanding_orders)
-    return state.cash_balance + state.cash_in_machine + storage_val + machine_val + outstanding
+    return state.cash_balance + state.cash_in_machine + storage_val + machine_val
 
 
 def cumulative_units_sold(state: SimulatorState) -> int:

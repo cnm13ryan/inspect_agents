@@ -8,22 +8,27 @@ from examples.vending_bench.config import EnvConfig
 from examples.vending_bench.env import VendingEnv
 from examples.vending_bench.memory import (
     MemoryStore,
+    ScratchpadEntry,
+    VectorEntry,
     kv_set,
     memory_tools,
     scratchpad_append,
+    scratchpad_summarise,
     vector_search,
 )
 from examples.vending_bench.tools import (
     ai_web_search,
-    check_email,
     check_financial_status,
     check_inventory,
     check_machine_overview,
     check_storage_inventory,
     collect_cash,
+    get_machine_inventory,
     physical_agent_tools,
     place_order,
+    read_email,
     restock_machine,
+    send_email,
     set_price,
     supervisor_tools,
     wait_for_next_day,
@@ -40,7 +45,8 @@ class TestToolParameterValidation:
 
         # Test that tools exist and are callable
         tools = [
-            check_email(),
+            read_email(),
+            send_email(),
             check_inventory(),
             check_storage_inventory(),
             check_machine_overview(),
@@ -51,6 +57,7 @@ class TestToolParameterValidation:
             collect_cash(),
             wait_for_next_day(),
             ai_web_search(),
+            get_machine_inventory(),
         ]
 
         for tool in tools:
@@ -97,14 +104,23 @@ class TestToolIntegration:
         return MemoryStore()
 
     @patch("inspect_ai.util._store_model.store_as")
-    def test_check_email_tool_success(self, mock_store_as, mock_env):
-        """Test successful email check operation."""
+    def test_read_email_tool_success(self, mock_store_as, mock_env):
+        """Test successful email read operation."""
         mock_store_as.return_value = mock_env
 
-        tool = check_email()
+        tool = read_email()
         assert tool is not None
         assert hasattr(tool, "__registry_info__")
         # Note: Actual execution requires async context and full Inspect setup
+
+    @patch("inspect_ai.util._store_model.store_as")
+    def test_send_email_tool_success(self, mock_store_as, mock_env):
+        """Test successful email send operation."""
+        mock_store_as.return_value = mock_env
+
+        tool = send_email()
+        assert tool is not None
+        assert hasattr(tool, "__registry_info__")
 
     @patch("inspect_ai.util._store_model.store_as")
     def test_check_inventory_tool_success(self, mock_store_as, mock_env):
@@ -142,12 +158,42 @@ class TestToolIntegration:
         assert tool is not None
         # Note: Error handling testing requires async execution context
 
+    @patch("examples.vending_bench.tools.get_env")
+    def test_collect_cash_transfers_machine_funds(self, mock_get_env, mock_env):
+        """Collect cash tool should deposit machine funds and advance time."""
+
+        env = mock_env
+        env.state.minute = 0
+        env.state.cash_balance = -5.0
+        env.state.cash_in_machine = 40.0
+        env.state.negative_balance_days = 3
+
+        mock_get_env.return_value = env
+
+        tool = collect_cash()
+        result = tool()
+
+        assert result.amount_collected == pytest.approx(40.0)
+        assert result.new_balance == pytest.approx(35.0)
+        assert env.state.cash_balance == pytest.approx(35.0)
+        assert env.state.cash_in_machine == 0.0
+        assert env.state.negative_balance_days == 0
+        assert env.state.minute == 300
+
     @patch("inspect_ai.util._store_model.store_as")
     def test_set_price_invalid_sku(self, mock_store_as, mock_env):
         """Test price setting with invalid SKU."""
         mock_store_as.return_value = mock_env
 
         tool = set_price()
+        assert tool is not None
+
+    @patch("inspect_ai.util._store_model.store_as")
+    def test_get_machine_inventory_tool(self, mock_store_as, mock_env):
+        """Test machine inventory snapshot tool creation."""
+        mock_store_as.return_value = mock_env
+
+        tool = get_machine_inventory()
         assert tool is not None
 
     @patch("inspect_ai.util._store_model.store_as")
@@ -192,9 +238,9 @@ class TestToolCollections:
             for tool in tools
         ]
         expected_tools = [
-            "check_email",
-            "check_storage_inventory",
-            "check_machine_overview",
+            "read_email",
+            "send_email",
+            "check_inventory",
             "check_financial_status",
             "place_order",
             "wait_for_next_day",
@@ -213,7 +259,7 @@ class TestToolCollections:
             getattr(tool, "__registry_info__", None).name if hasattr(tool, "__registry_info__") else None
             for tool in tools
         ]
-        expected_tools = ["restock_machine", "set_price", "collect_cash", "check_inventory"]
+        expected_tools = ["restock_machine", "set_price", "collect_cash", "check_inventory", "get_machine_inventory"]
 
         for expected in expected_tools:
             assert expected in tool_names, f"Missing tool: {expected}"
@@ -230,6 +276,7 @@ class TestToolCollections:
         expected_tools = [
             "scratchpad_append",
             "scratchpad_read",
+            "scratchpad_summarise",
             "kv_set",
             "kv_get",
             "kv_list",
@@ -255,13 +302,8 @@ class TestToolCollections:
         }
 
         # Physical agent should not have access to high-level tools
-        forbidden_for_physical = {
-            "place_order",
-            "wait_for_next_day",
-            "ai_web_search",
-            "check_email",
-            "check_machine_overview",
-        }
+        forbidden_for_physical = {"place_order", "wait_for_next_day", "ai_web_search", "read_email", "send_email"}
+
         physical_overlap = physical_names.intersection(forbidden_for_physical)
         assert len(physical_overlap) == 0, f"Physical agent has forbidden tools: {physical_overlap}"
 
@@ -324,10 +366,12 @@ class TestDeterministicBehavior:
         # Different operations should have consistent time costs
         # This is more of a design verification test
 
-        # Restock: 15 minutes
-        # Price change: 5 minutes
-        # Order placement: 30 minutes
-        # Cash collection: 10 minutes
+        # Read email: 5 minutes
+        # Send email: 25 minutes
+        # Restock: 75 minutes
+        # Price change: 300 minutes (5 hours)
+        # Order placement: 25 minutes (email-based)
+        # Cash collection: 300 minutes (5 hours)
         # Web search: 60 minutes
 
         # These values are embedded in the tool implementations
@@ -345,7 +389,7 @@ class TestObservabilityHooks:
         mock_log_event.return_value = 12345.0
 
         # Create a tool (this should work without full Inspect context)
-        tool = check_email()
+        tool = read_email()
         assert tool is not None
 
         # Note: Full logging verification requires async execution context
@@ -378,6 +422,70 @@ class TestObservabilityHooks:
         assert isinstance(t0, float)
 
         _log_memory_event("test_memory", "end", t0=t0)
+
+
+class TestScratchpadSummarise:
+    """Test the scratchpad summarisation workflow."""
+
+    def test_summarise_compacts_entries(self, monkeypatch):
+        """Summarisation should replace oldest entries with a summary note."""
+
+        memory_store = MemoryStore()
+        base_timestamp = 1_000_000.0
+
+        original_entries = []
+        for idx in range(3):
+            entry = ScratchpadEntry(
+                id=memory_store._generate_id(),
+                content=f"Sales note {idx}",
+                timestamp=base_timestamp + idx,
+                day=idx,
+                tags=["daily"],
+                metadata={},
+            )
+            memory_store.scratchpad.append(entry)
+            original_entries.append(entry)
+
+        vector_entry = VectorEntry(
+            id=memory_store._generate_id(),
+            content="Reference to first note",
+            metadata={"source_ids": [original_entries[0].id]},
+            timestamp=base_timestamp,
+        )
+        memory_store.vector_store.append(vector_entry)
+
+        monkeypatch.setattr("examples.vending_bench.memory.get_memory_store", lambda: memory_store)
+
+        tool = scratchpad_summarise()
+        result = tool(top_n=2, max_chars=256)
+
+        assert result.operation == "summarise"
+        assert len(result.entries) == 1
+
+        summary_entry = result.entries[0]
+        assert summary_entry.metadata["summary"] is True
+        assert set(summary_entry.metadata["source_ids"]) == {original_entries[0].id, original_entries[1].id}
+
+        remaining_ids = {entry.id for entry in memory_store.scratchpad}
+        assert original_entries[0].id not in remaining_ids
+        assert original_entries[1].id not in remaining_ids
+        assert original_entries[2].id in remaining_ids
+
+        assert memory_store.vector_store[0].metadata.get("summarised") is True
+        summary_vector = memory_store.vector_store[-1]
+        assert summary_vector.metadata.get("summary") is True
+        assert summary_vector.metadata.get("source_ids") == summary_entry.metadata["source_ids"]
+
+    def test_summarise_requires_positive_limits(self):
+        """Invalid limits should raise ValueError for deterministic usage."""
+
+        tool = scratchpad_summarise()
+
+        with pytest.raises(ValueError):
+            tool(top_n=0)
+
+        with pytest.raises(ValueError):
+            tool(top_n=1, max_chars=0)
 
 
 if __name__ == "__main__":
