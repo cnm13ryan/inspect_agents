@@ -116,12 +116,14 @@ def test_sandbox_text_editor_timeout_integration(monkeypatch):
     original_fs_mode = os.environ.get("INSPECT_AGENTS_FS_MODE")
     os.environ["INSPECT_AGENTS_FS_MODE"] = "sandbox"
 
-    # Constrain sandbox root to a temp dir and target a file within it
+    # Constrain sandbox root to a temp dir and allow writes during the test
     import tempfile
 
     tmp_dir = tempfile.mkdtemp(prefix="inspect-agents-sbx-")
     original_fs_root = os.environ.get("INSPECT_AGENTS_FS_ROOT")
     os.environ["INSPECT_AGENTS_FS_ROOT"] = tmp_dir
+    original_fs_read_only = os.environ.get("INSPECT_AGENTS_FS_READ_ONLY")
+    os.environ["INSPECT_AGENTS_FS_READ_ONLY"] = "0"
     file_path = os.path.join(tmp_dir, "test.txt")
 
     try:
@@ -165,3 +167,8 @@ def test_sandbox_text_editor_timeout_integration(monkeypatch):
             os.environ["INSPECT_AGENTS_FS_ROOT"] = original_fs_root
         else:
             os.environ.pop("INSPECT_AGENTS_FS_ROOT", None)
+
+        if original_fs_read_only is not None:
+            os.environ["INSPECT_AGENTS_FS_READ_ONLY"] = original_fs_read_only
+        else:
+            os.environ.pop("INSPECT_AGENTS_FS_READ_ONLY", None)

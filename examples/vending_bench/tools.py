@@ -706,11 +706,16 @@ def set_price() -> Tool:
         """
 
         if not updates:
-            raise ValueError("updates must not be empty")
+            raise ToolException("At least one price update is required. Please provide the slot row, column, and target price.")
 
+        validated_updates: list[SlotPriceUpdate] = []
         for update in updates:
-            if update.price <= 0:
-                raise ValueError("price must be positive")
+            row = _require_positive_int("row", update.row)
+            column = _require_positive_int("column", update.column)
+            price = _require_positive_float("price", update.price)
+            validated_updates.append(SlotPriceUpdate(row=row, column=column, price=price))
+
+        updates = validated_updates
 
         t0 = _log_tool_event(
             name="set_price",
