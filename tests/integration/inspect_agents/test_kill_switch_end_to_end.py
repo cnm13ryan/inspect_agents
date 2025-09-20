@@ -7,6 +7,7 @@ subsequent tools are rejected, with standardized transcript events emitted.
 """
 
 import asyncio
+from dataclasses import asdict
 import sys
 import types
 
@@ -108,8 +109,8 @@ def test_kill_switch_only_first_tool_executes(monkeypatch):
         ChatMessageAssistant(
             content="",
             tool_calls=[
-                ToolCall(id="1", function="echo_a", arguments={}),
-                ToolCall(id="2", function="echo_b", arguments={}),
+                asdict(ToolCall(id="1", function="echo_a", arguments={})),
+                asdict(ToolCall(id="2", function="echo_b", arguments={})),
             ],
         ),
     ]

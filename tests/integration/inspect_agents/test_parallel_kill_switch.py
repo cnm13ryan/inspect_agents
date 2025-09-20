@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import logging
+from dataclasses import asdict
 
 import pytest
 
@@ -38,8 +39,8 @@ def test_kill_switch_logs_skips_and_rejects_subsequent_calls(monkeypatch, caplog
     msg = ChatMessageAssistant(
         content="",
         tool_calls=[
-            ToolCall(id="1", function="echo_a", arguments={}),
-            ToolCall(id="2", function="echo_b", arguments={}),
+            asdict(ToolCall(id="1", function="echo_a", arguments={})),
+            asdict(ToolCall(id="2", function="echo_b", arguments={})),
         ],
     )
     history = [msg]
@@ -95,7 +96,7 @@ def test_kill_switch_escalates_when_handoff_present(monkeypatch, caplog):
     # One handoff + one non-handoff in the same assistant message
     handoff = ToolCall(id="h1", function="transfer_to_delegate", arguments={})
     other = ToolCall(id="2", function="echo_b", arguments={})
-    msg = ChatMessageAssistant(content="", tool_calls=[handoff, other])
+    msg = ChatMessageAssistant(content="", tool_calls=[asdict(handoff), asdict(other)])
     history = [msg]
 
     caplog.set_level(logging.INFO, logger="inspect_agents.tools")
