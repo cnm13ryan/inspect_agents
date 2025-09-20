@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from examples.vending_bench.tools import SlotPriceUpdate
 from inspect_agents.exceptions import ToolException
 
 
@@ -22,13 +23,33 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def mock_env():
     """Create a mock vending environment for testing."""
+    # Create mock slots for machine inventory
+    mock_slot = SimpleNamespace(sku="chips", quantity=5, price=1.50, capacity=10)
+    machine_inventory = [[None for _ in range(3)] for _ in range(4)]
+    machine_inventory[0][0] = mock_slot  # Place chips in slot (0, 0)
+
     state = SimpleNamespace(
         storage_inventory={"chips": 50, "soda": 30, "candy": 25},
-        machine_inventory={"chips": 10, "soda": 5, "candy": 8},
+        machine_inventory=machine_inventory,
         demand_profiles={
-            "chips": SimpleNamespace(product=SimpleNamespace(base_price=1.50)),
-            "soda": SimpleNamespace(product=SimpleNamespace(base_price=2.00)),
-            "candy": SimpleNamespace(product=SimpleNamespace(base_price=1.25)),
+            "chips": SimpleNamespace(
+                product=SimpleNamespace(base_price=1.50),
+                reference_price=1.50,
+                base_daily_sales=10.0,
+                price_elasticity=-1.0,
+            ),
+            "soda": SimpleNamespace(
+                product=SimpleNamespace(base_price=2.00),
+                reference_price=2.00,
+                base_daily_sales=8.0,
+                price_elasticity=-0.8,
+            ),
+            "candy": SimpleNamespace(
+                product=SimpleNamespace(base_price=1.25),
+                reference_price=1.25,
+                base_daily_sales=12.0,
+                price_elasticity=-1.2,
+            ),
         },
         prices={"chips": 1.50, "soda": 2.00, "candy": 1.25},
     )
@@ -132,7 +153,7 @@ class TestRestockMachineClarificationLoop:
             restock_tool = vending_tools_module.restock_machine()
 
             with pytest.raises(ToolException) as exc_info:
-                restock_tool(sku=None, quantity=10)
+                restock_tool(sku=None, quantity=10, row=1, column=1)
 
             assert "sku is required to complete this action" in str(exc_info.value)
 
@@ -142,7 +163,7 @@ class TestRestockMachineClarificationLoop:
             restock_tool = vending_tools_module.restock_machine()
 
             with pytest.raises(ToolException) as exc_info:
-                restock_tool(sku="chips", quantity=None)
+                restock_tool(sku="chips", quantity=None, row=1, column=1)
 
             assert "quantity is required to complete this action" in str(exc_info.value)
 
@@ -152,11 +173,31 @@ class TestRestockMachineClarificationLoop:
             restock_tool = vending_tools_module.restock_machine()
 
             with pytest.raises(ToolException) as exc_info:
-                restock_tool(sku="chips", quantity=100)  # More than available (50)
+                restock_tool(sku="chips", quantity=100, row=1, column=1)  # More than available (50)
 
             error_msg = str(exc_info.value)
             assert "Insufficient storage inventory for chips" in error_msg
             assert "have 50, need 100" in error_msg
+
+    def test_restock_missing_row_triggers_exception(self, vending_tools_module, mock_env):
+        """Test that missing row in restock triggers ToolException."""
+        with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
+            restock_tool = vending_tools_module.restock_machine()
+
+            with pytest.raises(ToolException) as exc_info:
+                restock_tool(sku="chips", quantity=10, column=1)
+
+            assert "row is required to complete this action" in str(exc_info.value)
+
+    def test_restock_missing_column_triggers_exception(self, vending_tools_module, mock_env):
+        """Test that missing column in restock triggers ToolException."""
+        with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
+            restock_tool = vending_tools_module.restock_machine()
+
+            with pytest.raises(ToolException) as exc_info:
+                restock_tool(sku="chips", quantity=10, row=1)
+
+            assert "column is required to complete this action" in str(exc_info.value)
 
     def test_restock_successful_flow(self, vending_tools_module, mock_env):
         """Test that valid restock parameters succeed."""
@@ -164,66 +205,75 @@ class TestRestockMachineClarificationLoop:
             restock_tool = vending_tools_module.restock_machine()
 
             # Should not raise exception
-            result = restock_tool(sku="chips", quantity=20)
+            result = restock_tool(sku="chips", quantity=20, row=1, column=1)
 
             # Verify the environment methods were called
-            mock_env.restock.assert_called_once_with("chips", 20)
-            mock_env.advance_time.assert_called_once_with(15)
+            mock_env.restock.assert_called_once_with("chips", 20, row=0, column=0)  # Tools convert to 0-indexed
+            mock_env.advance_time.assert_called_once_with(75)  # Updated to match tools.py
 
             # Verify result structure
             assert result.sku == "chips"
             assert result.quantity_restocked == 20
+            assert result.row == 1  # Original 1-indexed input
+            assert result.column == 1  # Original 1-indexed input
 
 
 class TestSetPriceClarificationLoop:
     """Test clarification loop for set_price tool."""
 
-    def test_set_price_missing_sku_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that missing SKU in set_price triggers ToolException."""
+    def test_set_price_empty_updates_triggers_exception(self, vending_tools_module, mock_env):
+        """Test that empty updates list triggers ValueError."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
 
-            with pytest.raises(ToolException) as exc_info:
-                price_tool(sku=None, price=2.50)
+            with pytest.raises(ValueError) as exc_info:
+                price_tool(updates=[])
 
-            assert "sku is required to complete this action" in str(exc_info.value)
+            assert "updates must not be empty" in str(exc_info.value)
 
-    def test_set_price_missing_price_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that missing price in set_price triggers ToolException."""
+    def test_set_price_empty_slot_triggers_exception(self, vending_tools_module, mock_env):
+        """Test that updating an empty slot triggers ToolException."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
+            updates = [SlotPriceUpdate(row=2, column=2, price=2.50)]  # Empty slot (2,2 -> 1,1 in 0-indexed)
 
             with pytest.raises(ToolException) as exc_info:
-                price_tool(sku="chips", price=None)
+                price_tool(updates=updates)
 
-            assert "price is required to complete this action" in str(exc_info.value)
+            assert "slot (2, 2) is empty" in str(exc_info.value)
 
     def test_set_price_negative_price_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that negative price triggers ToolException."""
+        """Test that negative price triggers ValueError."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
+            updates = [SlotPriceUpdate(row=1, column=1, price=-1.50)]
 
-            with pytest.raises(ToolException) as exc_info:
-                price_tool(sku="chips", price=-1.50)
+            with pytest.raises(ValueError) as exc_info:
+                price_tool(updates=updates)
 
-            assert "price must be greater than zero" in str(exc_info.value)
+            assert "price must be positive" in str(exc_info.value)
 
     def test_set_price_successful_flow(self, vending_tools_module, mock_env):
         """Test that valid set_price parameters succeed."""
         with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
             price_tool = vending_tools_module.set_price()
+            updates = [SlotPriceUpdate(row=1, column=1, price=1.75)]  # 1-indexed input
 
             # Should not raise exception
-            result = price_tool(sku="chips", price=1.75)
+            result = price_tool(updates=updates)
 
             # Verify the environment methods were called
-            mock_env.set_price.assert_called_once_with("chips", 1.75)
-            mock_env.advance_time.assert_called_once_with(5)
+            mock_env.set_price.assert_called_once_with({(0, 0): 1.75})  # Converted to 0-indexed
+            mock_env.advance_time.assert_called_once_with(300)  # 5 hours as per tools.py
 
             # Verify result structure
-            assert result.sku == "chips"
-            assert result.new_price == 1.75
-            assert result.old_price == 1.50  # From mock_env
+            assert len(result.updates) == 1
+            update_result = result.updates[0]
+            assert update_result.row == 1  # Original 1-indexed input
+            assert update_result.column == 1  # Original 1-indexed input
+            assert update_result.sku == "chips"
+            assert update_result.new_price == 1.75
+            assert update_result.old_price == 1.50  # From mock_env
 
 
 class TestPlaceOrderClarificationLoop:
