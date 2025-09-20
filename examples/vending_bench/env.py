@@ -209,6 +209,24 @@ class VendingEnv:
                 raise ValueError(f"slot ({row}, {column}) is empty")
             slot.price = price
 
+    def queue_email(
+        self,
+        *,
+        recipient: str,
+        subject: str,
+        body: str,
+        sender: str = "agent@sim",
+    ) -> EmailMessage:
+        message = EmailMessage(
+            day=self.state.day,
+            subject=subject,
+            body=body,
+            sender=sender,
+            recipient=recipient,
+        )
+        self.state.outbox.append(message)
+        return message
+
     def place_order(self, sku: str, quantity: int) -> Order:
         if sku not in self.state.demand_profiles:
             raise ValueError(f"Unknown SKU {sku}")
@@ -219,14 +237,12 @@ class VendingEnv:
             raise ValueError("insufficient cash to place order")
         self.state.cash_balance -= total_cost
         self.state.outstanding_orders.append(order)
-        email = EmailMessage(
-            day=self.state.day,
+        self.queue_email(
+            recipient="supplier@sim",
             subject=f"Purchase order {order.sku}",
             body=f"Ordered {order.quantity} units for ${total_cost:.2f}, delivery day {order.delivery_day}",
             sender="agent@sim",
-            recipient="supplier@sim",
         )
-        self.state.outbox.append(email)
         return order
 
     def summary(self) -> EnvSummary:
