@@ -68,6 +68,31 @@ def default_catalogue() -> dict[str, DemandProfile]:
     return {sku: DemandProfile(product=prod) for sku, prod in products.items()}
 
 
+def generate_new_product_parameters(product_name: str, seed: int) -> tuple[float, float, float, float]:
+    """Generate deterministic parameters for a new product based on name and seed.
+
+    Returns:
+        tuple: (unit_cost, base_price, base_daily_demand, price_elasticity)
+    """
+    import hashlib
+    import random
+
+    # Create deterministic seed from product name and environment seed
+    combined_seed_data = f"{seed}:new_product:{product_name}".encode()
+    digest = hashlib.sha256(combined_seed_data).digest()
+    product_seed = int.from_bytes(digest[:8], "big")
+
+    rng = random.Random(product_seed)
+
+    # Generate parameters within reasonable ranges
+    unit_cost = rng.uniform(0.30, 2.00)  # $0.30 to $2.00
+    base_price = unit_cost * rng.uniform(1.5, 3.0)  # 50-200% markup
+    base_daily_demand = rng.uniform(2.0, 8.0)  # 2-8 units per day base demand
+    price_elasticity = -rng.uniform(0.5, 1.5)  # Negative elasticity between -0.5 and -1.5
+
+    return unit_cost, base_price, base_daily_demand, price_elasticity
+
+
 @dataclass
 class EnvConfig:
     seed: int = 7

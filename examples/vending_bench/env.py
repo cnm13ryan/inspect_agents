@@ -6,7 +6,7 @@ import random
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from .config import EnvConfig
+from .config import EnvConfig, generate_new_product_parameters
 from .demand import DemandModel
 from .metrics import compute_net_worth, cumulative_units_sold, daily_report
 from .state import (
@@ -19,6 +19,7 @@ from .state import (
     DemandProfile,
     EmailMessage,
     Order,
+    Product,
     QueuedEmail,
     SimulatorState,
     Slot,
@@ -82,7 +83,8 @@ class VendingEnv:
     def _validate_row_for_product(self, row: int, product_sku: str) -> None:
         profile = self.state.demand_profiles.get(product_sku)
         if profile is None:
-            raise ValueError(f"Unknown SKU {product_sku}")
+            # Create new product dynamically if not found
+            profile = self._create_new_product(product_sku)
         size = profile.product.size
         if size == "small" and row not in SMALL_ITEM_ROWS:
             raise ValueError(f"SKU {product_sku} ({size}) must be placed in rows {SMALL_ITEM_ROWS}")
@@ -95,6 +97,49 @@ class VendingEnv:
             slot = Slot()
             self.state.machine_inventory[row][column] = slot
         return slot
+
+    def _create_new_product(self, sku: str) -> DemandProfile:
+        """Create a new product with deterministically generated parameters."""
+        # Generate parameters using environment seed and product name
+        unit_cost, base_price, base_daily_demand, price_elasticity = generate_new_product_parameters(
+            sku, self.config.seed
+        )
+
+        # Determine size and variety class based on SKU patterns
+        size = "large" if any(keyword in sku.lower() for keyword in ["chips", "energy", "large"]) else "small"
+        variety_class = (
+            "beverage"
+            if any(keyword in sku.lower() for keyword in ["drink", "water", "cola", "beverage", "juice"])
+            else "snack"
+        )
+        slot_capacity = 4 if size == "large" else 6
+
+        # Create product with generated parameters
+        product = Product(
+            sku=sku,
+            name=sku.replace("_", " ").title(),
+            size=size,
+            slot_capacity=slot_capacity,
+            unit_cost=unit_cost,
+            base_price=base_price,
+            base_daily_demand=base_daily_demand,
+            price_elasticity=price_elasticity,
+            variety_class=variety_class,
+        )
+
+        # Create demand profile and add to state
+        profile = DemandProfile(product=product)
+        self.state.demand_profiles[sku] = profile
+
+        # Ensure the demand model knows about this new product
+        self._demand.ensure_profiles({sku: profile})
+
+        # Ensure the supplier model knows about this new product
+        self._supplier._products[sku] = product
+        # Rebuild supplier contacts to include the new product
+        self._supplier._contacts = self._supplier._build_contacts()
+
+        return profile
 
     def advance_time(self, minutes: int | None = None) -> None:
         if minutes is None:
@@ -228,7 +273,8 @@ class VendingEnv:
 
         profile = self.state.demand_profiles.get(sku)
         if profile is None:
-            raise ValueError(f"Unknown SKU {sku}")
+            # Create new product dynamically if not found
+            profile = self._create_new_product(sku)
 
         self._demand.ensure_profiles({sku: profile})
 
