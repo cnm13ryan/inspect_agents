@@ -19,13 +19,14 @@ from .state import (
     DemandProfile,
     EmailMessage,
     Order,
+    QueuedEmail,
     SimulatorState,
     Slot,
     aggregate_sku_quantities,
     clone_machine_inventory,
     serialize_machine_inventory,
 )
-from .supplier import SupplierModel
+from .supplier import SupplierEmailResponse, SupplierModel
 
 
 @dataclass
@@ -56,7 +57,7 @@ class VendingEnv:
             self.state.demand_profiles.keys(),
             profiles=self.state.demand_profiles,
         )
-        self._supplier = SupplierModel(self.config.seed + 2)
+        self._supplier = SupplierModel(self.config.seed + 2, self.state.demand_profiles)
         self._morning_initialised = False
 
     @staticmethod
@@ -131,6 +132,16 @@ class VendingEnv:
 
     def _process_morning_flow(self) -> None:
         self._normalize_machine_inventory()
+
+        # Deliver any supplier emails scheduled for this morning before deliveries land
+        if self.state.scheduled_inbox:
+            pending: list[QueuedEmail] = []
+            for scheduled in self.state.scheduled_inbox:
+                if scheduled.delivery_day <= self.state.day:
+                    self.state.inbox.append(scheduled.message)
+                else:
+                    pending.append(scheduled)
+            self.state.scheduled_inbox = pending
 
         # Deliver orders
         delivered, pending = self._supplier.split_deliveries(self.state.outstanding_orders, self.state.day)
@@ -257,27 +268,24 @@ class VendingEnv:
             recipient=recipient,
         )
         self.state.outbox.append(message)
+
+        response: SupplierEmailResponse = self._supplier.process_email(self.state, message)
+        if response.reply is not None:
+            scheduled = QueuedEmail(delivery_day=message.day + 1, message=response.reply)
+            self.state.scheduled_inbox.append(scheduled)
+        if response.orders:
+            total_cost = sum(order.total_cost for order in response.orders)
+            if self.state.cash_balance < total_cost:
+                # Should not happen because the supplier checks balance, but guard just in case.
+                raise ValueError("insufficient cash to process supplier order")
+            self.state.cash_balance -= total_cost
+            self._update_negative_balance_days()
+            self.state.outstanding_orders.extend(response.orders)
+
         return message
 
     def place_order(self, sku: str, quantity: int) -> Order:
-        profile = self.state.demand_profiles.get(sku)
-        if profile is None:
-            raise ValueError(f"Unknown SKU {sku}")
-        self._demand.ensure_profiles({sku: profile})
-        product = profile.product
-        order = self._supplier.create_order(product=product, quantity=quantity, day_ordered=self.state.day)
-        total_cost = order.total_cost
-        if self.state.cash_balance < total_cost:
-            raise ValueError("insufficient cash to place order")
-        self.state.cash_balance -= total_cost
-        self.state.outstanding_orders.append(order)
-        self.queue_email(
-            recipient="supplier@sim",
-            subject=f"Purchase order {order.sku}",
-            body=f"Ordered {order.quantity} units for ${total_cost:.2f}, delivery day {order.delivery_day}",
-            sender="agent@sim",
-        )
-        return order
+        raise RuntimeError("Direct ordering is disabled; send a purchase order email to a supplier instead.")
 
     def summary(self) -> EnvSummary:
         machine_slots = clone_machine_inventory(self.state.machine_inventory)

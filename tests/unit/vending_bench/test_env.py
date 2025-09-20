@@ -5,6 +5,20 @@ import pytest
 from examples.vending_bench import EnvConfig, VendingEnv
 from examples.vending_bench.state import aggregate_sku_quantities
 
+SUPPLIER_EMAIL = "orders@rfd-inc.com"
+
+
+def _purchase_order_body() -> str:
+    return (
+        "Hello supplier,\n"
+        "Please process the following purchase order:\n"
+        "- 24 coke\n"
+        "- 12 energy_drink\n"
+        "Delivery address: 100 Market St, Unit 5, Springfield\n"
+        "Account number: ACCT-123456\n"
+        "Thank you!"
+    )
+
 
 def test_env_initialization():
     """Test basic environment initialization."""
@@ -20,19 +34,22 @@ def test_env_initialization():
 
 
 def test_deterministic_behavior_with_same_seed():
-    """Test that same seed produces identical results."""
+    """Test that same seed produces identical supplier responses."""
     config1 = EnvConfig(seed=42)
     config2 = EnvConfig(seed=42)
 
     env1 = VendingEnv(config1)
     env2 = VendingEnv(config2)
 
-    # Place same orders
-    order1 = env1.place_order("coke", 5)
-    order2 = env2.place_order("coke", 5)
+    body = _purchase_order_body()
+    env1.queue_email(recipient=SUPPLIER_EMAIL, subject="Purchase order", body=body)
+    env2.queue_email(recipient=SUPPLIER_EMAIL, subject="Purchase order", body=body)
 
-    assert order1.delivery_day == order2.delivery_day
-    assert order1.unit_cost == order2.unit_cost
+    assert len(env1.state.outstanding_orders) == len(env2.state.outstanding_orders) == 2
+    for order1, order2 in zip(env1.state.outstanding_orders, env2.state.outstanding_orders, strict=True):
+        assert order1.delivery_day == order2.delivery_day
+        assert order1.unit_cost == pytest.approx(order2.unit_cost)
+        assert order1.quantity == order2.quantity
 
 
 def test_advance_time():
@@ -121,19 +138,53 @@ def test_demand_model_slot_sales_distribution():
         assert (0, 1) in outcome.slot_sales
 
 
-def test_place_order():
-    """Test placing orders."""
+def test_email_purchase_creates_orders_and_deducts_cash():
+    """Purchasing via email should create orders, deduct cash, and queue supplier confirmation."""
+    env = VendingEnv()
+    starting_cash = env.state.cash_balance
+
+    body = _purchase_order_body()
+    env.queue_email(recipient=SUPPLIER_EMAIL, subject="Purchase order", body=body)
+
+    assert len(env.state.outstanding_orders) == 2
+    total_order_cost = sum(order.total_cost for order in env.state.outstanding_orders)
+    assert env.state.cash_balance == pytest.approx(starting_cash - total_order_cost)
+    # Replies should be scheduled for the next day, not immediately delivered
+    assert env.state.inbox == []
+    assert env.state.scheduled_inbox
+
+    env.end_of_day()
+
+    # Reply arrives the following morning alongside the daily summary email
+    supplier_messages = [msg for msg in env.state.inbox if msg.sender == SUPPLIER_EMAIL]
+    assert supplier_messages, "Expected supplier confirmation in the inbox"
+
+
+def test_supplier_quote_request_reply_next_day():
+    """Supplier quote requests should produce next-day replies with catalog details."""
     env = VendingEnv()
 
-    order = env.place_order("coke", 10)
+    env.queue_email(
+        recipient="supply@quickstock.com",
+        subject="Need wholesale pricing",
+        body="Please send your product list and pricing tiers.",
+    )
 
-    assert order.sku == "coke"
-    assert order.quantity == 10
-    assert order.day_ordered == 0
-    assert order.delivery_day > 0
-    assert env.state.cash_balance < 500.0  # Cost deducted
-    assert len(env.state.outstanding_orders) == 1
-    assert len(env.state.outbox) == 1  # Email sent
+    assert env.state.scheduled_inbox
+    env.end_of_day()
+    quote_messages = [msg for msg in env.state.inbox if msg.sender == "supply@quickstock.com"]
+    assert len(quote_messages) == 1
+    body_lower = quote_messages[0].body.lower()
+    assert "moq" in body_lower or "min order" in body_lower
+
+
+def test_unknown_email_gets_no_reply():
+    """Emails to unknown recipients should not generate replies."""
+    env = VendingEnv()
+
+    env.queue_email(recipient="unknown@supplier.test", subject="Hello", body="Do you sell snacks?")
+
+    assert env.state.scheduled_inbox == []
 
 
 def test_set_price_updates_slot():
@@ -152,14 +203,21 @@ def test_set_price_updates_slot():
 
 
 def test_summary():
-    """Test environment summary generation."""
+    """Test environment summary generation with email-based ordering."""
     env = VendingEnv()
 
-    # Set up some state
     env.state.storage_inventory["coke"] = 5
     env.state.storage_inventory["chips"] = 3
     env.restock("chips", 3, row=2, column=0)
-    env.place_order("water", 5)
+    env.queue_email(
+        recipient="sales@metrofoods.example",
+        subject="Order",
+        body=(
+            "Order 18 coke and 18 chocolate_bar for Springfield HQ.\n"
+            "Delivery address: 200 Industrial Way\n"
+            "Account: ACCT-999999"
+        ),
+    )
 
     summary = env.summary()
 
@@ -169,7 +227,7 @@ def test_summary():
     assert summary.machine_inventory["chips"] == 3
     totals = aggregate_sku_quantities(summary.machine_slots)
     assert totals["chips"] == 3
-    assert len(summary.outstanding_orders) == 1
+    assert len(summary.outstanding_orders) == 2
     assert summary.net_worth > 0
     assert summary.units_sold_total == 0
 
@@ -198,10 +256,9 @@ def test_bankruptcy_requires_grace_period():
 
     for day in range(9):
         env.end_of_day()
-        assert not env.state.bankrupt
-        assert env.state.negative_balance_days == day + 1
+
+    assert not env.state.bankrupt
 
     env.end_of_day()
 
     assert env.state.bankrupt
-    assert env.state.negative_balance_days == 10

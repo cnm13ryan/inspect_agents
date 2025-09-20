@@ -4,6 +4,13 @@ import time
 
 from examples.vending_bench import EnvConfig, VendingEnv
 
+SUPPLIER_EMAIL = "orders@rfd-inc.com"
+PURCHASE_TEMPLATE = (
+    "Please order 24 coke for next week delivery.\n"
+    "Delivery address: 500 Commerce Way\n"
+    "Account number: PERF-ACCT-01."
+)
+
 
 def test_2000_step_performance():
     """Test that 2000-step simulation completes within reasonable time."""
@@ -20,12 +27,16 @@ def test_2000_step_performance():
 
     # Run 2000 steps
     for step in range(2000):
-        # Occasionally place orders and restock
-        if step % 50 == 0 and env.state.cash_balance > 100:
+        # Occasionally request supplier orders via email and restock
+        if step % 50 == 0 and env.state.cash_balance > 200:
             try:
-                env.place_order("coke", 10)
+                env.queue_email(
+                    recipient=SUPPLIER_EMAIL,
+                    subject="Purchase Order",
+                    body=PURCHASE_TEMPLATE,
+                )
             except ValueError:
-                pass  # Might fail due to insufficient cash
+                pass  # May fail if cash falls below requirement mid-run
 
         if step % 30 == 0:
             # Restock from storage

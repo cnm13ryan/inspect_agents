@@ -276,28 +276,6 @@ class TestSetPriceClarificationLoop:
             assert update_result.old_price == 1.50  # From mock_env
 
 
-class TestPlaceOrderClarificationLoop:
-    """Test clarification loop for place_order tool."""
-
-    def test_place_order_missing_sku_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that missing SKU in place_order triggers ToolException."""
-        with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
-            order_tool = vending_tools_module.place_order()
-
-            with pytest.raises(ToolException) as exc_info:
-                order_tool(sku=None, quantity=50)
-
-            assert "sku is required to complete this action" in str(exc_info.value)
-
-    def test_place_order_missing_quantity_triggers_exception(self, vending_tools_module, mock_env):
-        """Test that missing quantity in place_order triggers ToolException."""
-        with patch("examples.vending_bench.tools.get_env", return_value=mock_env):
-            order_tool = vending_tools_module.place_order()
-
-            with pytest.raises(ToolException) as exc_info:
-                order_tool(sku="chips", quantity=None)
-
-            assert "quantity is required to complete this action" in str(exc_info.value)
 
 
 class TestClarificationLoopIntegration:
