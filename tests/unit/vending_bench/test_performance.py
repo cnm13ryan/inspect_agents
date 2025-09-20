@@ -14,6 +14,7 @@ def test_2000_step_performance():
         minutes_per_turn=60,
     )
     env = VendingEnv(config)
+    slot_map = {"coke": (0, 0), "water": (0, 1), "chips": (2, 0)}
 
     start_time = time.time()
 
@@ -32,7 +33,14 @@ def test_2000_step_performance():
                 storage = env.state.storage_inventory.get(sku, 0)
                 if storage > 0:
                     restock_qty = min(5, storage)
-                    env.restock(sku, restock_qty)
+                    row, column = slot_map[sku]
+                    slot = env.state.machine_inventory[row][column]
+                    current_qty = slot.quantity if slot and slot.sku == sku else 0
+                    capacity = env.state.demand_profiles[sku].product.slot_capacity
+                    available_capacity = max(0, capacity - current_qty)
+                    effective_qty = min(restock_qty, available_capacity)
+                    if effective_qty > 0:
+                        env.restock(sku, effective_qty, row=row, column=column)
 
         # Advance time
         env.advance_time()
