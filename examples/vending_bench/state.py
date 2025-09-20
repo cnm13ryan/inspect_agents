@@ -61,6 +61,27 @@ class DemandProfile:
 
 
 @dataclass
+class SupplierProductOffer:
+    """Static supplier offer data for a SKU."""
+
+    product: Product
+    wholesale_price: float
+    min_order_quantity: int
+    lead_time_days: tuple[int, int]
+    keywords: tuple[str, ...]
+
+
+@dataclass
+class SupplierContact:
+    """Supplier directory entry used for deterministic email responses."""
+
+    name: str
+    email: str
+    categories: tuple[str, ...]
+    products: dict[str, SupplierProductOffer]
+
+
+@dataclass
 class Order:
     sku: str
     quantity: int
@@ -80,6 +101,14 @@ class EmailMessage:
     body: str
     sender: str
     recipient: str
+
+
+@dataclass
+class QueuedEmail:
+    """Scheduled email set to arrive on a future morning."""
+
+    delivery_day: int
+    message: EmailMessage
 
 
 @dataclass
@@ -110,6 +139,7 @@ class SimulatorState:
     outstanding_orders: list[Order] = field(default_factory=list)
     inbox: list[EmailMessage] = field(default_factory=list)
     outbox: list[EmailMessage] = field(default_factory=list)
+    scheduled_inbox: list[QueuedEmail] = field(default_factory=list)
     units_sold_today: dict[str, int] = field(default_factory=dict)
     daily_reports: list[DailyReport] = field(default_factory=list)
     negative_balance_days: int = 0
