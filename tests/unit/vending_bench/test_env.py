@@ -262,3 +262,152 @@ def test_bankruptcy_requires_grace_period():
     env.end_of_day()
 
     assert env.state.bankrupt
+
+
+def test_new_product_creation_deterministic():
+    """Test that new product creation is deterministic with same seed."""
+    config1 = EnvConfig(seed=123)
+    config2 = EnvConfig(seed=123)
+
+    env1 = VendingEnv(config1)
+    env2 = VendingEnv(config2)
+
+    # Create a new product that doesn't exist in default catalog
+    new_sku = "test_new_soda"
+
+    # Add storage inventory
+    env1.state.storage_inventory[new_sku] = 10
+    env2.state.storage_inventory[new_sku] = 10
+
+    # Trigger product creation by restocking
+    env1.restock(new_sku, 5, row=0, column=0)
+    env2.restock(new_sku, 5, row=0, column=0)
+
+    # Both should have created identical products
+    profile1 = env1.state.demand_profiles[new_sku]
+    profile2 = env2.state.demand_profiles[new_sku]
+
+    assert profile1.product.unit_cost == profile2.product.unit_cost
+    assert profile1.product.base_price == profile2.product.base_price
+    assert profile1.product.base_daily_demand == profile2.product.base_daily_demand
+    assert profile1.product.price_elasticity == profile2.product.price_elasticity
+    assert profile1.product.size == profile2.product.size
+    assert profile1.product.variety_class == profile2.product.variety_class
+
+    # Both supplier models should know about the new product
+    directory1 = env1._supplier.supplier_directory()
+    directory2 = env2._supplier.supplier_directory()
+
+    metro1 = directory1.get("sales@metrofoods.example")
+    metro2 = directory2.get("sales@metrofoods.example")
+
+    assert metro1 and metro2
+    assert new_sku in metro1.products
+    assert new_sku in metro2.products
+
+    # Offers should be identical
+    offer1 = metro1.products[new_sku]
+    offer2 = metro2.products[new_sku]
+
+    assert offer1.wholesale_price == offer2.wholesale_price
+    assert offer1.min_order_quantity == offer2.min_order_quantity
+    assert offer1.lead_time_days == offer2.lead_time_days
+
+
+def test_supplier_lead_times_deterministic():
+    """Test that supplier lead times are deterministic with same seed."""
+    config1 = EnvConfig(seed=456)
+    config2 = EnvConfig(seed=456)
+
+    env1 = VendingEnv(config1)
+    env2 = VendingEnv(config2)
+
+    body = _purchase_order_body()
+
+    # Place identical orders
+    env1.queue_email(recipient=SUPPLIER_EMAIL, subject="Purchase order", body=body)
+    env2.queue_email(recipient=SUPPLIER_EMAIL, subject="Purchase order", body=body)
+
+    # Lead times should be identical
+    orders1 = env1.state.outstanding_orders
+    orders2 = env2.state.outstanding_orders
+
+    assert len(orders1) == len(orders2)
+    for order1, order2 in zip(orders1, orders2, strict=True):
+        assert order1.delivery_day == order2.delivery_day
+        assert order1.sku == order2.sku
+        assert order1.quantity == order2.quantity
+        assert order1.unit_cost == pytest.approx(order2.unit_cost)
+
+
+def test_full_environment_deterministic_multiple_days():
+    """Test that complete environment behavior is deterministic across multiple days."""
+    config1 = EnvConfig(seed=789)
+    config2 = EnvConfig(seed=789)
+
+    env1 = VendingEnv(config1)
+    env2 = VendingEnv(config2)
+
+    # Set up identical starting conditions
+    for env in [env1, env2]:
+        env.state.storage_inventory["coke"] = 20
+        env.state.storage_inventory["chips"] = 15
+        env.restock("coke", 6, row=0, column=0)
+        env.restock("chips", 4, row=2, column=0)
+        env.set_price({(0, 0): 1.75, (2, 0): 2.00})
+
+    # Run simulation for several days
+    for day in range(3):
+        # Daily reports should be identical (except for object IDs)
+        report1 = env1.latest_report()
+        report2 = env2.latest_report()
+
+        if report1 and report2:
+            assert report1.day == report2.day
+            assert report1.revenue == pytest.approx(report2.revenue)
+            assert report1.cash_balance == pytest.approx(report2.cash_balance)
+            assert report1.units_sold == report2.units_sold
+
+        # Advance time should produce identical results
+        env1.advance_time(1440)  # Full day
+        env2.advance_time(1440)
+
+    # Final states should be identical
+    final_summary1 = env1.summary()
+    final_summary2 = env2.summary()
+
+    assert final_summary1.day == final_summary2.day
+    assert final_summary1.cash_balance == pytest.approx(final_summary2.cash_balance)
+    assert final_summary1.cash_in_machine == pytest.approx(final_summary2.cash_in_machine)
+    assert final_summary1.storage_inventory == final_summary2.storage_inventory
+    assert final_summary1.machine_inventory == final_summary2.machine_inventory
+    assert final_summary1.units_sold_total == final_summary2.units_sold_total
+
+
+def test_seed_parameter_isolation():
+    """Test that changing seed produces different behaviors."""
+    config1 = EnvConfig(seed=111)
+    config2 = EnvConfig(seed=222)
+
+    env1 = VendingEnv(config1)
+    env2 = VendingEnv(config2)
+
+    # Set up identical starting conditions
+    for env in [env1, env2]:
+        env.state.storage_inventory["coke"] = 20
+        env.restock("coke", 6, row=0, column=0)
+
+    # Run for one day
+    env1.advance_time(1440)
+    env2.advance_time(1440)
+
+    # Results should be different (with high probability)
+    # While we can't guarantee all values will be different,
+    # at least some should be due to randomness in demand simulation
+    report1 = env1.latest_report()
+    report2 = env2.latest_report()
+
+    # Revenue is most likely to differ due to demand noise/weather
+    if report1 and report2:
+        # Allow for small chance they're the same, but very unlikely
+        assert report1.revenue != report2.revenue or report1.units_sold != report2.units_sold
