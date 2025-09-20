@@ -13,6 +13,7 @@ import asyncio
 import sys
 
 import pytest
+from dataclasses import asdict
 
 pytestmark = pytest.mark.handoff
 
@@ -52,7 +53,7 @@ def test_policy_approver_enforces_exclusivity_on_mixed_batch():
         ToolCall(id="2", function="transfer_to_writer", arguments={}),
         ToolCall(id="3", function="read_file", arguments={"file_path": "README.md"}),
     ]
-    msg = ChatMessageAssistant(content="", tool_calls=calls)
+    msg = ChatMessageAssistant(content="", tool_calls=[asdict(call) for call in calls])
     history = [msg]
 
     # First handoff approved

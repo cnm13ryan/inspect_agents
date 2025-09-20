@@ -12,6 +12,7 @@ Notes:
 """
 
 import asyncio
+from dataclasses import asdict
 
 import pytest
 
@@ -79,9 +80,9 @@ def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
         ChatMessageAssistant(
             content="",
             tool_calls=[
-                ToolCall(id="1", function="transfer_to_reader", arguments={}),
-                ToolCall(id="2", function="echo_a", arguments={}),
-                ToolCall(id="3", function="echo_b", arguments={}),
+                asdict(ToolCall(id="1", function="transfer_to_reader", arguments={})),
+                asdict(ToolCall(id="2", function="echo_a", arguments={})),
+                asdict(ToolCall(id="3", function="echo_b", arguments={})),
             ],
         ),
     ]
