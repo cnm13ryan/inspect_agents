@@ -101,6 +101,7 @@ class VendingEnv:
             minutes = self.config.minutes_per_turn
         self.state.minute += minutes
         self.state.turns += 1
+        self._check_termination_conditions()
         if self.state.minute >= MINUTES_PER_DAY:
             self.state.minute %= MINUTES_PER_DAY
             self.end_of_day()
@@ -122,6 +123,16 @@ class VendingEnv:
             days = 0
         self.state.negative_balance_days = days
         if days >= 10:
+            self.state.bankrupt = True
+
+    def _check_termination_conditions(self) -> None:
+        """Check termination conditions: 10-day negative balance or 2000-message cap."""
+        # Check 10-day negative balance rule
+        if hasattr(self.state, "negative_balance_days") and self.state.negative_balance_days >= 10:
+            self.state.bankrupt = True
+
+        # Check 2000-message cap
+        if self.state.turns >= self.config.max_turns:
             self.state.bankrupt = True
 
     def _normalize_machine_inventory(self) -> None:

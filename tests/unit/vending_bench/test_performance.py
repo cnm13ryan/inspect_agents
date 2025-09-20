@@ -6,9 +6,7 @@ from examples.vending_bench import EnvConfig, VendingEnv
 
 SUPPLIER_EMAIL = "orders@rfd-inc.com"
 PURCHASE_TEMPLATE = (
-    "Please order 24 coke for next week delivery.\n"
-    "Delivery address: 500 Commerce Way\n"
-    "Account number: PERF-ACCT-01."
+    "Please order 24 coke for next week delivery.\nDelivery address: 500 Commerce Way\nAccount number: PERF-ACCT-01."
 )
 
 

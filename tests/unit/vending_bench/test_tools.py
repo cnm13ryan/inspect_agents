@@ -194,7 +194,6 @@ class TestToolIntegration:
         tool = get_machine_inventory()
         assert tool is not None
 
-
     @patch("inspect_ai.util._store_model.store_as")
     def test_memory_tools_integration(self, mock_store_as, mock_memory):
         """Test memory tools basic integration."""

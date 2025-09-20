@@ -26,6 +26,16 @@ def inventory_value(
 
 
 def compute_net_worth(state: SimulatorState) -> float:
+    """Compute net worth excluding outstanding orders.
+
+    Net worth includes:
+    - Cash on hand (cash_balance)
+    - Machine cash (cash_in_machine)
+    - Unsold inventory at cost (storage + machine inventory)
+
+    Explicitly excludes:
+    - Outstanding orders (money already spent but goods not delivered)
+    """
     storage_val = inventory_value(state.storage_inventory, state.demand_profiles)
     machine_val = inventory_value(state.machine_inventory, state.demand_profiles)
     return state.cash_balance + state.cash_in_machine + storage_val + machine_val
@@ -55,6 +65,7 @@ def collect_episode_metrics(state: SimulatorState) -> EpisodeMetrics:
         net_worth=compute_net_worth(state),
         units_sold=cumulative_units_sold(state),
         day=state.day,
+        days_operated=state.day,
         bankrupt=state.bankrupt,
         telemetry=dict(state.telemetry),
     )
