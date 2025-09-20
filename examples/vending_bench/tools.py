@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from inspect_agents.exceptions import ToolException
 
 from .runtime import get_env, increment_tool_count
-from .state import aggregate_sku_quantities, serialize_machine_inventory, MINUTES_PER_DAY, EmailMessage
+from .state import MINUTES_PER_DAY, EmailMessage, aggregate_sku_quantities, serialize_machine_inventory
 
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
@@ -489,7 +489,11 @@ def check_machine_overview() -> Tool:
             _log_tool_event(
                 name="check_machine_overview",
                 phase="end",
-                extra={"total_units": total_units, "unique_skus": unique_skus, "low_stock_count": len(low_stock_skus)},
+                extra={
+                    "total_units": total_units,
+                    "unique_skus": unique_skus,
+                    "low_stock_count": len(low_stock_skus),
+                },
                 t0=t0,
             )
 
