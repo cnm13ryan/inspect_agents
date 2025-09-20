@@ -605,7 +605,9 @@ def restock_machine() -> Tool:
     from inspect_ai.tool._tool import tool
 
     @tool(name="restock_machine")
-    def restock_machine_impl(sku: str | None = None, quantity: int | None = None, row: int | None = None, column: int | None = None) -> RestockMachineResult:
+    def restock_machine_impl(
+        sku: str | None = None, quantity: int | None = None, row: int | None = None, column: int | None = None
+    ) -> RestockMachineResult:
         """Restock vending machine from storage inventory.
 
         Args:
@@ -618,12 +620,19 @@ def restock_machine() -> Tool:
         validated_sku = _require_non_empty_string("sku", sku)
         validated_quantity = _require_positive_int("quantity", quantity)
         validated_row = _require_positive_int("row", row) if row is not None else _require_positive_int("row", None)
-        validated_column = _require_positive_int("column", column) if column is not None else _require_positive_int("column", None)
+        validated_column = (
+            _require_positive_int("column", column) if column is not None else _require_positive_int("column", None)
+        )
 
         t0 = _log_tool_event(
             name="restock_machine",
             phase="start",
-            args={"sku": validated_sku, "quantity": validated_quantity, "row": validated_row, "column": validated_column},
+            args={
+                "sku": validated_sku,
+                "quantity": validated_quantity,
+                "row": validated_row,
+                "column": validated_column,
+            },
         )
 
         try:
@@ -725,8 +734,11 @@ def set_price() -> Tool:
                 slot = env.state.machine_inventory[update.row][update.column]
                 if slot is None or slot.sku is None:
                     raise ToolException(f"slot ({update.row}, {update.column}) is empty")
-                product = env.state.demand_profiles[slot.sku].product
-                old_price = slot.price if slot.price is not None else product.base_price
+                profile = env.state.demand_profiles[slot.sku]
+                fallback_price = (
+                    profile.reference_price if profile.reference_price is not None else profile.product.base_price
+                )
+                old_price = slot.price if slot.price is not None else fallback_price
                 snapshot[(update.row, update.column)] = (slot.sku, old_price)
 
             env.set_price({(upd.row, upd.column): upd.price for upd in updates})
@@ -1001,6 +1013,7 @@ def ai_web_search() -> Tool:
 def supervisor_tools() -> list[Tool]:
     """Return list of tools available to the supervisor agent."""
     return [
+        check_inventory(),
         check_storage_inventory(),
         check_machine_overview(),
         read_email(),
@@ -1040,4 +1053,3 @@ def all_vending_tools() -> list[Tool]:
         ai_web_search(),
         get_machine_inventory(),
     ]
-
