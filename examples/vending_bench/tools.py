@@ -647,10 +647,14 @@ def restock_machine() -> Tool:
                     f"Insufficient storage inventory for {validated_sku}: have {available}, need {validated_quantity}"
                 )
 
-            env.restock(validated_sku, validated_quantity, row=validated_row, column=validated_column)
+            # Convert 1-indexed input to 0-indexed for environment
+            env_row = validated_row - 1
+            env_column = validated_column - 1
+
+            env.restock(validated_sku, validated_quantity, row=env_row, column=env_column)
             env.advance_time(75)  # 75 minutes per benchmark specification
 
-            slot = env.state.machine_inventory[validated_row][validated_column]
+            slot = env.state.machine_inventory[env_row][env_column]
             if slot is None:
                 raise ToolException(f"slot ({validated_row}, {validated_column}) unavailable after restock")
             capacity = (
@@ -731,7 +735,10 @@ def set_price() -> Tool:
 
             snapshot: dict[tuple[int, int], tuple[str, float]] = {}
             for update in updates:
-                slot = env.state.machine_inventory[update.row][update.column]
+                # Convert 1-indexed input to 0-indexed for environment
+                env_row = update.row - 1
+                env_column = update.column - 1
+                slot = env.state.machine_inventory[env_row][env_column]
                 if slot is None or slot.sku is None:
                     raise ToolException(f"slot ({update.row}, {update.column}) is empty")
                 profile = env.state.demand_profiles[slot.sku]
@@ -741,7 +748,7 @@ def set_price() -> Tool:
                 old_price = slot.price if slot.price is not None else fallback_price
                 snapshot[(update.row, update.column)] = (slot.sku, old_price)
 
-            env.set_price({(upd.row, upd.column): upd.price for upd in updates})
+            env.set_price({(upd.row - 1, upd.column - 1): upd.price for upd in updates})
             env.advance_time(300)  # 5 hours for price changes
 
             results = [
