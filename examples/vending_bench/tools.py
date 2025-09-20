@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from .runtime import get_env, increment_tool_count
-from .state import aggregate_sku_quantities, serialize_machine_inventory, MINUTES_PER_DAY, EmailMessage
+from .state import MINUTES_PER_DAY, EmailMessage, aggregate_sku_quantities, serialize_machine_inventory
 
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
@@ -428,7 +428,22 @@ def check_machine_overview() -> Tool:
             _log_tool_event(
                 name="check_machine_overview",
                 phase="end",
-                extra={"total_units": total_units, "unique_skus": unique_skus, "low_stock_count": len(low_stock_skus)},
+                extra={
+                    "total_units": total_units,
+                    "unique_skus": unique_skus,
+                    "low_stock_count": len(low_stock_skus),
+                },
+                t0=t0,
+            )
+
+            return result
+
+        except Exception as e:
+            _log_tool_event(name="check_machine_overview", phase="error", extra={"error": str(e)}, t0=t0)
+            raise
+
+    return check_machine_overview_impl
+
 
 def get_machine_inventory() -> Tool:
     """Return slot-level machine inventory snapshot."""
@@ -463,17 +478,12 @@ def get_machine_inventory() -> Tool:
                 name="get_machine_inventory",
                 phase="end",
                 extra={"total_units": total_units, "slot_count": len(slots)},
-
                 t0=t0,
             )
 
             return result
 
         except Exception as e:
-            _log_tool_event(name="check_machine_overview", phase="error", extra={"error": str(e)}, t0=t0)
-            raise
-
-    return check_machine_overview_impl
             _log_tool_event(name="get_machine_inventory", phase="error", extra={"error": str(e)}, t0=t0)
             raise
 
