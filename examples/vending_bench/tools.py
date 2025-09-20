@@ -127,16 +127,6 @@ class MachineInventoryResult(BaseModel):
     slots: list[MachineInventorySlot]
 
 
-class PlaceOrderResult(BaseModel):
-    """Result from order placement."""
-
-    order_id: str
-    sku: str
-    quantity: int
-    total_cost: float
-    delivery_day: int
-
-
 class CollectCashResult(BaseModel):
     """Result from cash collection."""
 
@@ -796,73 +786,6 @@ def set_price() -> Tool:
     return set_price_impl
 
 
-def place_order() -> Tool:
-    """Place an order with suppliers for inventory."""
-
-    from inspect_ai.tool._tool import tool
-
-    @tool(name="place_order")
-    def place_order_impl(sku: str | None = None, quantity: int | None = None) -> PlaceOrderResult:
-        """Place supplier order for inventory with automatic cost deduction.
-
-        Args:
-            sku: Product SKU to order
-            quantity: Number of units to order
-        """
-
-        validated_sku = _require_non_empty_string("sku", sku)
-        validated_quantity = _require_positive_int("quantity", quantity)
-
-        t0 = _log_tool_event(
-            name="place_order",
-            phase="start",
-            args={"sku": validated_sku, "quantity": validated_quantity},
-        )
-
-        try:
-            env = get_env()
-
-            _require_known_sku(env, validated_sku)
-
-            order = env.place_order(validated_sku, validated_quantity)
-            env.advance_time(25)  # 25 minutes to compose and send the supplier email
-
-            result = PlaceOrderResult(
-                order_id=f"{order.sku}_{order.day_ordered}_{len(env.state.outstanding_orders)}",
-                sku=order.sku,
-                quantity=order.quantity,
-                total_cost=order.total_cost,
-                delivery_day=order.delivery_day,
-            )
-
-            _log_tool_event(
-                name="place_order",
-                phase="end",
-                extra={
-                    "sku": order.sku,
-                    "quantity": order.quantity,
-                    "total_cost": order.total_cost,
-                    "delivery_day": order.delivery_day,
-                },
-                t0=t0,
-            )
-
-            return result
-
-        except Exception as e:
-            _log_tool_event(
-                name="place_order",
-                phase="error",
-                extra={"error": str(e), "sku": validated_sku},
-                t0=t0,
-            )
-            if isinstance(e, ToolException):
-                raise
-            raise ToolException(f"Order placement failed: {str(e)}")
-
-    return place_order_impl
-
-
 def collect_cash() -> Tool:
     """Collect cash from the vending machine."""
 
@@ -975,30 +898,89 @@ def ai_web_search() -> Tool:
             env = get_env()
             env.advance_time(60)  # 1 hour for research
 
-            # Deterministic stub results based on query content
-            stub_results = []
-            if "supplier" in query.lower() or "vendor" in query.lower():
-                stub_results = [
+            # Enhanced deterministic supplier search results with dynamic content based on catalog
+            stub_results: list[dict[str, Any]] = []
+            normalized_query = query.lower()
+
+            # Get available SKUs from environment catalog
+            available_skus = set(env.state.demand_profiles.keys())
+
+            if any(term in normalized_query for term in ("supplier", "vendor", "wholesale", "contact")):
+                # Build dynamic supplier results based on available catalog
+                suppliers_data = [
                     {
-                        "title": "Regional Food Distributors Inc.",
+                        "name": "Regional Food Distributors Inc.",
+                        "email": "orders@rfd-inc.com",
+                        "phone": "+1-800-555-0110",
                         "url": "https://example-supplier1.com",
-                        "snippet": "Bulk snack and beverage supplier with 2-5 day lead times. Competitive pricing on popular vending items.",
-                        "contact": "orders@rfd-inc.com",
+                        "snippet": "Bulk beverage catalogue with predictable 2-5 day delivery windows across the Midwest.",
+                        "categories": ["beverage"],
+                        "specialties": ["coke", "water", "energy_drink"],
+                        "min_orders": {"coke": 24, "water": 24, "energy_drink": 12},
+                        "price_multiplier": 0.95,
+                        "lead_time": "2-5"
                     },
                     {
-                        "title": "QuickStock Vending Solutions",
+                        "name": "QuickStock Vending Solutions",
+                        "email": "supply@quickstock.com",
+                        "phone": "+1-800-555-0148",
                         "url": "https://example-supplier2.com",
-                        "snippet": "Specialized vending machine inventory supplier. Same-day delivery available for local area.",
-                        "contact": "supply@quickstock.com",
+                        "snippet": "Fast-turn snack distributor with local cross-dock for 1-3 day replenishment.",
+                        "categories": ["snack", "impulse"],
+                        "specialties": ["chips", "chocolate_bar", "energy_drink"],
+                        "min_orders": {"chips": 12, "chocolate_bar": 12, "energy_drink": 12},
+                        "price_multiplier": 0.90,
+                        "lead_time": "1-3"
                     },
+                    {
+                        "name": "Metro Wholesale Foods",
+                        "email": "sales@metrofoods.example",
+                        "phone": "+1-800-555-0190",
+                        "url": "https://example-supplier3.com",
+                        "snippet": "Balanced assortment for office routes with 3-6 day scheduled deliveries.",
+                        "categories": ["balanced", "office"],
+                        "specialties": list(available_skus),
+                        "min_orders": {sku: 18 for sku in available_skus},
+                        "price_multiplier": 1.0,
+                        "lead_time": "3-6"
+                    }
                 ]
-            elif "product" in query.lower() or "snack" in query.lower():
+
+                for supplier in suppliers_data:
+                    # Build catalog for available SKUs
+                    catalog = []
+                    for sku in supplier["specialties"]:
+                        if sku in available_skus:
+                            profile = env.state.demand_profiles[sku]
+                            wholesale_price = profile.product.unit_cost * supplier["price_multiplier"]
+                            catalog.append({
+                                "sku": sku,
+                                "name": profile.product.name,
+                                "category": "beverage" if "beverage" in supplier["categories"] else profile.product.variety_class.lower(),
+                                "min_order": supplier["min_orders"].get(sku, 18),
+                                "wholesale_price": round(wholesale_price, 2),
+                                "lead_time_days": supplier["lead_time"]
+                            })
+
+                    if catalog:  # Only include suppliers with available products
+                        stub_results.append({
+                            "title": supplier["name"],
+                            "url": supplier["url"],
+                            "snippet": supplier["snippet"],
+                            "contact": {"email": supplier["email"], "phone": supplier["phone"]},
+                            "categories": supplier["categories"],
+                            "catalog": catalog
+                        })
+            elif any(term in normalized_query for term in ("product list", "snack", "catalogue", "pricing")):
                 stub_results = [
                     {
-                        "title": "Popular Vending Machine Snacks 2024",
+                        "title": "Top vending machine performers",
                         "url": "https://example-market-research.com",
-                        "snippet": "Analysis of top-selling vending items. Chips, candy, and energy drinks lead sales.",
-                        "data": "market_trends",
+                        "snippet": "Chilled beverages and grab-and-go snacks drive 68% of office vending revenue.",
+                        "data": {
+                            "beverage": {"top_skus": ["coke", "water", "energy_drink"], "avg_wholesale": 0.60},
+                            "snack": {"top_skus": ["chips", "chocolate_bar"], "avg_wholesale": 0.62},
+                        },
                     }
                 ]
 
@@ -1020,13 +1002,11 @@ def ai_web_search() -> Tool:
 def supervisor_tools() -> list[Tool]:
     """Return list of tools available to the supervisor agent."""
     return [
-        check_inventory(),
         check_storage_inventory(),
         check_machine_overview(),
         read_email(),
         send_email(),
         check_financial_status(),
-        place_order(),
         wait_for_next_day(),
         ai_web_search(),
     ]
@@ -1054,7 +1034,6 @@ def all_vending_tools() -> list[Tool]:
         check_financial_status(),
         restock_machine(),
         set_price(),
-        place_order(),
         collect_cash(),
         wait_for_next_day(),
         ai_web_search(),

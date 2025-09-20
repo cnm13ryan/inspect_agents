@@ -25,7 +25,6 @@ from examples.vending_bench.tools import (
     collect_cash,
     get_machine_inventory,
     physical_agent_tools,
-    place_order,
     read_email,
     restock_machine,
     send_email,
@@ -53,7 +52,6 @@ class TestToolParameterValidation:
             check_financial_status(),
             restock_machine(),
             set_price(),
-            place_order(),
             collect_cash(),
             wait_for_next_day(),
             ai_web_search(),
@@ -196,15 +194,6 @@ class TestToolIntegration:
         tool = get_machine_inventory()
         assert tool is not None
 
-    @patch("inspect_ai.util._store_model.store_as")
-    def test_place_order_insufficient_cash(self, mock_store_as, mock_env):
-        """Test order placement with insufficient cash."""
-        # Set low cash balance
-        mock_env.state.cash_balance = 1.0
-        mock_store_as.return_value = mock_env
-
-        tool = place_order()
-        assert tool is not None
 
     @patch("inspect_ai.util._store_model.store_as")
     def test_memory_tools_integration(self, mock_store_as, mock_memory):
@@ -240,9 +229,7 @@ class TestToolCollections:
         expected_tools = [
             "read_email",
             "send_email",
-            "check_inventory",
             "check_financial_status",
-            "place_order",
             "wait_for_next_day",
             "ai_web_search",
         ]
@@ -302,7 +289,7 @@ class TestToolCollections:
         }
 
         # Physical agent should not have access to high-level tools
-        forbidden_for_physical = {"place_order", "wait_for_next_day", "ai_web_search", "read_email", "send_email"}
+        forbidden_for_physical = {"wait_for_next_day", "ai_web_search", "read_email", "send_email"}
 
         physical_overlap = physical_names.intersection(forbidden_for_physical)
         assert len(physical_overlap) == 0, f"Physical agent has forbidden tools: {physical_overlap}"
@@ -370,7 +357,7 @@ class TestDeterministicBehavior:
         # Send email: 25 minutes
         # Restock: 75 minutes
         # Price change: 300 minutes (5 hours)
-        # Order placement: 25 minutes (email-based)
+        # Supplier emails still cost 25 minutes via send_email
         # Cash collection: 300 minutes (5 hours)
         # Web search: 60 minutes
 
