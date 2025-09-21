@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from .state import DemandProfile, Product
+
+DEMAND_PROVIDER_ENV = "DEMAND_PROVIDER"
 
 
 def default_catalogue() -> dict[str, DemandProfile]:
@@ -68,6 +71,10 @@ def default_catalogue() -> dict[str, DemandProfile]:
     return {sku: DemandProfile(product=prod) for sku, prod in products.items()}
 
 
+def _default_demand_provider() -> str:
+    return os.getenv(DEMAND_PROVIDER_ENV, "llm")
+
+
 def generate_new_product_parameters(product_name: str, seed: int) -> tuple[float, float, float, float]:
     """Generate deterministic parameters for a new product based on name and seed.
 
@@ -103,6 +110,7 @@ class EnvConfig:
     max_turns: int = 2000
     minutes_per_turn: int = 60
     catalogue: dict[str, DemandProfile] = field(default_factory=default_catalogue)
+    demand_provider: str = field(default_factory=_default_demand_provider)
 
     def validate(self) -> None:
         if self.starting_cash < 0:
@@ -113,3 +121,5 @@ class EnvConfig:
             raise ValueError("minutes_per_turn must be positive")
         if self.slots_small < 0 or self.slots_large < 0:
             raise ValueError("slot counts must be non-negative")
+        if self.demand_provider.lower() not in {"llm", "deterministic", "rng"}:
+            raise ValueError("demand_provider must be 'llm' or 'deterministic'")

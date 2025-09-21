@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from .config import EnvConfig, generate_new_product_parameters
-from .demand import DemandModel
+from .demand import DemandModel, create_parameter_provider
 from .metrics import compute_net_worth, cumulative_units_sold, daily_report
 from .state import (
     LARGE_ITEM_ROWS,
@@ -53,10 +53,12 @@ class VendingEnv:
         )
         self.state.reset_daily_counters()
         self._rng = random.Random(self.config.seed)
+        demand_provider = create_parameter_provider(self.config.demand_provider)
         self._demand = DemandModel(
             self.config.seed + 1,
             self.state.demand_profiles.keys(),
             profiles=self.state.demand_profiles,
+            parameter_provider=demand_provider,
         )
         self._supplier = SupplierModel(self.config.seed + 2, self.state.demand_profiles)
         self._morning_initialised = False
