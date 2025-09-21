@@ -36,6 +36,11 @@ from examples.vending_bench.tools import (
 from inspect_agents.exceptions import ToolException
 
 
+@pytest.fixture(autouse=True)
+def disable_embedding_cache(monkeypatch):
+    monkeypatch.setenv("VENDING_BENCH_EMBED_CACHE", "off")
+
+
 class TestToolParameterValidation:
     """Test parameter validation within tool execution."""
 
@@ -470,6 +475,7 @@ class TestScratchpadSummarise:
             content="Reference to first note",
             metadata={"source_ids": [original_entries[0].id]},
             timestamp=base_timestamp,
+            embedding=memory_store.embed_text("Reference to first note"),
         )
         memory_store.vector_store.append(vector_entry)
 
