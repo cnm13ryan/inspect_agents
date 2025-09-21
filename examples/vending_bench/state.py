@@ -73,12 +73,16 @@ class SupplierProductOffer:
 
 @dataclass
 class SupplierContact:
-    """Supplier directory entry used for deterministic email responses."""
+    """Supplier directory entry used for email responses and GPT grounding."""
 
     name: str
     email: str
     categories: tuple[str, ...]
     products: dict[str, SupplierProductOffer]
+    phone: str | None = None
+    website: str | None = None
+    source: str = "stub"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

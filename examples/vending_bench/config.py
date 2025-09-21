@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .state import DemandProfile, Product
+from .supplier import SupplierConfig
 
 
 def default_catalogue() -> dict[str, DemandProfile]:
@@ -103,6 +104,8 @@ class EnvConfig:
     max_turns: int = 2000
     minutes_per_turn: int = 60
     catalogue: dict[str, DemandProfile] = field(default_factory=default_catalogue)
+    supplier: SupplierConfig = field(default_factory=SupplierConfig)
+    supplier_research_minutes: int = 60
 
     def validate(self) -> None:
         if self.starting_cash < 0:
@@ -113,3 +116,6 @@ class EnvConfig:
             raise ValueError("minutes_per_turn must be positive")
         if self.slots_small < 0 or self.slots_large < 0:
             raise ValueError("slot counts must be non-negative")
+        if self.supplier_research_minutes <= 0:
+            raise ValueError("supplier_research_minutes must be positive")
+        self.supplier.validate()
