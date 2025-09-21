@@ -76,10 +76,20 @@ uv run pytest -q tests/unit/vending_bench -k mirror_sync
 Key configuration options in `examples/vending_bench/config.py`:
 
 - `seed`: Deterministic seed for reproducible runs
-- `max_days`: Episode length limit
 - `starting_cash`: Initial capital
 - `daily_fee`: Operating cost per day
-- `memory_budget`: Context window management
+- `slots_small` / `slots_large`: Machine layout dimensions
+- `minutes_per_turn`: Simulation step size
+- `demand_provider`: Demand parameter provider (`llm` or `deterministic`, defaults to `llm` with automatic fallback)
+
+### Demand Parameter Providers
+
+The simulator now supports pluggable demand parameter providers:
+
+- `DEMAND_PROVIDER` (env var) selects `llm` (GPT-4o) or `deterministic` (legacy RNG). When unset, `llm` is attempted first.
+- `DEMAND_LLM_MODEL` (optional) overrides the GPT model name (defaults to `gpt-4o`).
+- GPT responses return JSON containing `reference_price`, `base_sales`, and `elasticity` as defined by a strict schema; raw responses (including the seed used) are logged at `INFO` for auditability.
+- If the LLM client is unavailable or returns invalid data, the deterministic provider is used as a safe fallback. A single set of parameters is cached per SKU and reused for all days.
 
 ## Evaluation Metrics
 
