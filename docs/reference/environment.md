@@ -224,6 +224,10 @@ References
   - OpenAI‑compatible vendors via `openai-api/<vendor>` also use
     `<VENDOR>_API_KEY` and `<VENDOR>_MODEL` (e.g., `LM_STUDIO_*`).
 
+- Demand parameter generation
+  - `DEMAND_PROVIDER` — `llm` (GPT-4o) or `deterministic` (legacy RNG). Defaults to `llm`; falls back automatically when the LLM client is unavailable.
+  - `DEMAND_LLM_MODEL` — optional override for the GPT model used by demand estimation (default `gpt-4o`).
+
 !!! note "Upstream Inspect‑AI environment variables"
     Some environment variables are defined and consumed by the upstream Inspect‑AI CLI/runtime rather than this repository. Common examples include:
 
