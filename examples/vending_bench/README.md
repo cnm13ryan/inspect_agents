@@ -80,6 +80,24 @@ Key configuration options in `examples/vending_bench/config.py`:
 - `starting_cash`: Initial capital
 - `daily_fee`: Operating cost per day
 - `memory_budget`: Context window management
+- `supplier`: `SupplierConfig` controlling minimum and maximum shipping lead times
+- `supplier_research_minutes`: Minutes advanced when the supervisor agent performs supplier research
+
+## Supplier Integrations
+
+Live supplier realism relies on external APIs. Configure the following environment variables when running with
+real integrations:
+
+- `PERPLEXITY_API_KEY` (optional): Enables Perplexity Chat Completions for supplier discovery. Override the model
+  with `PERPLEXITY_MODEL` if needed.
+- `OPENAI_API_KEY` (optional): Enables GPT-4o for grounded supplier email replies. Override the model with
+  `VENDING_SUPPLIER_GPT_MODEL` (defaults to `gpt-4o-mini`).
+- `VENDING_SUPPLIER_FORCE_STUB` (optional): Set to `1` to force deterministic stub mode even when credentials are
+  available—useful for offline CI runs.
+
+When credentials are not present the simulator automatically falls back to deterministic stub behaviour, preserving
+reproducibility. Live mode registers suppliers returned by Perplexity, grounds GPT replies on those results, and
+maintains 2–5 day delivery lead times consistent with the benchmark specification.
 
 ## Evaluation Metrics
 
