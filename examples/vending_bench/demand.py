@@ -1,14 +1,26 @@
-"""Elastic demand model with deterministic randomness."""
+"""Elastic demand model with configurable demand parameter providers."""
 
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
 import math
+import os
 import random
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any, Protocol, runtime_checkable
 
 from .state import DemandProfile, Product, Slot
+
+logger = logging.getLogger(__name__)
+
+
+DEMAND_PROVIDER_ENV = "DEMAND_PROVIDER"
+DEMAND_LLM_MODEL_ENV = "DEMAND_LLM_MODEL"
+DEFAULT_DEMAND_PROVIDER = "llm"
+DEFAULT_DEMAND_LLM_MODEL = "gpt-4o"
 
 
 @dataclass(frozen=True)
@@ -23,30 +35,200 @@ PRICE_FACTOR_MAX = 3.0
 VARIETY_TARGET = 4
 
 
-def generate_parameters(product: Product, *, seed: int | None = None) -> GeneratedDemandParameters:
-    """Deterministically generate demand parameters for a product."""
+def _stable_seed(product: Product, explicit_seed: int | None) -> int:
+    if explicit_seed is not None:
+        return explicit_seed
+    digest = hashlib.sha256(product.sku.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big")
 
-    base_seed: int
-    if seed is not None:
-        base_seed = seed
-    else:
-        # Stable seed using SKU; avoid Python hash randomisation.
-        digest = hashlib.sha256(product.sku.encode("utf-8")).digest()
-        base_seed = int.from_bytes(digest[:8], "big")
 
-    rng = random.Random(base_seed)
+@runtime_checkable
+class DemandParameterProvider(Protocol):
+    def generate(self, product: Product, *, seed: int) -> GeneratedDemandParameters:  # pragma: no cover - protocol
+        ...
 
-    base_price = max(0.05, product.base_price)
-    reference_price = max(0.05, rng.uniform(0.9, 1.1) * base_price)
 
-    base_demand = max(0.25, product.base_daily_demand)
-    base_sales = max(0.25, rng.uniform(0.8, 1.2) * base_demand)
+class DeterministicDemandParameterProvider:
+    """Pure RNG-based provider that mirrors the legacy behaviour."""
 
-    elasticity_hint = product.price_elasticity if product.price_elasticity != 0 else -1.0
-    elasticity_randomiser = rng.uniform(0.85, 1.15)
-    elasticity = elasticity_hint * elasticity_randomiser
-    # Ensure we always return a negative elasticity within sane bounds
-    elasticity = -abs(elasticity)
+    def generate(self, product: Product, *, seed: int) -> GeneratedDemandParameters:
+        rng = random.Random(seed)
+
+        base_price = max(0.05, product.base_price)
+        reference_price = max(0.05, rng.uniform(0.9, 1.1) * base_price)
+
+        base_demand = max(0.25, product.base_daily_demand)
+        base_sales = max(0.25, rng.uniform(0.8, 1.2) * base_demand)
+
+        elasticity_hint = product.price_elasticity if product.price_elasticity != 0 else -1.0
+        elasticity_randomiser = rng.uniform(0.85, 1.15)
+        elasticity = elasticity_hint * elasticity_randomiser
+        elasticity = -abs(elasticity)
+        elasticity = max(-3.0, min(-0.1, elasticity))
+
+        return GeneratedDemandParameters(
+            reference_price=reference_price,
+            base_sales=base_sales,
+            elasticity=elasticity,
+        )
+
+
+class LLMDemandParameterProvider:
+    """LLM-backed demand provider with deterministic fallback."""
+
+    def __init__(
+        self,
+        *,
+        model: str | None = None,
+        fallback: DemandParameterProvider | None = None,
+        log_raw: bool = True,
+    ) -> None:
+        self._model = model or os.getenv(DEMAND_LLM_MODEL_ENV, DEFAULT_DEMAND_LLM_MODEL)
+        self._fallback = fallback or DeterministicDemandParameterProvider()
+        self._log_raw = log_raw
+        self._client: Any | None = None
+        self._client_error: Exception | None = None
+
+    def _ensure_client(self) -> Any | None:
+        if self._client is not None or self._client_error is not None:
+            return self._client
+
+        try:
+            from openai import OpenAI  # type: ignore import-not-found
+        except Exception as exc:  # pragma: no cover - exercised via fallback tests
+            self._client_error = exc
+            logger.debug("OpenAI client import failed; using deterministic fallback", exc_info=exc)
+            return None
+
+        try:
+            self._client = OpenAI()
+        except Exception as exc:  # pragma: no cover - exercised via fallback tests
+            self._client_error = exc
+            logger.warning("Failed to initialise OpenAI client; using deterministic fallback", exc_info=exc)
+            return None
+
+        return self._client
+
+    def generate(self, product: Product, *, seed: int) -> GeneratedDemandParameters:
+        client = self._ensure_client()
+        if client is None:
+            return self._fallback.generate(product, seed=seed)
+
+        payload = {
+            "sku": product.sku,
+            "name": product.name,
+            "unit_cost": product.unit_cost,
+            "base_price_hint": product.base_price,
+            "base_daily_demand_hint": product.base_daily_demand,
+            "price_elasticity_hint": product.price_elasticity,
+            "size": product.size,
+            "variety_class": product.variety_class,
+            "slot_capacity": product.slot_capacity,
+            "seed": seed,
+        }
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "reference_price": {"type": "number"},
+                "base_sales": {"type": "number"},
+                "elasticity": {"type": "number"},
+            },
+            "required": ["reference_price", "base_sales", "elasticity"],
+            "additionalProperties": False,
+        }
+
+        try:
+            response = client.responses.create(
+                model=self._model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": "You estimate vending-machine demand parameters. Respond with JSON only.",
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Given the product profile below, provide reference_price, base_sales, and elasticity "
+                            "for day-zero demand modelling. Use the hints as priors, keep elasticity negative, "
+                            "and respect realistic kiosk pricing."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(payload, sort_keys=True),
+                    },
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "demand_parameters",
+                        "schema": schema,
+                    },
+                },
+                temperature=0.0,
+            )
+        except Exception as exc:  # pragma: no cover - exercised via fallback tests
+            logger.warning("LLM demand provider call failed; using deterministic fallback", exc_info=exc)
+            return self._fallback.generate(product, seed=seed)
+
+        if self._log_raw:
+            try:
+                logger.info(
+                    "LLM demand provider raw response for %s: %s",
+                    product.sku,
+                    json.dumps(response.model_dump(), default=str)
+                    if hasattr(response, "model_dump")
+                    else str(response),
+                )
+            except Exception:  # pragma: no cover - logging best-effort
+                logger.debug("Failed to log LLM raw response", exc_info=True)
+
+        try:
+            data = _extract_response_json(response)
+            return _normalise_parameters(product, data)
+        except Exception as exc:  # pragma: no cover - exercised via fallback tests
+            logger.warning(
+                "LLM demand provider returned invalid payload for %s; falling back", product.sku, exc_info=exc
+            )
+            return self._fallback.generate(product, seed=seed)
+
+
+def _extract_response_json(response: Any) -> dict[str, Any]:
+    if hasattr(response, "output"):
+        for item in getattr(response, "output", []):
+            for part in getattr(item, "content", []):
+                part_type = getattr(part, "type", None)
+                if part_type == "output_json" and hasattr(part, "json_object"):
+                    return dict(part.json_object)
+                if part_type in {"text", "output_text"} and hasattr(part, "text"):
+                    return json.loads(part.text)
+
+    if hasattr(response, "output_text"):
+        return json.loads(response.output_text)
+
+    if hasattr(response, "model_dump"):
+        dumped = response.model_dump()
+        if isinstance(dumped, dict):
+            try:
+                return dict(dumped["output"][0]["content"][0]["json_object"])
+            except Exception as exc:  # pragma: no cover - fallback path
+                raise ValueError("Unable to parse LLM response JSON") from exc
+
+    raise ValueError("LLM response did not contain JSON output")
+
+
+def _normalise_parameters(product: Product, data: dict[str, Any]) -> GeneratedDemandParameters:
+    try:
+        reference_price = float(data["reference_price"])
+        base_sales = float(data["base_sales"])
+        elasticity = float(data["elasticity"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Invalid demand response fields") from exc
+
+    reference_price = max(0.05, reference_price)
+    base_sales = max(0.25, base_sales)
+    elasticity = -abs(elasticity) if elasticity >= 0 else elasticity
     elasticity = max(-3.0, min(-0.1, elasticity))
 
     return GeneratedDemandParameters(
@@ -54,6 +236,38 @@ def generate_parameters(product: Product, *, seed: int | None = None) -> Generat
         base_sales=base_sales,
         elasticity=elasticity,
     )
+
+
+def create_parameter_provider(name: str | None = None) -> DemandParameterProvider:
+    provider_name = (name or os.getenv(DEMAND_PROVIDER_ENV, DEFAULT_DEMAND_PROVIDER)).strip().lower()
+    if provider_name in {"deterministic", "rng"}:
+        return DeterministicDemandParameterProvider()
+    if provider_name == "llm":
+        return LLMDemandParameterProvider()
+    raise ValueError(f"Unsupported demand provider '{provider_name}'")
+
+
+_DEFAULT_PROVIDER: DemandParameterProvider | None = None
+
+
+def _default_provider() -> DemandParameterProvider:
+    global _DEFAULT_PROVIDER
+    if _DEFAULT_PROVIDER is None:
+        _DEFAULT_PROVIDER = create_parameter_provider()
+    return _DEFAULT_PROVIDER
+
+
+def generate_parameters(
+    product: Product,
+    *,
+    seed: int | None = None,
+    provider: DemandParameterProvider | None = None,
+) -> GeneratedDemandParameters:
+    """Generate demand parameters using the configured provider."""
+
+    provider_obj = provider or _default_provider()
+    resolved_seed = _stable_seed(product, seed)
+    return provider_obj.generate(product, seed=resolved_seed)
 
 
 @dataclass
@@ -70,11 +284,18 @@ class SlotSale:
 
 
 class DemandModel:
-    def __init__(self, seed: int, skus: Iterable[str], profiles: dict[str, DemandProfile] | None = None) -> None:
+    def __init__(
+        self,
+        seed: int,
+        skus: Iterable[str],
+        profiles: dict[str, DemandProfile] | None = None,
+        parameter_provider: DemandParameterProvider | None = None,
+    ) -> None:
         self._seed = seed
         self._sku_index: dict[str, int] = {sku: idx for idx, sku in enumerate(sorted(set(skus)))}
         self._weather_cache: dict[int, float] = {}
         self._noise_cache: dict[tuple[int, str], float] = {}
+        self._parameter_provider = parameter_provider or _default_provider()
         if profiles:
             self.ensure_profiles(profiles)
 
@@ -102,7 +323,11 @@ class DemandModel:
         if reference_price is not None and base_sales is not None and elasticity is not None:
             return reference_price, base_sales, elasticity
 
-        params = generate_parameters(profile.product, seed=self._parameter_seed(sku))
+        params = generate_parameters(
+            profile.product,
+            seed=self._parameter_seed(sku),
+            provider=self._parameter_provider,
+        )
         profile.reference_price = params.reference_price
         profile.base_daily_sales = params.base_sales
         profile.price_elasticity = params.elasticity
