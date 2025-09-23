@@ -27,7 +27,7 @@ from .state import (
     clone_machine_inventory,
     serialize_machine_inventory,
 )
-from .supplier import SupplierEmailResponse, SupplierModel
+from .supplier import SupplierContact, SupplierEmailResponse, SupplierModel
 
 
 @dataclass
@@ -60,7 +60,7 @@ class VendingEnv:
             profiles=self.state.demand_profiles,
             parameter_provider=demand_provider,
         )
-        self._supplier = SupplierModel(self.config.seed + 2, self.state.demand_profiles)
+        self._supplier = SupplierModel(self.config.seed + 2, self.state.demand_profiles, config=self.config.supplier)
         self._morning_initialised = False
 
     @staticmethod
@@ -139,9 +139,31 @@ class VendingEnv:
         # Ensure the supplier model knows about this new product
         self._supplier._products[sku] = product
         # Rebuild supplier contacts to include the new product
-        self._supplier._contacts = self._supplier._build_contacts()
+        self._supplier.refresh_stub_directory()
 
         return profile
+
+    def register_supplier_contacts(self, contacts: Iterable[SupplierContact]) -> None:
+        """Register supplier contacts discovered via external search."""
+
+        self._supplier.register_external_contacts(contacts)
+        directory = self.state.telemetry.setdefault("supplier_contacts", {})
+        for contact in contacts:
+            catalog_summary = {
+                sku: {
+                    "min_order": offer.min_order_quantity,
+                    "wholesale_price": offer.wholesale_price,
+                    "lead_time_days": offer.lead_time_days,
+                }
+                for sku, offer in contact.products.items()
+            }
+            directory[contact.email] = {
+                "name": contact.name,
+                "source": contact.source,
+                "website": contact.website,
+                "phone": contact.phone,
+                "catalog": catalog_summary,
+            }
 
     def advance_time(self, minutes: int | None = None) -> None:
         if minutes is None:
