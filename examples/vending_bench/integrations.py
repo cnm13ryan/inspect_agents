@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import requests
 
@@ -116,9 +117,7 @@ class PerplexityClient:
             timeout=self._timeout,
         )
         if response.status_code >= 400:
-            raise PerplexityIntegrationError(
-                f"Perplexity API returned {response.status_code}: {response.text[:200]}"
-            )
+            raise PerplexityIntegrationError(f"Perplexity API returned {response.status_code}: {response.text[:200]}")
 
         try:
             body = response.json()
@@ -247,15 +246,15 @@ class PerplexityClient:
         }
 
 
-def deterministic_supplier_hits(
-    *, env: Any, limit: int, source: str = "stub"
-) -> list[SupplierSearchHit]:
+def deterministic_supplier_hits(*, env: Any, limit: int, source: str = "stub") -> list[SupplierSearchHit]:
     """Return deterministic supplier hits aligned with the current catalogue."""
 
     catalogue = env.state.demand_profiles
     hits: list[SupplierSearchHit] = []
 
-    def build_items(skus: Iterable[str], *, multiplier: float, min_order: int, lead: tuple[int, int]) -> list[SupplierSearchItem]:
+    def build_items(
+        skus: Iterable[str], *, multiplier: float, min_order: int, lead: tuple[int, int]
+    ) -> list[SupplierSearchItem]:
         items: list[SupplierSearchItem] = []
         for sku in skus:
             profile = catalogue.get(sku)
