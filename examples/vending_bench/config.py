@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field
 
 from .state import DemandProfile, Product
+from .supplier import SupplierConfig
 
 DEMAND_PROVIDER_ENV = "DEMAND_PROVIDER"
 
@@ -111,6 +112,8 @@ class EnvConfig:
     minutes_per_turn: int = 60
     catalogue: dict[str, DemandProfile] = field(default_factory=default_catalogue)
     demand_provider: str = field(default_factory=_default_demand_provider)
+    supplier: SupplierConfig = field(default_factory=SupplierConfig)
+    supplier_research_minutes: int = 60
 
     def validate(self) -> None:
         if self.starting_cash < 0:
@@ -123,3 +126,6 @@ class EnvConfig:
             raise ValueError("slot counts must be non-negative")
         if self.demand_provider.lower() not in {"llm", "deterministic", "rng"}:
             raise ValueError("demand_provider must be 'llm' or 'deterministic'")
+        if self.supplier_research_minutes <= 0:
+            raise ValueError("supplier_research_minutes must be positive")
+        self.supplier.validate()
