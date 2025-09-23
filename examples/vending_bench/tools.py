@@ -803,7 +803,9 @@ def set_price() -> Tool:
         """
 
         if not updates:
-            raise ToolException("At least one price update is required. Please provide the slot row, column, and target price.")
+            raise ToolException(
+                "At least one price update is required. Please provide the slot row, column, and target price."
+            )
 
         validated_updates: list[SlotPriceUpdate] = []
         for update in updates:
