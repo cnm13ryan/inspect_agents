@@ -8,14 +8,29 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 from inspect_agents.exceptions import ToolException
 
+from .integrations import (
+    PerplexityClient,
+    PerplexityIntegrationError,
+    SupplierSearchHit,
+    SupplierSearchItem,
+    deterministic_supplier_hits,
+)
 from .runtime import get_env, increment_tool_count
-from .state import MINUTES_PER_DAY, EmailMessage, aggregate_sku_quantities, serialize_machine_inventory
+from .state import (
+    MINUTES_PER_DAY,
+    EmailMessage,
+    SupplierContact,
+    SupplierProductOffer,
+    aggregate_sku_quantities,
+    serialize_machine_inventory,
+)
 
 if TYPE_CHECKING:
     from inspect_ai.tool._tool import Tool
@@ -226,6 +241,88 @@ def _inventory_snapshot(location: str) -> tuple[dict[str, int], int]:
     total_units = sum(inventory.values())
 
     return inventory, total_units
+
+
+def _should_force_stub_mode() -> bool:
+    """Return True if integrations should operate in deterministic stub mode."""
+
+    return os.getenv("VENDING_SUPPLIER_FORCE_STUB", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _default_lead_range(env: Any) -> tuple[int, int]:
+    cfg = getattr(env.config, "supplier", None)
+    if cfg is None:
+        return (2, 5)
+    return (max(1, cfg.min_lead_time_days), max(cfg.min_lead_time_days, cfg.max_lead_time_days))
+
+
+def _build_offer_from_item(
+    env: Any,
+    item: SupplierSearchItem,
+    default_lead: tuple[int, int],
+) -> SupplierProductOffer | None:
+    sku = item.sku.lower()
+    profile = env.state.demand_profiles.get(sku)
+    if profile is None:
+        return None
+
+    min_order = item.min_order if item.min_order and item.min_order > 0 else max(6, profile.product.slot_capacity)
+    wholesale = item.wholesale_price if item.wholesale_price and item.wholesale_price > 0 else profile.product.unit_cost
+    lead = item.lead_time_days or default_lead
+
+    keywords = {
+        profile.product.sku.lower(),
+        profile.product.name.lower(),
+        profile.product.name.lower().replace(" ", ""),
+    }
+
+    return SupplierProductOffer(
+        product=profile.product,
+        wholesale_price=wholesale,
+        min_order_quantity=min_order,
+        lead_time_days=lead,
+        keywords=tuple(sorted(keywords)),
+    )
+
+
+def _hit_to_contact(env: Any, hit: SupplierSearchHit, default_lead: tuple[int, int]) -> SupplierContact | None:
+    offers: dict[str, SupplierProductOffer] = {}
+    for item in hit.catalog:
+        offer = _build_offer_from_item(env, item, default_lead)
+        if offer is not None:
+            offers[offer.product.sku] = offer
+
+    if not offers:
+        return None
+
+    metadata = {"notes": hit.notes, "raw": hit.raw}
+    return SupplierContact(
+        name=hit.name,
+        email=hit.email.lower(),
+        categories=hit.tags,
+        products=offers,
+        phone=hit.phone,
+        website=hit.website,
+        source=hit.source,
+        metadata=metadata,
+    )
+
+
+def _format_catalog_output(contact: SupplierContact) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for offer in contact.products.values():
+        lead_min, lead_max = offer.lead_time_days
+        lead_text = f"{lead_min}-{lead_max}" if lead_min != lead_max else str(lead_min)
+        entries.append(
+            {
+                "sku": offer.product.sku,
+                "name": offer.product.name,
+                "min_order": offer.min_order_quantity,
+                "wholesale_price": round(offer.wholesale_price, 2),
+                "lead_time_days": lead_text,
+            }
+        )
+    return entries
 
 
 def _log_tool_event(
@@ -881,17 +978,17 @@ def wait_for_next_day() -> Tool:
 
 
 def ai_web_search() -> Tool:
-    """Perform web search for supplier information (deterministic stub)."""
+    """Perform web search for supplier information via Perplexity with stub fallback."""
 
     from inspect_ai.tool._tool import tool
 
     @tool(name="ai_web_search")
     def ai_web_search_impl(query: str, max_results: int = 5) -> WebSearchResult:
-        """Search for supplier contacts and product information (deterministic results).
+        """Search for supplier contacts and product information.
 
         Args:
             query: Search query string
-            max_results: Maximum number of search results to return
+            max_results: Maximum number of search results to return (1-20)
         """
 
         if max_results < 1 or max_results > 20:
@@ -901,104 +998,79 @@ def ai_web_search() -> Tool:
 
         try:
             env = get_env()
-            env.advance_time(60)  # 1 hour for research
+            available_skus = list(env.state.demand_profiles.keys())
+            default_lead = _default_lead_range(env)
 
-            # Enhanced deterministic supplier search results with dynamic content based on catalog
-            stub_results: list[dict[str, Any]] = []
-            normalized_query = query.lower()
+            paired: list[tuple[SupplierSearchHit, SupplierContact]] = []
+            mode = "stub"
 
-            # Get available SKUs from environment catalog
-            available_skus = set(env.state.demand_profiles.keys())
-
-            if any(term in normalized_query for term in ("supplier", "vendor", "wholesale", "contact")):
-                # Build dynamic supplier results based on available catalog
-                suppliers_data = [
-                    {
-                        "name": "Regional Food Distributors Inc.",
-                        "email": "orders@rfd-inc.com",
-                        "phone": "+1-800-555-0110",
-                        "url": "https://example-supplier1.com",
-                        "snippet": "Bulk beverage catalogue with predictable 2-5 day delivery windows across the Midwest.",
-                        "categories": ["beverage"],
-                        "specialties": ["coke", "water", "energy_drink"],
-                        "min_orders": {"coke": 24, "water": 24, "energy_drink": 12},
-                        "price_multiplier": 0.95,
-                        "lead_time": "2-5",
-                    },
-                    {
-                        "name": "QuickStock Vending Solutions",
-                        "email": "supply@quickstock.com",
-                        "phone": "+1-800-555-0148",
-                        "url": "https://example-supplier2.com",
-                        "snippet": "Fast-turn snack distributor with local cross-dock for 1-3 day replenishment.",
-                        "categories": ["snack", "impulse"],
-                        "specialties": ["chips", "chocolate_bar", "energy_drink"],
-                        "min_orders": {"chips": 12, "chocolate_bar": 12, "energy_drink": 12},
-                        "price_multiplier": 0.90,
-                        "lead_time": "1-3",
-                    },
-                    {
-                        "name": "Metro Wholesale Foods",
-                        "email": "sales@metrofoods.example",
-                        "phone": "+1-800-555-0190",
-                        "url": "https://example-supplier3.com",
-                        "snippet": "Balanced assortment for office routes with 3-6 day scheduled deliveries.",
-                        "categories": ["balanced", "office"],
-                        "specialties": list(available_skus),
-                        "min_orders": {sku: 18 for sku in available_skus},
-                        "price_multiplier": 1.0,
-                        "lead_time": "3-6",
-                    },
-                ]
-
-                for supplier in suppliers_data:
-                    # Build catalog for available SKUs
-                    catalog = []
-                    for sku in supplier["specialties"]:
-                        if sku in available_skus:
-                            profile = env.state.demand_profiles[sku]
-                            wholesale_price = profile.product.unit_cost * supplier["price_multiplier"]
-                            catalog.append(
-                                {
-                                    "sku": sku,
-                                    "name": profile.product.name,
-                                    "category": "beverage"
-                                    if "beverage" in supplier["categories"]
-                                    else profile.product.variety_class.lower(),
-                                    "min_order": supplier["min_orders"].get(sku, 18),
-                                    "wholesale_price": round(wholesale_price, 2),
-                                    "lead_time_days": supplier["lead_time"],
-                                }
-                            )
-
-                    if catalog:  # Only include suppliers with available products
-                        stub_results.append(
-                            {
-                                "title": supplier["name"],
-                                "url": supplier["url"],
-                                "snippet": supplier["snippet"],
-                                "contact": {"email": supplier["email"], "phone": supplier["phone"]},
-                                "categories": supplier["categories"],
-                                "catalog": catalog,
-                            }
+            if not _should_force_stub_mode():
+                api_key = os.getenv("PERPLEXITY_API_KEY")
+                if api_key:
+                    try:
+                        client = PerplexityClient(api_key=api_key)
+                        live_hits = client.search_suppliers(query=query, limit=max_results, known_skus=available_skus)
+                        for hit in live_hits:
+                            if not hit.has_known_skus(available_skus):
+                                continue
+                            contact = _hit_to_contact(env, hit, default_lead)
+                            if contact is not None:
+                                paired.append((hit, contact))
+                        if paired:
+                            mode = "live"
+                    except PerplexityIntegrationError as exc:
+                        logging.getLogger(__name__).warning(
+                            "Perplexity search failed (%s); falling back to stub results", exc
                         )
-            elif any(term in normalized_query for term in ("product list", "snack", "catalogue", "pricing")):
-                stub_results = [
-                    {
-                        "title": "Top vending machine performers",
-                        "url": "https://example-market-research.com",
-                        "snippet": "Chilled beverages and grab-and-go snacks drive 68% of office vending revenue.",
-                        "data": {
-                            "beverage": {"top_skus": ["coke", "water", "energy_drink"], "avg_wholesale": 0.60},
-                            "snack": {"top_skus": ["chips", "chocolate_bar"], "avg_wholesale": 0.62},
-                        },
-                    }
-                ]
+                    except Exception as exc:  # pragma: no cover - network failures
+                        logging.getLogger(__name__).warning(
+                            "Unexpected Perplexity error (%s); using deterministic stub", exc
+                        )
 
-            result = WebSearchResult(query=query, results=stub_results[:max_results])
+            if not paired:
+                stub_hits = deterministic_supplier_hits(env=env, limit=max_results)
+                for hit in stub_hits:
+                    contact = _hit_to_contact(env, hit, default_lead)
+                    if contact is not None:
+                        paired.append((hit, contact))
+                mode = "stub"
+
+            contacts = [contact for _, contact in paired]
+            if contacts:
+                env.register_supplier_contacts(contacts)
+
+            env.advance_time(env.config.supplier_research_minutes)
+
+            results_payload: list[dict[str, Any]] = []
+            for hit, contact in paired[:max_results]:
+                results_payload.append(
+                    {
+                        "title": contact.name,
+                        "url": contact.website,
+                        "snippet": hit.notes,
+                        "contact": {"email": contact.email, "phone": contact.phone},
+                        "categories": list(contact.categories),
+                        "catalog": _format_catalog_output(contact),
+                        "source": contact.source,
+                    }
+                )
+
+            env.state.telemetry.setdefault("supplier_search_history", []).append(
+                {
+                    "query": query,
+                    "mode": mode,
+                    "results": [contact.email for contact in contacts],
+                    "day": env.state.day,
+                }
+            )
+
+            result = WebSearchResult(query=query, results=results_payload[:max_results])
 
             _log_tool_event(
-                name="ai_web_search", phase="end", extra={"query": query, "results_count": len(result.results)}, t0=t0
+                name="ai_web_search",
+                phase="end",
+                extra={"query": query, "results_count": len(result.results), "mode": mode},
+                t0=t0,
             )
 
             return result
