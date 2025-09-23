@@ -4,8 +4,17 @@ from __future__ import annotations
 
 import pytest
 
+from examples.vending_bench import demand as demand_module
 from examples.vending_bench.demand import DemandModel, generate_parameters
 from examples.vending_bench.state import DemandProfile, Product, Slot
+
+
+@pytest.fixture(autouse=True)
+def _force_deterministic_provider(monkeypatch):
+    """Ensure legacy deterministic provider for demand-model tests."""
+
+    monkeypatch.setenv("DEMAND_PROVIDER", "deterministic")
+    monkeypatch.setattr(demand_module, "_DEFAULT_PROVIDER", None, raising=False)
 
 
 def _build_product(*, sku: str = "test_sku") -> Product:

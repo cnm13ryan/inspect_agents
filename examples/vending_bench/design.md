@@ -45,7 +45,7 @@
 - Use `ai_web_search` to discover products and contacts, generate quotes with deterministic LLM calls, and attach replies to email inbox/outbox.【F:examples/vending_bench/source_excerpts.md-L10-L13】
 
 ### Demand Model
-- Generate reference prices, elasticity, and base sales at order time; compute demand via elasticity adjustments, seasonal/weather multipliers, variety penalties, and capped noisy draws.【F:examples/vending_bench/source_excerpts.md-L17-L19】
+- Generate reference prices, elasticity, and base sales via a GPT-4o-backed provider (JSON schema) with deterministic fallback when API access is unavailable; compute demand via elasticity adjustments, seasonal/weather multipliers, variety penalties, and capped noisy draws.【F:examples/vending_bench/source_excerpts.md-L17-L19】
 
 ### Financial Management
 - Track machine cash versus liquid balance, deduct daily fees, enforce buffers, and trigger price or ordering adjustments when thresholds fall below heuristics.【F:examples/vending_bench/source_excerpts.md-L15-L16】【F:examples/vending_bench/source_excerpts.md-L26-L26】
