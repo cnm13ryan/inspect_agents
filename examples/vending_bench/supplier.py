@@ -1,12 +1,14 @@
-"""Deterministic supplier fixtures and email responders for the vending simulator."""
+"""Supplier email responders and integrations for the vending simulator."""
 
 from __future__ import annotations
 
+import logging
+import os
 import random
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .state import (
     EmailMessage,
@@ -17,14 +19,18 @@ from .state import (
     SupplierProductOffer,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover - import-time guard only
     from .state import DemandProfile
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class SupplierConfig:
-    min_lead_time_days: int = 1
-    max_lead_time_days: int = 4
+    """Configuration controlling supplier lead times and behaviour."""
+
+    min_lead_time_days: int = 2
+    max_lead_time_days: int = 5
 
     def validate(self) -> None:
         if self.min_lead_time_days < 0:
@@ -57,19 +63,40 @@ class SupplierModel:
         self.config = config or SupplierConfig()
         self.config.validate()
 
-        # Copy base product data for deterministic offers
         self._products: dict[str, Product] = {sku: profile.product for sku, profile in catalogue.items()}
-        self._contacts = self._build_contacts()
+        self._stub_contacts = self._build_contacts()
+        self._dynamic_contacts: dict[str, SupplierContact] = {}
+        self._contacts: dict[str, SupplierContact] = dict(self._stub_contacts)
+        self._directory_mode: str = "stub"
+
+        self._gpt_api_key = os.getenv("OPENAI_API_KEY")
+        self._force_stub = os.getenv("VENDING_SUPPLIER_FORCE_STUB", "").strip().lower() in {"1", "true", "yes"}
+        self._gpt_model = os.getenv("VENDING_SUPPLIER_GPT_MODEL", "gpt-4o-mini")
+        self._gpt_client: Any | None = None
 
     def supplier_directory(self) -> dict[str, SupplierContact]:
         """Expose the supplier directory for inspection/testing."""
 
-        return self._contacts.copy()
+        return dict(self._contacts)
+
+    def register_external_contacts(self, contacts: Iterable[SupplierContact]) -> None:
+        """Register live supplier contacts sourced from Perplexity search."""
+
+        for contact in contacts:
+            email = contact.email.lower()
+            contact.email = email
+            source = contact.source or contact.metadata.get("source", "perplexity")
+            contact.source = source
+            contact.metadata.setdefault("source", source)
+            self._dynamic_contacts[email] = contact
+            self._contacts[email] = contact
+            if source != "stub":
+                self._directory_mode = "live"
 
     def process_email(self, state: SimulatorState, message: EmailMessage) -> SupplierEmailResponse:
         """Return a reply and optional order(s) in response to an outbound email."""
 
-        contact = self._contacts.get(message.recipient.lower())
+        contact = self._lookup_contact(message.recipient)
         if contact is None:
             return SupplierEmailResponse(reply=None, orders=[])
 
@@ -85,14 +112,19 @@ class SupplierModel:
             if not requested:
                 return SupplierEmailResponse(
                     reply=self._clarification_response(
-                        contact, message, "Please specify quantities for each SKU you'd like to order.", state.day
+                        contact,
+                        message,
+                        "Please specify quantities for each SKU you'd like to order.",
+                        state.day,
                     ),
                     orders=[],
                 )
 
             missing_requirements: list[str] = []
             for sku, qty in requested.items():
-                offer = contact.products[sku]
+                offer = contact.products.get(sku)
+                if offer is None:
+                    continue
                 if qty < offer.min_order_quantity:
                     missing_requirements.append(
                         f"{offer.product.name} (SKU {sku}) requires a minimum order of {offer.min_order_quantity} units"
@@ -131,7 +163,18 @@ class SupplierModel:
                     orders=[],
                 )
 
-            offers = [contact.products[sku] for sku in requested.keys()]
+            offers = [contact.products[sku] for sku in requested.keys() if sku in contact.products]
+            if not offers:
+                return SupplierEmailResponse(
+                    reply=self._clarification_response(
+                        contact,
+                        message,
+                        "We could not match the requested SKUs to our catalog. Please reference items from the quote.",
+                        state.day,
+                    ),
+                    orders=[],
+                )
+
             total_cost = sum(requested[offer.product.sku] * offer.wholesale_price for offer in offers)
             if state.cash_balance < total_cost:
                 return SupplierEmailResponse(
@@ -151,7 +194,6 @@ class SupplierModel:
             reply = self._order_confirmation(contact, message, orders, state.day)
             return SupplierEmailResponse(reply=reply, orders=orders)
 
-        # Default response asking for clarification when the intent is unclear
         return SupplierEmailResponse(
             reply=self._clarification_response(
                 contact,
@@ -175,6 +217,14 @@ class SupplierModel:
         return delivered, pending
 
     # Internal helpers -----------------------------------------------------------------
+
+    def _lookup_contact(self, email: str) -> SupplierContact | None:
+        key = email.lower()
+        if key in self._dynamic_contacts:
+            return self._dynamic_contacts[key]
+        if self._directory_mode == "stub":
+            return self._stub_contacts.get(key)
+        return None
 
     def _build_contacts(self) -> dict[str, SupplierContact]:
         """Construct deterministic supplier directory."""
@@ -200,6 +250,7 @@ class SupplierModel:
                 keywords=tuple(sorted(keywords)),
             )
 
+        baseline_lead = self._baseline_lead()
         contacts = [
             SupplierContact(
                 name="Regional Food Distributors Inc.",
@@ -210,10 +261,16 @@ class SupplierModel:
                         sku,
                         wholesale_price=self._products[sku].unit_cost * 0.95,
                         min_order=24 if sku != "energy_drink" else 12,
-                        lead=(2, 5),
+                        lead=baseline_lead,
                     )
                     for sku in ("coke", "water", "energy_drink")
                     if sku in self._products
+                },
+                phone="+1-800-555-0110",
+                website="https://example-supplier1.com",
+                source="stub",
+                metadata={
+                    "notes": "Bulk beverage catalogue with predictable delivery windows.",
                 },
             ),
             SupplierContact(
@@ -225,10 +282,16 @@ class SupplierModel:
                         sku,
                         wholesale_price=self._products[sku].unit_cost * 0.9,
                         min_order=12,
-                        lead=(1, 3),
+                        lead=baseline_lead,
                     )
                     for sku in ("chips", "chocolate_bar", "energy_drink")
                     if sku in self._products
+                },
+                phone="+1-800-555-0148",
+                website="https://example-supplier2.com",
+                source="stub",
+                metadata={
+                    "notes": "Fast-turn snack distributor with local cross-dock facilities.",
                 },
             ),
             SupplierContact(
@@ -240,15 +303,32 @@ class SupplierModel:
                         sku,
                         wholesale_price=self._products[sku].unit_cost,
                         min_order=18,
-                        lead=(3, 6),
+                        lead=baseline_lead,
                         extra_keywords=(self._products[sku].variety_class.lower(),),
                     )
                     for sku in self._products.keys()
+                },
+                phone="+1-800-555-0190",
+                website="https://example-supplier3.com",
+                source="stub",
+                metadata={
+                    "notes": "Balanced assortment for office routes with scheduled deliveries.",
                 },
             ),
         ]
 
         return {contact.email.lower(): contact for contact in contacts if contact.products}
+
+    def refresh_stub_directory(self) -> None:
+        """Rebuild deterministic contacts when the catalogue changes."""
+
+        self._stub_contacts = self._build_contacts()
+        if self._directory_mode == "stub":
+            self._contacts = dict(self._stub_contacts)
+        else:
+            merged = dict(self._stub_contacts)
+            merged.update(self._dynamic_contacts)
+            self._contacts = merged
 
     def _is_quote_request(self, subject: str, body: str) -> bool:
         return any(keyword in subject or keyword in body for keyword in self.QUOTE_KEYWORDS)
@@ -278,6 +358,12 @@ class SupplierModel:
         return "deliver" in lower_body and "to" in lower_body
 
     def _quote_response(self, contact: SupplierContact, message: EmailMessage, current_day: int) -> EmailMessage:
+        subject = f"Re: {message.subject or 'Supplier inquiry'}"
+        if self._gpt_enabled():
+            generated = self._quote_response_gpt(contact, message, subject, current_day)
+            if generated is not None:
+                return generated
+
         lines = [
             f"Hello, this is {contact.name}.",
             "Here are our current wholesale options:",
@@ -294,10 +380,62 @@ class SupplierModel:
         body = "\n".join(lines)
         return EmailMessage(
             day=current_day + 1,
-            subject=f"Re: {message.subject or 'Supplier inquiry'}",
+            subject=subject,
             body=body,
             sender=contact.email,
             recipient=message.sender,
+        )
+
+    def _quote_response_gpt(
+        self,
+        contact: SupplierContact,
+        message: EmailMessage,
+        subject: str,
+        current_day: int,
+    ) -> EmailMessage | None:
+        client = self._ensure_gpt_client()
+        if client is None:
+            return None
+
+        catalog_lines = []
+        for offer in sorted(contact.products.values(), key=lambda o: o.product.name):
+            lead_min, lead_max = offer.lead_time_days
+            catalog_lines.append(
+                "SKU {sku}: {name}, price ${price:.2f}, MOQ {moq}, lead {lead_min}-{lead_max} days".format(
+                    sku=offer.product.sku,
+                    name=offer.product.name,
+                    price=offer.wholesale_price,
+                    moq=offer.min_order_quantity,
+                    lead_min=lead_min,
+                    lead_max=lead_max,
+                )
+            )
+
+        metadata_notes = contact.metadata.get("notes") if contact.metadata else None
+        system_prompt = (
+            f"You are {contact.name}'s account manager."
+            " Write a concise, professional email responding to a vending operator's quote request."
+            " Include pricing, minimum order quantities, and delivery lead times for each SKU."
+            " Do not invent SKUs beyond those provided."
+        )
+        user_prompt = (
+            f"Customer message (day {current_day}):\n{message.body}\n\n"
+            f"Supplier details:\nWebsite: {contact.website or 'N/A'}\n"
+            f"Phone: {contact.phone or 'N/A'}\n"
+            f"Notes: {metadata_notes or 'n/a'}\n"
+            "Catalog entries:\n"
+            + "\n".join(catalog_lines)
+            + "\nRespond with a short greeting, bullet list of the catalog terms, and a closing line."
+        )
+
+        return self._generate_gpt_email(
+            client=client,
+            subject=subject,
+            sender=contact.email,
+            recipient=message.sender,
+            current_day=current_day,
+            body_prompt=user_prompt,
+            system_prompt=system_prompt,
         )
 
     def _clarification_response(
@@ -327,6 +465,12 @@ class SupplierModel:
         orders: list[Order],
         current_day: int,
     ) -> EmailMessage:
+        subject = f"Order confirmation #{message.day}-{current_day + 1}"
+        if self._gpt_enabled():
+            generated = self._order_confirmation_gpt(contact, message, orders, subject, current_day)
+            if generated is not None:
+                return generated
+
         lines = [
             "Thanks for your purchase order. We've scheduled the following items:",
         ]
@@ -341,10 +485,90 @@ class SupplierModel:
         body = "\n".join(lines)
         return EmailMessage(
             day=current_day + 1,
-            subject=f"Order confirmation #{message.day}-{current_day + 1}",
+            subject=subject,
             body=body,
             sender=contact.email,
             recipient=message.sender,
+        )
+
+    def _order_confirmation_gpt(
+        self,
+        contact: SupplierContact,
+        message: EmailMessage,
+        orders: list[Order],
+        subject: str,
+        current_day: int,
+    ) -> EmailMessage | None:
+        client = self._ensure_gpt_client()
+        if client is None:
+            return None
+
+        order_lines = [
+            (
+                f"SKU {order.sku}: {self._products[order.sku].name}, quantity {order.quantity}, "
+                f"unit ${order.unit_cost:.2f}, delivery day {order.delivery_day}"
+            )
+            for order in orders
+        ]
+        total_cost = sum(order.total_cost for order in orders)
+        system_prompt = (
+            f"You are {contact.name}'s order manager."
+            " Confirm the received purchase order, restate each line item, and summarise cost and delivery day."
+            " Mention that payment has been applied to the buyer's account."
+        )
+        user_prompt = (
+            f"Customer message (day {current_day}):\n{message.body}\n\n"
+            "Line items:\n"
+            + "\n".join(order_lines)
+            + f"\nTotal cost: ${total_cost:.2f}.\n"
+            "Acknowledge receipt, confirm delivery schedule, and invite follow-up if changes are needed."
+        )
+
+        return self._generate_gpt_email(
+            client=client,
+            subject=subject,
+            sender=contact.email,
+            recipient=message.sender,
+            current_day=current_day,
+            body_prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+
+    def _generate_gpt_email(
+        self,
+        *,
+        client: Any,
+        subject: str,
+        sender: str,
+        recipient: str,
+        current_day: int,
+        body_prompt: str,
+        system_prompt: str,
+    ) -> EmailMessage | None:
+        try:
+            response = client.responses.create(
+                model=self._gpt_model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": body_prompt},
+                ],
+                max_output_tokens=500,
+                temperature=0.4,
+            )
+        except Exception as exc:  # pragma: no cover - network errors
+            logger.warning("GPT supplier reply failed: %s", exc)
+            return None
+
+        body = getattr(response, "output_text", "").strip()
+        if not body:
+            return None
+
+        return EmailMessage(
+            day=current_day + 1,
+            subject=subject,
+            body=body,
+            sender=sender,
+            recipient=recipient,
         )
 
     def _create_order(self, offer: SupplierProductOffer, quantity: int, day_ordered: int) -> Order:
@@ -359,4 +583,22 @@ class SupplierModel:
             unit_cost=offer.wholesale_price,
             day_ordered=day_ordered,
             delivery_day=delivery_day,
+        )
+
+    def _ensure_gpt_client(self) -> Any | None:
+        if not self._gpt_enabled():
+            return None
+        if self._gpt_client is None:
+            from openai import OpenAI
+
+            self._gpt_client = OpenAI()
+        return self._gpt_client
+
+    def _gpt_enabled(self) -> bool:
+        return bool(self._gpt_api_key) and not self._force_stub
+
+    def _baseline_lead(self) -> tuple[int, int]:
+        return (
+            max(1, self.config.min_lead_time_days),
+            max(self.config.min_lead_time_days, self.config.max_lead_time_days),
         )
