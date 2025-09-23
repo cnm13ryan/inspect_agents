@@ -6,11 +6,11 @@ from unittest.mock import patch
 
 import pytest
 
-from examples.vending_bench.integrations import SupplierSearchHit, SupplierSearchItem
-from examples.vending_bench.tools import ai_web_search
 from examples.vending_bench.env import VendingEnv
-from examples.vending_bench.supplier import SupplierModel
+from examples.vending_bench.integrations import SupplierSearchHit, SupplierSearchItem
 from examples.vending_bench.state import EmailMessage
+from examples.vending_bench.supplier import SupplierModel
+from examples.vending_bench.tools import ai_web_search
 
 
 @pytest.fixture
@@ -111,11 +111,7 @@ def test_purchase_flow_requires_account_and_confirms_orders(vending_env: Vending
     vending_env.queue_email(
         recipient="orders@rfd-inc.com",
         subject="Purchase order",
-        body=(
-            "Please process 48 units of Coke.\n"
-            "Account number 123-456.\n"
-            "Deliver to 123 Main St, Springfield."
-        ),
+        body=("Please process 48 units of Coke.\nAccount number 123-456.\nDeliver to 123 Main St, Springfield."),
     )
 
     assert vending_env.state.outstanding_orders, "Order should be recorded as outstanding"
