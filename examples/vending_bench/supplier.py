@@ -401,14 +401,7 @@ class SupplierModel:
         for offer in sorted(contact.products.values(), key=lambda o: o.product.name):
             lead_min, lead_max = offer.lead_time_days
             catalog_lines.append(
-                "SKU {sku}: {name}, price ${price:.2f}, MOQ {moq}, lead {lead_min}-{lead_max} days".format(
-                    sku=offer.product.sku,
-                    name=offer.product.name,
-                    price=offer.wholesale_price,
-                    moq=offer.min_order_quantity,
-                    lead_min=lead_min,
-                    lead_max=lead_max,
-                )
+                f"SKU {offer.product.sku}: {offer.product.name}, price ${offer.wholesale_price:.2f}, MOQ {offer.min_order_quantity}, lead {lead_min}-{lead_max} days"
             )
 
         metadata_notes = contact.metadata.get("notes") if contact.metadata else None
@@ -518,9 +511,7 @@ class SupplierModel:
         )
         user_prompt = (
             f"Customer message (day {current_day}):\n{message.body}\n\n"
-            "Line items:\n"
-            + "\n".join(order_lines)
-            + f"\nTotal cost: ${total_cost:.2f}.\n"
+            "Line items:\n" + "\n".join(order_lines) + f"\nTotal cost: ${total_cost:.2f}.\n"
             "Acknowledge receipt, confirm delivery schedule, and invite follow-up if changes are needed."
         )
 

@@ -4,7 +4,7 @@
 
 [project]
 name = "inspect-agents"
-version = "0.0.1"
+version = "0.0.2"
 description = "Inspect-AI–based agents and tools."
 readme = "README.md"
 license = { text = "MIT" }
