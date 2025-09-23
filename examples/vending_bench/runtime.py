@@ -7,8 +7,10 @@ share mutable state without relying on Inspect's StoreModel wiring.
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from contextvars import ContextVar
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - import-time guard only
@@ -70,8 +72,26 @@ def get_memory_store() -> MemoryStore:
 
     memory = _MEMORY_CTX.get(None)
     if memory is None:
-        from .memory import MemoryStore  # Local import to avoid circular import
+        from .memory import (
+            _CHECKPOINT_DIR_ENV,
+            _RESUME_ENV,
+            _RUN_ID_ENV,
+            MemoryStore,
+        )  # Local import to avoid circular import
 
-        memory = MemoryStore()
+        run_id = os.environ.get(_RUN_ID_ENV)
+        checkpoint_dir_value = os.environ.get(_CHECKPOINT_DIR_ENV)
+        resume_flag = os.environ.get(_RESUME_ENV, "0").strip().lower() in {"1", "true", "yes"}
+
+        if run_id and checkpoint_dir_value:
+            checkpoint_dir = Path(checkpoint_dir_value)
+            memory = None
+            if resume_flag:
+                memory = MemoryStore.load_checkpoint(directory=checkpoint_dir, run_id=run_id)
+            if memory is None:
+                memory = MemoryStore()
+            memory.configure_checkpoint(directory=checkpoint_dir, run_id=run_id, auto_persist=True)
+        else:
+            memory = MemoryStore()
         _MEMORY_CTX.set(memory)
     return memory
