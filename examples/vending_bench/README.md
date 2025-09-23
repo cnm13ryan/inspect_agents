@@ -71,6 +71,17 @@ uv run pytest -q tests/unit/vending_bench -k mirror_sync
 - **Vector Database**: Email embeddings and searchable history
 - **Context Management**: Periodic summarization to maintain working memory budget
 
+### Embedding Configuration
+- **Default Provider**: The vector store issues OpenAI `text-embedding-3-small` requests. Set `OPENAI_API_KEY` in your environment before running the benchmark.
+- **Model Overrides**: Optional env vars `VENDING_BENCH_EMBEDDING_MODEL` and `VENDING_BENCH_EMBEDDING_DIM` change the embedding model or target dimensionality.
+- **Offline/CI Fallback**: Set `VENDING_BENCH_EMBEDDINGS=deterministic` to use a deterministic hash-based embedding for local testing without network access. This fallback is not intended for benchmark scoring.
+- **Global Cache**: The embedding layer uses a content-addressed cache keyed by `(provider, model, dimensions, text hash)`. Control it via `VENDING_BENCH_EMBED_CACHE={rw|ro|off}` and `VENDING_BENCH_EMBED_CACHE_PATH` (defaults to `$XDG_CACHE_HOME/inspect_agents/`). Cache hits reduce latency and cost without persisting cross-run memory.
+
+### Memory Checkpoints
+- **Per-Run Snapshots**: Provide `--run-id <id>` when invoking `examples.vending_bench.run` to enable automatic checkpointing under `.inspect/vending_checkpoints/` (override with `--memory-checkpoint-dir`).
+- **Resume Support**: Pass `--resume-run` alongside the run id to resume the exact memory state for that episode. New runs without `--resume-run` always start from an empty store.
+- **Isolation Guarantee**: Checkpoints are scoped by run id; a fresh run never preloads memory from previous episodes, but does reuse cached embeddings for faster recompute.
+
 ## Configuration
 
 Key configuration options in `examples/vending_bench/config.py`:

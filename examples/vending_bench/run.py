@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,13 @@ from inspect_agents.run import run_agent
 from .. import _utils
 from .config import EnvConfig
 from .env import VendingEnv
-from .memory import MemoryStore, memory_tools
+from .memory import (
+    _CHECKPOINT_DIR_ENV,
+    _RESUME_ENV,
+    _RUN_ID_ENV,
+    MemoryStore,
+    memory_tools,
+)
 from .metrics import collect_episode_metrics
 from .prompts import PHYSICAL_AGENT_PROMPT, SUPERVISOR_PROMPT
 from .runtime import clear_runtime_context, set_runtime_context
@@ -101,10 +108,29 @@ def _summarise_state(state: Any) -> dict[str, Any]:
     return summary
 
 
-def run_episode(seed: int, model: str, *, include_defaults: bool = False) -> dict[str, Any]:
+def _initialise_memory_store(*, run_id: str | None, checkpoint_dir: Path | None, resume: bool) -> MemoryStore:
+    if run_id and checkpoint_dir:
+        directory = checkpoint_dir.expanduser()
+        store = MemoryStore.load_checkpoint(directory=directory, run_id=run_id) if resume else None
+        if store is None:
+            store = MemoryStore()
+        store.configure_checkpoint(directory=directory, run_id=run_id, auto_persist=True)
+        return store
+    return MemoryStore()
+
+
+def run_episode(
+    seed: int,
+    model: str,
+    *,
+    include_defaults: bool = False,
+    run_id: str | None = None,
+    checkpoint_dir: Path | None = None,
+    resume: bool = False,
+) -> dict[str, Any]:
     config = EnvConfig(seed=seed)
     env = VendingEnv(config)
-    memory = MemoryStore()
+    memory = _initialise_memory_store(run_id=run_id, checkpoint_dir=checkpoint_dir, resume=resume)
 
     set_runtime_context(env=env, memory=memory)
     try:
@@ -135,14 +161,47 @@ def main() -> None:
     parser.add_argument(
         "--include-default-tools", action="store_true", help="Inject inspect_agents default tool preset"
     )
+    parser.add_argument("--run-id", type=str, help="Identifier used for memory checkpointing")
+    parser.add_argument(
+        "--resume-run", action="store_true", help="Resume the memory checkpoint for the provided run id"
+    )
+    parser.add_argument(
+        "--memory-checkpoint-dir",
+        type=Path,
+        default=Path(".inspect/vending_checkpoints"),
+        help="Directory used to store per-run memory checkpoints",
+    )
     args = parser.parse_args()
 
     _utils.apply_tool_env_from_args(args)
     _utils.ensure_repo_src_on_path()
     _utils.load_env_files(Path(__file__).parent, include_template=True)
 
+    run_id = args.run_id
+    checkpoint_dir = args.memory_checkpoint_dir if run_id else None
+    resume_run = bool(args.resume_run and run_id)
+
+    if run_id:
+        os.environ[_RUN_ID_ENV] = run_id
+        os.environ[_CHECKPOINT_DIR_ENV] = str(args.memory_checkpoint_dir)
+        if resume_run:
+            os.environ[_RESUME_ENV] = "1"
+        else:
+            os.environ.pop(_RESUME_ENV, None)
+    else:
+        os.environ.pop(_RUN_ID_ENV, None)
+        os.environ.pop(_CHECKPOINT_DIR_ENV, None)
+        os.environ.pop(_RESUME_ENV, None)
+
     model_id = resolve_model(provider=args.provider, model=args.model)
-    metrics = run_episode(seed=args.seed, model=model_id, include_defaults=args.include_default_tools)
+    metrics = run_episode(
+        seed=args.seed,
+        model=model_id,
+        include_defaults=args.include_default_tools,
+        run_id=run_id,
+        checkpoint_dir=checkpoint_dir,
+        resume=resume_run,
+    )
 
     output = json.dumps(metrics, indent=2)
     if args.output:
