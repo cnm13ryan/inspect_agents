@@ -30,61 +30,11 @@ BASE_PROMPT_TODOS = (
 BASE_PROMPT = BASE_PROMPT_HEADER + BASE_PROMPT_TODOS
 
 
-def _format_standard_tools_section(all_tools: list[object]) -> str:
-    """Return a short section enumerating available Inspect standard tools.
-
-    Groups standard tools separately so the model understands additional
-    capabilities beyond the Todo/FS utilities.
-    """
-    try:
-        from inspect_ai.tool._tool_def import ToolDef
-    except Exception:
-        # If ToolDef is unavailable (e.g., in stubs), skip annotation
-        return ""
-
-    names = set()
-    for t in all_tools:
-        try:
-            tdef = ToolDef(t) if not isinstance(t, ToolDef) else t
-            names.add(tdef.name)
-        except Exception:
-            pass
-
-    std_names: list[str] = []
-    # Detect presence of representative tools
-    if "think" in names:
-        std_names.append("think")
-    if "web_search" in names:
-        std_names.append("web_search")
-    if "bash" in names:
-        std_names.append("bash")
-    if "python" in names:
-        std_names.append("python")
-    # Web browser exposes multiple tool names; detect by go
-    browser_present = any(n.startswith("web_browser_") for n in names)
-    if browser_present:
-        std_names.append("web_browser")
-    if "text_editor" in names:
-        std_names.append("text_editor")
-
-    if not std_names:
-        return ""
-
-    std_list = ", ".join(std_names)
-    return (
-        "\n## Standard Tools\n\n"
-        f"Additional standard tools are enabled: {std_list}.\n"
-        "Use `web_search` to retrieve up‑to‑date information from the web when needed."
-        " Prefer citing sources in your answer.\n"
-    )
-
-
 def _built_in_tools():
-    # Local import to avoid importing inspect_ai at module import time
-    from inspect_agents.tools import full_safe_preset
+    # Use shared tool preset resolver
+    from .tool_presets import resolve_supervisor_tools
 
-    # Mirrors full_safe_preset() so defaults stay in sync with curated presets
-    return full_safe_preset()
+    return resolve_supervisor_tools(include_defaults=True)
 
 
 def build_supervisor(
@@ -136,7 +86,10 @@ def build_supervisor(
     tail_chunks = [BASE_PROMPT_HEADER]
     if resolved_include_defaults:
         tail_chunks.append(BASE_PROMPT_TODOS)
-    std_section = _format_standard_tools_section(tools)
+    # Use shared tool descriptor
+    from .tool_presets import describe_standard_tools
+
+    std_section = describe_standard_tools(tools)
     if std_section:
         tail_chunks.append(std_section)
     tail = "".join(tail_chunks)

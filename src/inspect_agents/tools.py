@@ -27,9 +27,6 @@ import logging
 from . import fs as _fs
 from .exceptions import ToolException
 from .settings import (
-    truthy as _truthy,
-)
-from .settings import (
     typed_results_enabled as _use_typed_results,
 )
 from .state import Todo, Todos
@@ -132,115 +129,12 @@ class TodoStatusResult(BaseModel):
 def standard_tools() -> list[object]:
     """Return a list of standard Inspect‑AI tools.
 
-    Controlled by environment flags to keep defaults safe:
-
-    - INSPECT_ENABLE_THINK: enable `think()` (default: true)
-    - INSPECT_ENABLE_WEB_SEARCH: enable `web_search(...)` when a provider is available
-      (default: auto if Tavily or Google keys are set)
-    - INSPECT_ENABLE_EXEC: enable `bash()` and `python()` (default: false)
-    - INSPECT_ENABLE_WEB_BROWSER: enable `web_browser(...)` tools (default: false)
-    - INSPECT_ENABLE_TEXT_EDITOR_TOOL: expose `text_editor()` as a tool (default: false)
-
-    Notes:
-    - Our file tools (read_file/write_file/edit_file/ls) already use `text_editor`
-      internally when `INSPECT_AGENTS_FS_MODE=sandbox`; exposing `text_editor()`
-      directly is optional and disabled by default.
-    - Web search providers are auto‑configured using environment variables:
-      Tavily (TAVILY_API_KEY) or Google CSE (GOOGLE_CSE_ID/GOOGLE_CSE_API_KEY).
+    Delegates to the centralized tool preset resolver to maintain
+    compatibility while avoiding duplication.
     """
-    tools: list[object] = []
+    from .tool_presets import resolve_standard_tools
 
-    # Local imports to avoid heavy imports at module import time
-    try:
-        from inspect_ai.tool import think, web_search
-        from inspect_ai.tool._tools._execute import bash
-        from inspect_ai.tool._tools._execute import python as py_exec
-        from inspect_ai.tool._tools._text_editor import text_editor
-        from inspect_ai.tool._tools._web_browser import web_browser
-    except Exception:
-        # If inspect_ai is stubbed in tests, just return empty; callers can still use our built‑ins
-        return tools
-
-    # think()
-    if not os.getenv("INSPECT_ENABLE_THINK") or _truthy(os.getenv("INSPECT_ENABLE_THINK", "1")):
-        try:
-            tools.append(think())
-        except Exception:
-            pass
-
-    # web_search(...)
-    enable_web_search_env = os.getenv("INSPECT_ENABLE_WEB_SEARCH")
-    enable_web_search = (
-        _truthy(enable_web_search_env)
-        if enable_web_search_env is not None
-        else (os.getenv("TAVILY_API_KEY") or (os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY")))
-        is not None
-    )
-    if enable_web_search:
-        try:
-            providers_cfg: list[object] = []
-            # Prefer internal provider if user explicitly requests via INSPECT_WEB_SEARCH_INTERNAL
-            internal = (os.getenv("INSPECT_WEB_SEARCH_INTERNAL") or "").strip().lower()
-            if internal in {"openai", "anthropic", "perplexity", "gemini", "grok"}:
-                providers_cfg.append(internal)
-
-            # Add external providers based on available credentials
-            if os.getenv("TAVILY_API_KEY"):
-                providers_cfg.append({"tavily": True})
-            if os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY"):
-                providers_cfg.append({"google": True})
-
-            providers = providers_cfg or None
-            tools.append(web_search(providers))
-        except Exception:
-            # If provider configuration is invalid or missing, skip silently
-            pass
-
-    # bash() and python() (disabled by default)
-    if _truthy(os.getenv("INSPECT_ENABLE_EXEC")):
-        try:
-            tools.extend([bash(), py_exec()])
-        except Exception:
-            pass
-
-    # web_browser (disabled by default; heavy)
-    if _truthy(os.getenv("INSPECT_ENABLE_WEB_BROWSER")):
-        try:
-            tools.extend(web_browser())
-        except Exception:
-            pass
-
-    # text_editor (disabled by default; only meaningful with sandbox FS)
-    if _truthy(os.getenv("INSPECT_ENABLE_TEXT_EDITOR_TOOL")) and _use_sandbox_fs():
-        try:
-            tools.append(text_editor())
-        except Exception:
-            pass
-
-    # Defensive policy: never surface any stateful shell session tool here.
-    # In this repo, `bash_session` is reserved for internal FS sandbox plumbing
-    # (see fs_adapter) and must not be exposed via the public `standard_tools()`
-    # helper regardless of upstream defaults or env toggles.
-    try:
-        filtered: list[object] = []
-        for t in tools:
-            try:
-                name = getattr(t, "name", None) or getattr(t, "__name__", None)
-                if isinstance(name, str) and name.strip().lower() == "bash_session":
-                    logging.getLogger(__name__).warning(
-                        "Filtered out stateful tool 'bash_session' from standard_tools (internal-only)."
-                    )
-                    continue
-            except Exception:
-                # If we cannot introspect, keep the tool (fail-open) — tests enforce the policy.
-                pass
-            filtered.append(t)
-        tools = filtered
-    except Exception:
-        # Never fail construction due to filtering; tests will catch regressions.
-        pass
-
-    return tools
+    return resolve_standard_tools()
 
 
 def minimal_fs_preset() -> list[object]:
