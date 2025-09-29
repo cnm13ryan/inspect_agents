@@ -89,16 +89,13 @@ def _base_tools(*, code_only: bool = False) -> list[object]:
     - Always include Files tools (write/read/ls/edit).
     - When `code_only=True`, exclude all "standard" tools (think, exec, search,
       browser, etc.) regardless of environment flags.
-    - When `code_only=False` (default), append tools from `standard_tools()`
+    - When `code_only=False` (default), append tools from `resolve_standard_tools()`
       based on env toggles.
     """
-    from .tools import edit_file, ls, read_file, standard_tools, write_file
+    # Use shared tool preset resolver
+    from .tool_presets import resolve_iterative_tools
 
-    fs_tools = [write_file(), read_file(), ls(), edit_file()]
-    if code_only:
-        return fs_tools
-    # Core FS tools + any enabled standard tools (think, web_search, exec, etc.)
-    return fs_tools + standard_tools()
+    return resolve_iterative_tools(include_defaults=True, code_only=code_only)
 
 
 def _default_system_message(*, code_only: bool = False, include_defaults: bool = True) -> str:
