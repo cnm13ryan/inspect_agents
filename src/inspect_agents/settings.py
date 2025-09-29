@@ -129,6 +129,28 @@ def resolve_include_defaults(explicit: bool | None) -> tuple[bool, str, str | No
     return True, "default", env_raw
 
 
+def fs_mode() -> str:
+    """Return filesystem mode: 'store' (default) or 'sandbox'."""
+    return str_env("INSPECT_AGENTS_FS_MODE", "store").strip().lower()
+
+
+def fs_root() -> str:
+    """Absolute filesystem root path used to confine sandbox operations.
+
+    Controlled by `INSPECT_AGENTS_FS_ROOT` (default: "/repo"). Ensures the
+    returned value is absolute.
+    """
+    root = str_env("INSPECT_AGENTS_FS_ROOT", "/repo")
+    if not os.path.isabs(root):
+        root = os.path.abspath(root)
+    return root
+
+
+def fs_max_bytes() -> int:
+    """Maximum allowed file size in bytes (env: INSPECT_AGENTS_FS_MAX_BYTES, default 5_000_000)."""
+    return int_env("INSPECT_AGENTS_FS_MAX_BYTES", 5_000_000, minimum=0)
+
+
 __all__ = [
     "truthy",
     "int_env",
@@ -139,4 +161,7 @@ __all__ = [
     "default_tool_timeout",
     "include_defaults_env",
     "resolve_include_defaults",
+    "fs_mode",
+    "fs_root",
+    "fs_max_bytes",
 ]

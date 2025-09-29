@@ -46,8 +46,9 @@ __all__ = [
 
 def fs_mode() -> str:
     """Return filesystem mode: 'store' (default) or 'sandbox'."""
+    from .settings import fs_mode as _fs_mode
 
-    return os.getenv("INSPECT_AGENTS_FS_MODE", "store").strip().lower()
+    return _fs_mode()
 
 
 def use_sandbox_fs() -> bool:
@@ -58,11 +59,9 @@ def use_sandbox_fs() -> bool:
 
 def default_tool_timeout() -> float:
     """Default per-tool timeout in seconds (env: INSPECT_AGENTS_TOOL_TIMEOUT, default 15)."""
+    from .settings import default_tool_timeout as _default_tool_timeout
 
-    try:
-        return float(os.getenv("INSPECT_AGENTS_TOOL_TIMEOUT", "15"))
-    except Exception:
-        return 15.0
+    return _default_tool_timeout()
 
 
 def fs_root() -> str:
@@ -71,20 +70,16 @@ def fs_root() -> str:
     Controlled by `INSPECT_AGENTS_FS_ROOT` (default: "/repo"). Ensures the
     returned value is absolute.
     """
+    from .settings import fs_root as _fs_root
 
-    root = os.getenv("INSPECT_AGENTS_FS_ROOT", "/repo")
-    if not os.path.isabs(root):
-        root = os.path.abspath(root)
-    return root
+    return _fs_root()
 
 
 def max_bytes() -> int:
     """Maximum allowed file size in bytes (env: INSPECT_AGENTS_FS_MAX_BYTES, default 5_000_000)."""
+    from .settings import fs_max_bytes
 
-    try:
-        return int(os.getenv("INSPECT_AGENTS_FS_MAX_BYTES", "5000000"))
-    except Exception:
-        return 5_000_000
+    return fs_max_bytes()
 
 
 # --- Sandbox preflight (cached) ----------------------------------------------
