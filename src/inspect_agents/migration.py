@@ -250,9 +250,9 @@ def create_deep_agent(
     from inspect_agents.agents import (
         BASE_PROMPT_HEADER,
         BASE_PROMPT_TODOS,
-        _format_standard_tools_section,
         build_subagents,
     )
+    from inspect_agents.tool_presets import describe_standard_tools
 
     # Resolve built-ins and optional sub-agents
     resolved_include_defaults, _, _ = resolve_include_defaults(include_defaults)
@@ -270,7 +270,7 @@ def create_deep_agent(
     tail_chunks = [BASE_PROMPT_HEADER]
     if resolved_include_defaults:
         tail_chunks.append(BASE_PROMPT_TODOS)
-    std_section = _format_standard_tools_section(base_tools + extra_tools)
+    std_section = describe_standard_tools(base_tools + extra_tools)
     if std_section:
         tail_chunks.append(std_section)
 
