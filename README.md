@@ -19,12 +19,14 @@ This library extends Inspect‑AI with higher‑level agent orchestration, typed
 Uses local sources via `PYTHONPATH` and requires no provider setup. This validates the code path without contacting external services.
 
 ```bash
-export PYTHONPATH=src:external/inspect_ai
+export PYTHONPATH=src:external/inspect_ai/src
 python examples/inspect/quickstart_toy.py
 # Expected: Completion: DONE
 ```
 
-[Next: Examples — Start Here →](examples/README.md#start-here)
+**📖 [Next: Examples — Start Here →](examples/README.md#start-here)**
+
+*The examples directory contains comprehensive guides, CLI usage, and working demonstrations.*
 
 [Docs Home →](https://cnm13ryan.github.io/inspect_agents)
 
@@ -51,6 +53,7 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ Traces & transcripts: Structured tool events and store change logs by default
 - ✅ Safe by default: approval presets (`dev`/`prod`), quarantine filters, sandbox confinement/symlink denial
 - ✅ Self‑contained toy example to verify setup without external model providers
+- ✅ **Advanced Examples**: Including a complete vending machine business simulation ([examples/vending_bench](examples/vending_bench/)) with market dynamics, supplier relationships, and AI-driven decision making
 
 ## Table of Contents
 - Installation
@@ -63,8 +66,34 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - Support
 
 ## Installation
-- Python 3.11+ on macOS or Linux.
-- For packaging/install instructions (pip or uv), see the docs site. The Quickstart above runs from source.
+
+### Requirements
+- Python 3.11+ on macOS or Linux
+- Git (for development setup)
+
+### From PyPI (Recommended)
+```bash
+# Using pip
+pip install inspect-agents
+
+# Using uv (faster)
+uv add inspect-agents
+```
+
+### From Source (Development)
+```bash
+git clone https://github.com/cnm13ryan/inspect_agents.git
+cd inspect_agents
+
+# Using uv (recommended)
+uv sync
+
+# Using pip
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+The self-contained quickstart above runs from source and requires no external dependencies.
 
 ### Configure Environment Variables
 If you use Inspect CLI or providers, see the Environment reference and the example configurator:
@@ -177,13 +206,18 @@ Fallback: `docs/diagrams/architecture_overview.png`
 To preview docs locally, see: [docs/README.md](docs/README.md)
 
 ## Project Status
-- Version: 0.0.1 (repo) / see PyPI badge for latest
+- Version: 0.0.2 (repo) / see PyPI badge for latest
 - Status: Beta
 - Python: 3.11+ (tested on 3.12)
 - Roadmap: [Milestones](https://github.com/cnm13ryan/inspect_agents/milestones) | [Projects](https://github.com/cnm13ryan/inspect_agents/projects)
 
+### Recent Additions
+- ✅ CI workflows (tests, lint, coverage) and release automation
+- ✅ Published to PyPI with automated releases
+- ✅ Advanced examples including vending_bench business simulation
+- ✅ Comprehensive documentation with MkDocs
+
 ### Coming Soon
-- CI workflows (tests, lint, coverage) and release automation
 - Expanded examples for web_browser and sandboxed exec
 - Additional sub-agent templates (researcher, coder, editor)
 
