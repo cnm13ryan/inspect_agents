@@ -37,7 +37,6 @@ from .iterative_runtime import (
 )
 from .observability import log_agent_defaults_event
 from .settings import max_tool_output_env as _max_tool_output_env
-from .settings import resolve_include_defaults
 
 # Bind transcript and error types at import time to avoid order-dependent
 # re-import issues in test environments that stub inspect_ai submodules.
@@ -202,25 +201,41 @@ def build_iterative_agent(
         active_generate_config = None  # type: ignore
         set_active_generate_config = None  # type: ignore
     from inspect_ai.model._model import get_model
-    # Lightweight, provider-agnostic pruning already imported above
 
-    resolved_include_defaults, include_source, env_raw = resolve_include_defaults(include_defaults)
+    from .agent_config import IterativeAgentConfig
+
+    # Resolve all configuration once via immutable config object
+    config = IterativeAgentConfig.resolve(
+        include_defaults=include_defaults,
+        real_time_limit_sec=real_time_limit_sec,
+        max_steps=max_steps,
+        prune_after_messages=prune_after_messages,
+        prune_keep_last=prune_keep_last,
+        per_msg_token_cap=per_msg_token_cap,
+        truncate_last_k=truncate_last_k,
+        retry_max_attempts=retry_max_attempts,
+        retry_initial_backoff_s=retry_initial_backoff_s,
+        retry_max_backoff_s=retry_max_backoff_s,
+        retry_jitter_s=retry_jitter_s,
+        retry_predicate=retry_predicate,
+        max_tool_output_bytes=max_tool_output_bytes,
+    )
 
     sys_message = prompt or _default_system_message(
         code_only=code_only,
-        include_defaults=resolved_include_defaults,
+        include_defaults=config.defaults.include_defaults,
     )
     step_nudge = continue_message or _default_continue_message()
-    base_tools = _base_tools(code_only=code_only) if resolved_include_defaults else []
+    base_tools = _base_tools(code_only=code_only) if config.defaults.include_defaults else []
     extra_tools = list(tools or [])
-    active_tools = base_tools + extra_tools if resolved_include_defaults else extra_tools
+    active_tools = base_tools + extra_tools if config.defaults.include_defaults else extra_tools
 
     log_agent_defaults_event(
         builder="iterative",
-        include_defaults=resolved_include_defaults,
+        include_defaults=config.defaults.include_defaults,
         caller_supplied_tool_count=len(extra_tools),
-        feature_flag_state=env_raw,
-        include_defaults_source=include_source,
+        feature_flag_state=config.defaults.env_raw,
+        include_defaults_source=config.defaults.source,
         extra={
             "code_only": bool(code_only),
             "active_tool_count": len(active_tools),
@@ -247,13 +262,13 @@ def build_iterative_agent(
                 _env_limit = _max_tool_output_env()
                 if active_generate_config and set_active_generate_config:
                     cfg = active_generate_config()
-                    if max_tool_output_bytes is not None:
+                    if config.max_tool_output_bytes is not None:
                         try:
-                            new_cfg = cfg.merge({"max_tool_output": int(max_tool_output_bytes)})  # type: ignore[arg-type]
+                            new_cfg = cfg.merge({"max_tool_output": int(config.max_tool_output_bytes)})  # type: ignore[arg-type]
                             set_active_generate_config(new_cfg)
                         except Exception:
                             try:
-                                cfg.max_tool_output = int(max_tool_output_bytes)  # type: ignore[attr-defined]
+                                cfg.max_tool_output = int(config.max_tool_output_bytes)  # type: ignore[attr-defined]
                             except Exception:
                                 pass
                     elif _env_limit is not None and getattr(cfg, "max_tool_output", None) is None:
@@ -269,27 +284,13 @@ def build_iterative_agent(
                 # Best-effort only; do not block agent startup on config issues
                 pass
 
-            # Resolve limits/pruning/truncation using pure helpers
-            from .iterative_config import (
-                resolve_pruning,
-                resolve_time_and_step_limits,
-                resolve_truncation,
-            )
-
-            _time_limit, _max_steps = resolve_time_and_step_limits(
-                real_time_limit_sec=real_time_limit_sec,
-                max_steps=max_steps,
-            )
-
-            _eff_prune_after, _eff_prune_keep = resolve_pruning(
-                prune_after_messages=prune_after_messages,
-                prune_keep_last=prune_keep_last,
-            )
-
-            _eff_token_cap, _eff_truncate_last_k = resolve_truncation(
-                per_msg_token_cap=per_msg_token_cap,
-                truncate_last_k=truncate_last_k,
-            )
+            # Extract resolved config values (already resolved at construction time)
+            _time_limit = config.limits.real_time_limit_sec
+            _max_steps = config.limits.max_steps
+            _eff_prune_after = config.pruning.prune_after_messages
+            _eff_prune_keep = config.pruning.prune_keep_last
+            _eff_token_cap = config.truncation.per_msg_token_cap
+            _eff_truncate_last_k = config.truncation.truncate_last_k
 
             # Enable prune debug logs if either INSPECT_PRUNE_DEBUG or
             # INSPECT_MODEL_DEBUG is set (reuse existing model debug toggle).
@@ -552,11 +553,11 @@ def build_iterative_agent(
                         tools=active_tools,
                         cache=False,
                         config=GenerateConfig(timeout=gen_timeout),
-                        max_attempts=retry_max_attempts,
-                        initial_backoff_s=retry_initial_backoff_s,
-                        max_backoff_s=retry_max_backoff_s,
-                        jitter_s=retry_jitter_s,
-                        retry_predicate=retry_predicate,
+                        max_attempts=config.retry.max_attempts,
+                        initial_backoff_s=config.retry.initial_backoff_s,
+                        max_backoff_s=config.retry.max_backoff_s,
+                        jitter_s=config.retry.jitter_s,
+                        retry_predicate=config.retry.retry_predicate,
                     )
                     # Accrue retry wait and persist model output
                     try:
