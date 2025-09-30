@@ -200,6 +200,7 @@ def approval_modules_guard():  # pragma: no cover - test support only
     _mod_names = [
         "inspect_ai.approval._approval",
         "inspect_ai.approval._policy",
+        "inspect_ai.approval._apply",
         "inspect_ai._util.registry",
         "inspect_ai.tool._tool_call",
     ]

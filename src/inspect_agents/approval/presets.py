@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-"""Preset approval chains used by Inspect Agents runners.
-
-This module builds policy lists using Inspect's private approval APIs and relies
-on the registry helpers defined in :mod:`inspect_agents.approval.registry`.
-"""
-
 import json
 import re
 from typing import Any
 
 from .redaction import redact_arguments
 from .registry import approval_chain
+
+"""Preset approval chains used by Inspect Agents runners.
+
+This module builds policy lists using Inspect's private approval APIs and relies
+on the registry helpers defined in :mod:`inspect_agents.approval.registry`.
+"""
 
 __all__ = ["approval_preset"]
 

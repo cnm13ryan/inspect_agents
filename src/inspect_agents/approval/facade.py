@@ -1,13 +1,5 @@
 from __future__ import annotations
 
-"""Public facade for Inspect Agents approval helpers.
-
-The functions re-exported here depend on Inspect's private approval modules
-(e.g. ``inspect_ai.approval._policy``) that callers frequently stub in tests.
-Imports are therefore kept local within helper modules, and this facade simply
-coordinates their availability.
-"""
-
 from typing import Any
 
 from .interrupts import approval_from_interrupt_config
@@ -18,6 +10,14 @@ from .registry import (
     handoff_exclusive_policy,
     parallel_kill_switch_policy,
 )
+
+"""Public facade for Inspect Agents approval helpers.
+
+The functions re-exported here depend on Inspect's private approval modules
+(e.g. ``inspect_ai.approval._policy``) that callers frequently stub in tests.
+Imports are therefore kept local within helper modules, and this facade simply
+coordinates their availability.
+"""
 
 __all__ = [
     "approval_from_interrupt_config",

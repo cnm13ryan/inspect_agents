@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-"""Approval facade package.
-
-This package preserves the historical ``inspect_agents.approval`` surface while
-organising the implementation across smaller modules.
-"""
-
 from .facade import (
     activate_approval_policies,
     approval_chain,
@@ -15,6 +9,12 @@ from .facade import (
     parallel_kill_switch_policy,
     redact_arguments,
 )
+
+"""Approval facade package.
+
+This package preserves the historical ``inspect_agents.approval`` surface while
+organising the implementation across smaller modules.
+"""
 
 __all__ = [
     "activate_approval_policies",
