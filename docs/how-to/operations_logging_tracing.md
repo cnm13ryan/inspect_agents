@@ -56,7 +56,7 @@ uv run inspect log dump logs/<run>.eval \
 ```
 
 Fields include `tool`, `phase` (`start|end|error`), optional `duration_ms`, and redacted/truncated `args`.
-- Redaction keys: `api_key`, `authorization`, `token`, `password`, `file_text`, `content`. 〖F:src/inspect_agents/approval.py†L113-L124〗
+- Redaction keys: `api_key`, `authorization`, `token`, `password`, `file_text`, `content`. 〖F:src/inspect_agents/approval/redaction.py†L11-L33〗
 - Truncation: long string fields shortened (default 200 chars) — set `INSPECT_TOOL_OBS_TRUNCATE` to adjust. 〖F:src/inspect_agents/tools.py†L46-L53〗 〖F:src/inspect_agents/tools.py†L79-L116〗
 
 ### Default tool inclusion telemetry
