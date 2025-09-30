@@ -1,14 +1,22 @@
 # feat(observability): extract tool-event logging and one-time limit log
+# Refactored to delegate to centralized TelemetryService
 
 from __future__ import annotations
 
-import json
-import logging
 import os
-import time
 from typing import Any
 
-from .settings import max_tool_output_env as _max_tool_output_env
+# Import the centralized telemetry service
+from .telemetry import (
+    get_effective_tool_output_limit as _get_effective_tool_output_limit,
+)
+from .telemetry import (
+    log_agent_defaults_event as _log_agent_defaults_event,
+)
+from .telemetry import log_tool_event as _log_tool_event
+from .telemetry import (
+    maybe_emit_effective_tool_output_limit_log as _maybe_emit_effective_tool_output_limit_log,
+)
 
 # Public exports
 __all__ = [
@@ -18,10 +26,13 @@ __all__ = [
     "get_effective_tool_output_limit",
 ]
 
-# Local defaults (env-configurable)
+# Local defaults (env-configurable) - kept for compatibility
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
 
 # One-time emission guard for effective tool-output limit log
+# This is managed by TelemetryService, but we keep a placeholder here
+# for backward compatibility. Tests that monkeypatch this attribute
+# will need to also patch the service's _effective_limit_logged attribute.
 _EFFECTIVE_LIMIT_LOGGED = False
 
 
@@ -30,151 +41,35 @@ def _parse_int(env_val: str | None) -> int | None:
 
     Prefer `settings.max_tool_output_env()` for INSPECT_MAX_TOOL_OUTPUT.
     """
-    try:
-        if env_val is None:
-            return None
-        val = int(env_val.strip())
-        if val < 0:
-            return None
-        return val
-    except Exception:
-        return None
+    from .settings import max_tool_output_env
+
+    return max_tool_output_env() if env_val else None
 
 
 def maybe_emit_effective_tool_output_limit_log() -> None:
     """Emit a single structured log with the effective tool-output limit.
 
-    Semantics preserved from tools._maybe_emit_effective_tool_output_limit_log:
-    - Reads optional env override `INSPECT_MAX_TOOL_OUTPUT` (bytes).
-    - If set and upstream GenerateConfig has no explicit limit, set it once
-      to keep precedence: explicit arg > GenerateConfig > env > fallback 16 KiB.
-    - Logs a one-time `tool_event` with fields:
-        { tool: "observability", phase: "info",
-          effective_tool_output_limit: <int>, source: "env"|"default" }
-    - One-time behavior is coordinated entirely within this module to avoid
-      cross-module import coupling with tools.
+    Delegates to TelemetryService for actual implementation.
     """
-    global _EFFECTIVE_LIMIT_LOGGED
-    if _EFFECTIVE_LIMIT_LOGGED:
-        return
-
-    # Centralized accessor: returns None when unset/invalid; 0 allowed
-    env_limit = _max_tool_output_env()
-
-    source = "default"
-    effective = 16 * 1024
-    try:
-        from inspect_ai.model._generate_config import (  # type: ignore
-            active_generate_config,
-            set_active_generate_config,
-        )
-
-        cfg = active_generate_config()
-        # If env is provided and config has no explicit limit, adopt env
-        if env_limit is not None and getattr(cfg, "max_tool_output", None) is None:
-            try:
-                new_cfg = cfg.merge({"max_tool_output": env_limit})  # type: ignore[arg-type]
-                set_active_generate_config(new_cfg)
-            except Exception:
-                try:
-                    cfg.max_tool_output = env_limit  # type: ignore[attr-defined]
-                except Exception:
-                    pass
-
-        # Resolve effective limit
-        cfg_limit = getattr(active_generate_config(), "max_tool_output", None)
-        if cfg_limit is not None:
-            effective = int(cfg_limit)
-        elif env_limit is not None:
-            effective = env_limit
-        source = "env" if env_limit is not None else "default"
-    except Exception:
-        if env_limit is not None:
-            effective = env_limit
-            source = "env"
-
-    # Use the historical logger name for compatibility
-    logger = logging.getLogger("inspect_agents.tools")
-    try:
-        payload = {
-            "tool": "observability",
-            "phase": "info",
-            "effective_tool_output_limit": effective,
-            "source": source,
-        }
-        logger.info("tool_event %s", json.dumps(payload, ensure_ascii=False))
-    except Exception:
-        logger.info(
-            "tool_event %s",
-            {"tool": "observability", "phase": "info", "effective_tool_output_limit": effective, "source": source},
-        )
-
-    # Mark as logged within this module only
-    _EFFECTIVE_LIMIT_LOGGED = True
+    return _maybe_emit_effective_tool_output_limit_log()
 
 
 def get_effective_tool_output_limit() -> tuple[int, str]:
     """Return the effective tool-output limit and its source without side effects.
 
-    Precedence mirrors the one-time log helper but performs no logging and
-    makes no modifications to upstream config:
-      1) Active GenerateConfig.max_tool_output → (value, "config")
-      2) Env INSPECT_MAX_TOOL_OUTPUT → (value, "env")
-      3) Fallback default 16 KiB → (16384, "default")
+    Delegates to TelemetryService for actual implementation.
     """
-    # Try config first (no side effects)
-    try:
-        from inspect_ai.model._generate_config import (  # type: ignore
-            active_generate_config,
-        )
-
-        cfg = active_generate_config()
-        cfg_limit = getattr(cfg, "max_tool_output", None)
-        if cfg_limit is not None:
-            try:
-                return int(cfg_limit), "config"
-            except Exception:
-                # If malformed, fall through to env/default resolution
-                pass
-    except Exception:
-        # If upstream is unavailable, fall back to env/default
-        pass
-
-    # Next, environment
-    env_limit = _max_tool_output_env()
-    if env_limit is not None:
-        return env_limit, "env"
-
-    # Default (16 KiB)
-    return 16 * 1024, "default"
+    return _get_effective_tool_output_limit()
 
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
     """Redact sensitive keys and truncate large string fields.
 
-    - Redaction uses approval.redact_arguments to apply the shared REDACT_KEYS policy.
-    - Truncation applies to string values > max_len chars (default from env).
+    Delegates to TelemetryService for actual implementation.
     """
-    if not payload:
-        return {}
-    try:
-        from .approval import redact_arguments
-    except Exception:
-        redacted = dict(payload)
-    else:
-        redacted = redact_arguments(dict(payload))  # type: ignore[arg-type]
+    from .telemetry import redact_and_truncate as _impl
 
-    limit = max_len if (max_len is not None and max_len > 0) else _OBS_TRUNCATE
-
-    def _truncate(v: Any) -> Any:
-        try:
-            if isinstance(v, str) and limit and len(v) > limit:
-                return v[:limit] + f"...[+{len(v) - limit} chars]"
-            return v
-        except Exception:
-            return "[UNSERIALIZABLE]"
-
-    return {k: _truncate(v) for k, v in redacted.items()}
+    return _impl(payload, max_len)
 
 
 def log_tool_event(
@@ -186,60 +81,9 @@ def log_tool_event(
 ) -> float:
     """Emit a minimal structured log line for tool lifecycle.
 
-    Returns a perf counter when phase == "start" so callers can pass it back
-    on "end"/"error" to compute a duration.
+    Delegates to TelemetryService for actual implementation.
     """
-    # Defer one-time effective limit log until after the first real tool event
-    # is logged, so timelines read naturally: event → cap log. Gate internal
-    # diagnostics (e.g., "limits", "observability").
-    _defer_cap_log = name not in {"limits", "observability"}
-
-    logger = logging.getLogger("inspect_agents.tools")  # preserve logger name
-    now = time.perf_counter()
-    data: dict[str, Any] = {
-        "tool": name,
-        "phase": phase,
-    }
-    if args:
-        # Normalization policy: rewrite raw content fields to length metadata first
-        try:
-            norm = dict(args)
-            mapping: list[tuple[str, str]] = [
-                ("content", "content_len"),
-                ("file_text", "file_text_len"),
-                ("old_string", "old_len"),
-                ("new_string", "new_len"),
-            ]
-            for src, dst in mapping:
-                if src in norm and isinstance(norm[src], str):
-                    try:
-                        norm[dst] = len(norm[src])
-                    except Exception:
-                        norm[dst] = "[len_error]"
-                    norm.pop(src, None)
-        except Exception:
-            norm = args
-        data["args"] = _redact_and_truncate(norm)
-    if t0 is not None and phase in ("end", "error"):
-        try:
-            data["duration_ms"] = round((now - t0) * 1000, 2)
-        except Exception:
-            pass
-    if extra:
-        for k, v in extra.items():
-            if k not in data:
-                data[k] = v
-
-    try:
-        logger.info("tool_event %s", json.dumps(data, ensure_ascii=False))
-    except Exception:
-        logger.info("tool_event %s", {k: ("[obj]" if k == "args" else v) for k, v in data.items()})
-
-    # Emit the cap log after logging the first real tool event
-    if _defer_cap_log:
-        maybe_emit_effective_tool_output_limit_log()
-
-    return now if phase == "start" else (t0 or now)
+    return _log_tool_event(name=name, phase=phase, args=args, extra=extra, t0=t0)
 
 
 def log_agent_defaults_event(
@@ -254,31 +98,14 @@ def log_agent_defaults_event(
 ) -> None:
     """Emit telemetry for include_defaults usage on agent construction.
 
-    Telemetry is best-effort; failures are swallowed to avoid impacting callers.
+    Delegates to TelemetryService for actual implementation.
     """
-    if feature_flag_state is None:
-        try:
-            flag_val = os.getenv(feature_flag_env)
-        except Exception:
-            flag_val = None
-    else:
-        flag_val = feature_flag_state
-
-    payload: dict[str, Any] = {
-        "builder": builder,
-        "include_defaults": bool(include_defaults),
-        "caller_supplied_tool_count": int(caller_supplied_tool_count),
-        "caller_supplied_replacements": bool(caller_supplied_tool_count > 0),
-        "feature_flag": feature_flag_env,
-        "feature_flag_state": flag_val if flag_val is not None else "unset",
-    }
-    if include_defaults_source:
-        payload.setdefault("include_defaults_source", include_defaults_source)
-    if extra:
-        for key, value in extra.items():
-            payload.setdefault(key, value)
-
-    try:
-        log_tool_event(name="agent_defaults", phase="info", extra=payload)
-    except Exception:
-        pass
+    return _log_agent_defaults_event(
+        builder=builder,
+        include_defaults=include_defaults,
+        caller_supplied_tool_count=caller_supplied_tool_count,
+        feature_flag_env=feature_flag_env,
+        feature_flag_state=feature_flag_state,
+        include_defaults_source=include_defaults_source,
+        extra=extra,
+    )

@@ -4,6 +4,8 @@ This module extracts profile/FS-root enrichment and tool-event logging from
 tools_files.py into a dedicated component so logging concerns stop bleeding
 into execution paths. This reduces cognitive load, clarifies boundaries, and
 keeps observability evolution from forcing edits across ultra-large modules.
+
+Refactored to use TelemetryService for core logging functionality.
 """
 
 from __future__ import annotations
@@ -11,9 +13,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .observability import log_tool_event as _base_log_tool_event
 from .settings import fs_root as _fs_root
 from .settings import truthy as _truthy
+from .telemetry import get_service as _get_telemetry_service
 
 
 def _parse_profile(profile_str: str) -> tuple[str, str, str]:
@@ -33,9 +35,15 @@ class FilesInstrumentation:
     """Encapsulates observability concerns for files:* tools.
 
     This class provides profile context enrichment and tool event logging
-    specifically for files operations while composing with existing utilities
-    from observability.py rather than duplicating logic.
+    specifically for files operations while composing with TelemetryService
+    for core functionality.
     """
+
+    def __init__(self) -> None:
+        """Initialize instrumentation with TelemetryService integration."""
+        self._telemetry = _get_telemetry_service()
+        # Create augmented logger that enriches extra with profile context
+        self._augmented_logger = self._telemetry.create_augmented_logger(self._augment_extra_for_files)
 
     def profile_extra(self) -> dict[str, Any]:
         """Return optional profile/fs_root fields for observability logs.
@@ -102,6 +110,14 @@ class FilesInstrumentation:
         except Exception:
             return extra
 
+    def _augment_extra_for_files(self, extra: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Internal augmentation function for files:* events.
+
+        This is passed to TelemetryService.create_augmented_logger to enable
+        profile enrichment without duplicating logging logic.
+        """
+        return self.merge_extra(extra)
+
     def log_tool_event(
         self,
         *,
@@ -113,12 +129,14 @@ class FilesInstrumentation:
     ) -> float:
         """Thin wrapper that augments files:* events with profile context.
 
-        Mirrors the upstream signature and delegates to observability.log_tool_event.
+        Delegates to TelemetryService via augmented logger for files:* events,
+        or directly to base service for other events.
         """
         # Only augment files:* events
         if isinstance(name, str) and name.startswith("files:"):
-            extra = self.merge_extra(extra)
-        return _base_log_tool_event(name=name, phase=phase, args=args, extra=extra, t0=t0)
+            return self._augmented_logger(name=name, phase=phase, args=args, extra=extra, t0=t0)
+        else:
+            return self._telemetry.log_tool_event(name=name, phase=phase, args=args, extra=extra, t0=t0)
 
     def store_context_kwargs(self) -> dict[str, Any]:
         """Return kwargs for creating StoreOpsContext with this instrumentation.
