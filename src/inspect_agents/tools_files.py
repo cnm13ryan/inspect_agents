@@ -39,6 +39,7 @@ from .files_models import (
     WriteParams,
 )
 from .fs_access import create_default_filesystem_access
+from .fs_adapter import get_default_adapter as _get_sandbox_adapter  # noqa: F401 - used via dynamic import in façade
 from .settings import typed_results_enabled
 
 # Explicit module exports to clarify the public surface
@@ -75,8 +76,6 @@ _validate_sandbox_path = _fs.validate_sandbox_path
 _max_bytes = _fs.max_bytes
 _default_tool_timeout = _fs.default_tool_timeout
 _use_typed_results = typed_results_enabled
-
-# Import sandbox adapter for tests
 
 # ---------------------------------------------------------------------------
 # Per-path async locks to prevent torn writes and overlapping edits
