@@ -52,8 +52,8 @@ from .tools_files import (
 
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
-    # Backwards-compat shim: delegate to observability
-    from .observability import _redact_and_truncate as _impl
+    # Backwards-compat shim: delegate to TelemetryService
+    from .telemetry import redact_and_truncate as _impl
 
     return _impl(payload, max_len)
 
@@ -65,8 +65,8 @@ def _log_tool_event(
     extra: dict[str, Any] | None = None,
     t0: float | None = None,
 ) -> float:
-    """Backward-compat wrapper delegating to observability.log_tool_event."""
-    from .observability import log_tool_event as _impl
+    """Backward-compat wrapper delegating to TelemetryService."""
+    from .telemetry import log_tool_event as _impl
 
     return _impl(name=name, phase=phase, args=args, extra=extra, t0=t0)
 
