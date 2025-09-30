@@ -12,7 +12,6 @@ from collections.abc import Sequence
 from typing import Any, NotRequired, TypedDict
 
 from .observability import log_agent_defaults_event
-from .settings import resolve_include_defaults
 
 # Base prompt modeled for legacy compatibility (deepagents-style base_prompt);
 # see migration.py and docs/design/deepagents_implementation_prompts.md.
@@ -67,24 +66,26 @@ def build_supervisor(
     """
     from inspect_ai.agent._react import react
 
-    # Compose prompt with clear tool sections (Todo/FS + Standard)
-    resolved_include_defaults, include_source, env_raw = resolve_include_defaults(include_defaults)
+    from .agent_config import SupervisorConfig
+
+    # Resolve configuration once via immutable config object
+    config = SupervisorConfig.resolve(include_defaults=include_defaults)
 
     extra_tools = list(tools or [])
-    builtins = _built_in_tools() if resolved_include_defaults else []
+    builtins = _built_in_tools() if config.defaults.include_defaults else []
     tools = builtins + extra_tools
 
     log_agent_defaults_event(
         builder="supervisor",
-        include_defaults=resolved_include_defaults,
+        include_defaults=config.defaults.include_defaults,
         caller_supplied_tool_count=len(extra_tools),
-        feature_flag_state=env_raw,
-        include_defaults_source=include_source,
+        feature_flag_state=config.defaults.env_raw,
+        include_defaults_source=config.defaults.source,
         extra={"active_tool_count": len(tools)},
     )
 
     tail_chunks = [BASE_PROMPT_HEADER]
-    if resolved_include_defaults:
+    if config.defaults.include_defaults:
         tail_chunks.append(BASE_PROMPT_TODOS)
     # Use shared tool descriptor
     from .tool_presets import describe_standard_tools
