@@ -8,6 +8,7 @@ practical effect on a mixed handoff/non‑handoff batch.
 """
 
 import asyncio
+import importlib
 import sys
 import types
 
@@ -70,13 +71,16 @@ def _install_minimal_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "inspect_ai._util.registry", reg)
 
 
-def _load_module_via_exec():
-    # Load approval.py directly to avoid package side-effects
-    g = {}
-    with open("src/inspect_agents/approval.py", encoding="utf-8") as f:
-        code = f.read()
-    exec(code, g, g)
-    return g
+def _load_module(monkeypatch):
+    # Import the approval facade package after installing Inspect stubs
+    for name in list(sys.modules.keys()):
+        if name.startswith("inspect_agents.approval"):
+            try:
+                monkeypatch.delitem(sys.modules, name)
+            except KeyError:
+                pass
+    module = importlib.import_module("inspect_agents.approval")
+    return vars(module)
 
 
 def _policy_names(policies):
@@ -90,7 +94,7 @@ def _policy_names(policies):
 
 def test_presets_include_exclusivity_marker(approval_modules_guard, monkeypatch):
     _install_minimal_stubs(monkeypatch)
-    mod = _load_module_via_exec()
+    mod = _load_module(monkeypatch)
 
     dev_names = _policy_names(mod["approval_preset"]("dev"))
     prod_names = _policy_names(mod["approval_preset"]("prod"))
@@ -108,7 +112,7 @@ def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard,
     semantics: first handoff approved; non‑handoff skipped with explanation.
     """
     _install_minimal_stubs(monkeypatch)
-    mod = _load_module_via_exec()
+    mod = _load_module(monkeypatch)
 
     def get_excl(policies):
         for p in policies:

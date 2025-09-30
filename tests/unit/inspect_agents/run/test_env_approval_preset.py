@@ -2,6 +2,7 @@
 
 import sys
 import types
+from unittest.mock import patch
 
 import pytest
 
@@ -23,10 +24,8 @@ def _install_engine_stub(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_env_preset_applies_when_no_explicit_approval(monkeypatch):
-    # Arrange: env preset set and approval activation monkeypatched to capture calls
-    from inspect_agents import approval as approval_mod
-
+async def test_env_preset_applies_when_no_explicit_approval(approval_modules_guard, monkeypatch):
+    # Arrange: env preset set and approval activation tracked via patch
     called: list[list[object]] = []
 
     def fake_activate(policies):  # type: ignore[no-untyped-def]
@@ -37,40 +36,42 @@ async def test_env_preset_applies_when_no_explicit_approval(monkeypatch):
         return ["PRESET_SENTINEL"]
 
     monkeypatch.setenv("INSPECT_APPROVAL_PRESET", "dev")
-    monkeypatch.setattr(approval_mod, "activate_approval_policies", fake_activate)
-    monkeypatch.setattr(approval_mod, "approval_preset", fake_preset)
     _install_engine_stub(monkeypatch)
 
-    from inspect_agents.run import run_agent
+    # Use unittest.mock.patch to directly patch the approval functions that run.py imports
+    with (
+        patch("inspect_agents.approval.activate_approval_policies", fake_activate),
+        patch("inspect_agents.approval.approval_preset", fake_preset),
+    ):
+        from inspect_agents.run import run_agent
 
-    # Act
-    out = await run_agent(agent=object(), input="x")
+        # Act
+        out = await run_agent(agent=object(), input="x")
 
-    # Assert: engine ran and preset was activated exactly once
-    assert out == "STATE"
-    assert len(called) == 1
-    assert called[0] == ["PRESET_SENTINEL"]
+        # Assert: engine ran and preset was activated exactly once
+        assert out == "STATE"
+        assert len(called) == 1
+        assert called[0] == ["PRESET_SENTINEL"]
 
 
 @pytest.mark.asyncio
-async def test_env_preset_ignored_when_explicit_approval_provided(monkeypatch):
+async def test_env_preset_ignored_when_explicit_approval_provided(approval_modules_guard, monkeypatch):
     # Arrange: env preset set, but explicit approval passed to run_agent
-    from inspect_agents import approval as approval_mod
-
     called: list[list[object]] = []
 
     def fake_activate(policies):  # type: ignore[no-untyped-def]
         called.append(list(policies or []))
 
     monkeypatch.setenv("INSPECT_APPROVAL_PRESET", "dev")
-    monkeypatch.setattr(approval_mod, "activate_approval_policies", fake_activate)
     _install_engine_stub(monkeypatch)
 
-    from inspect_agents.run import run_agent
+    # Use unittest.mock.patch to track if activation is called (it shouldn't be)
+    with patch("inspect_agents.approval.activate_approval_policies", fake_activate):
+        from inspect_agents.run import run_agent
 
-    # Act: provide explicit approvals to the runner
-    out = await run_agent(agent=object(), input="y", approval=["EXPLICIT"])
+        # Act: provide explicit approvals to the runner
+        out = await run_agent(agent=object(), input="y", approval=["EXPLICIT"])
 
-    # Assert: engine ran and env preset was NOT activated
-    assert out == "STATE"
-    assert called == []
+        # Assert: engine ran and env preset was NOT activated
+        assert out == "STATE"
+        assert called == []

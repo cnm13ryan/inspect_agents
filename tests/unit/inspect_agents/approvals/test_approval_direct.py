@@ -2,6 +2,7 @@
 """Direct test for approval.py functionality."""
 
 import asyncio
+import importlib
 import re
 import sys
 import types
@@ -80,12 +81,15 @@ def _load_module_with_stubs(monkeypatch):
     registry_mod.registry_tag = registry_tag
     monkeypatch.setitem(sys.modules, "inspect_ai._util.registry", registry_mod)
 
-    # Load approval.py directly
-    g = {}
-    with open("src/inspect_agents/approval.py", encoding="utf-8") as f:
-        code = f.read()
-    exec(code, g, g)
-    return g
+    # Import the approval facade package after installing stubs
+    for name in list(sys.modules.keys()):
+        if name.startswith("inspect_agents.approval"):
+            try:
+                monkeypatch.delitem(sys.modules, name)
+            except KeyError:
+                pass
+    module = importlib.import_module("inspect_agents.approval")
+    return vars(module)
 
 
 # Cleanup handled by approval_modules_guard fixture

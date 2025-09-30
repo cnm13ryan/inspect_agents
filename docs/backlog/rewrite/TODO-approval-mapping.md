@@ -11,7 +11,7 @@ Implementation Guidance
   Note: Inspect approvals support decisions {approve, modify, reject, terminate}. There is no built‑in “respond” pathway.
 
 Scope — Do
-- [x] Add `src/inspect_agents/approval.py`:
+- [x] Add `src/inspect_agents/approval/` modules (`interrupts.py`, `facade.py`):
   - [x] `def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[ApprovalPolicy]` producing policy entries
   - [x] Provide a helper to call `init_tool_approval(policies)` before running the agent
 - [x] Tests (`tests/integration/inspect_agents/test_approval.py`,

@@ -2,7 +2,7 @@
 
 Status: DONE (2025-09-04)
 - Implemented: `approval_preset("dev"|"prod")` returns an ordered policy chain via `approval_chain(...)` that prepends `handoff_exclusive_policy()` and the parallel kill-switch when enabled.
-  - Code: `src/inspect_agents/approval.py` (`approval_preset`, `approval_chain`, `handoff_exclusive_policy`).
+  - Code: `src/inspect_agents/approval/` (see `presets.py` for presets and `registry.py` for chain + exclusivity).
 - Tests: see `tests/integration/inspect_agents/test_handoff_exclusive_end_to_end.py` and `tests/integration/inspect_agents/test_handoff_exclusivity_integration.py`.
 
 ## Context & Motivation
@@ -12,7 +12,7 @@ Status: DONE (2025-09-04)
 - Constraints: keep `ci` preset permissive unless explicitly extended; no API breaking changes.
 
 ## Implementation Guidance
-- Examine: `src/inspect_agents/approval.py` (preset logic and `handoff_exclusive_policy()`), `docs/how-to/approvals.md`, `examples/runners/research_runner.py` (shows current manual append).
+- Examine: `src/inspect_agents/approval/` (preset logic in `presets.py` and `handoff_exclusive_policy()` in `registry.py`), `docs/how-to/approvals.md`, `examples/runners/research_runner.py` (shows current manual append).
 - Grep tokens: `approval_preset(`, `case "dev"`, `case "prod"`, `handoff_exclusive_policy(`.
 - Pattern (current):
   ```py

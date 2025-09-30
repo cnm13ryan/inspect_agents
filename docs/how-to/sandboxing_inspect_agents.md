@@ -34,8 +34,8 @@ This guide explains how sandboxing is implemented and used by the Inspect‑AI�
 
 ### Approvals (tool gating)
 
-- `inspect_agents` includes approval presets and policies. Presets: `ci` (approve all), `dev` (escalate then reject sensitive tools), `prod` (terminate sensitive tools). Sensitive tools include `bash`, `python`, `write_file`, `text_editor`, and `web_browser_*`. 〖F:src/inspect_agents/approval.py†L127-L176〗 〖F:src/inspect_agents/approval.py†L145-L169〗
-- Activate policies per Task via `approval=...` or programmatically by calling `activate_approval_policies(...)`. 〖F:src/inspect_agents/approval.py†L99-L110〗
+- `inspect_agents` includes approval presets and policies. Presets: `ci` (approve all), `dev` (escalate then reject sensitive tools), `prod` (terminate sensitive tools). Sensitive tools include `bash`, `python`, `write_file`, `text_editor`, and `web_browser_*`. 〖F:src/inspect_agents/approval/presets.py†L19-L110〗
+- Activate policies per Task via `approval=...` or programmatically by calling `activate_approval_policies(...)`. 〖F:src/inspect_agents/approval/facade.py†L33-L43〗
 
 ## Lifecycle and Data Flow
 
@@ -142,7 +142,7 @@ See the FS guide for behavior, limits, and delete policy. 〖F:docs/how-to/files
 
 ## Security & Approvals Guidance
 
-- Default to approvals when enabling exec or browser tools; prefer `dev` in shared environments and `prod` for stricter enforcement. 〖F:src/inspect_agents/approval.py†L173-L191〗
+- Default to approvals when enabling exec or browser tools; prefer `dev` in shared environments and `prod` for stricter enforcement. 〖F:src/inspect_agents/approval/presets.py†L74-L110〗
 - Keep filesystem tools in `store` mode for CI to avoid host writes; switch to `sandbox` mode only when you need host interactions and preflight is green. 〖F:docs/how-to/filesystem.md†L44-L63〗
 - Consider setting `INSPECT_AGENTS_FS_READ_ONLY=1` for demonstrations or regulated workflows (ls/read allowed; write/edit/delete raise). See environment docs in this repo.
 
@@ -161,7 +161,7 @@ See the FS guide for behavior, limits, and delete policy. 〖F:docs/how-to/files
 - Sandbox context and errors: 〖F:external/inspect_ai/src/inspect_ai/util/_sandbox/context.py†L23-L41〗 〖F:external/inspect_ai/src/inspect_ai/util/_sandbox/context.py†L132-L136〗
 - Providers: local and docker: 〖F:external/inspect_ai/src/inspect_ai/util/_sandbox/local.py†L21-L31〗 〖F:external/inspect_ai/src/inspect_ai/util/_sandbox/docker/docker.py†L1-L60〗
 - Exec tools using sandbox: 〖F:external/inspect_ai/src/inspect_ai/tool/_tools/_execute.py†L22-L57〗 〖F:external/inspect_ai/src/inspect_ai/tool/_tools/_execute.py†L62-L109〗
-- `inspect_agents` integration: approvals and tool toggles: 〖F:src/inspect_agents/approval.py†L127-L176〗 〖F:src/inspect_agents/tools.py†L357-L369〗 〖F:docs/how-to/filesystem.md†L44-L76〗
+- `inspect_agents` integration: approvals and tool toggles: 〖F:src/inspect_agents/approval/presets.py†L19-L110〗 〖F:src/inspect_agents/tools.py†L357-L369〗 〖F:docs/how-to/filesystem.md†L44-L76〗
 
 ---
 If you need a deeper provider (Docker) example, I can add a minimal Compose file and a matching Task configuration.

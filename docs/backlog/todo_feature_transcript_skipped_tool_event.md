@@ -2,7 +2,7 @@
 
 Status: DONE (2025-09-04)
 - Implemented in `handoff_exclusive_policy()`; emits a transcript `ToolEvent` for skipped calls with `error` type `approval` and message "Skipped due to handoff", plus metadata fields `selected_handoff_id`, `skipped_function`, and `source`.
-- Code: `src/inspect_agents/approval.py` (ToolEvent emission before returning reject decision).
+- Code: `src/inspect_agents/approval/registry.py` (ToolEvent emission before returning reject decision).
 
 ## Context & Motivation
 - Purpose: ensure both v1 (policy) and future v2 (executor pre‑scan) produce a consistent transcript artifact when non‑selected tool calls are skipped.
@@ -10,7 +10,7 @@ Status: DONE (2025-09-04)
 - Value: debuggability; parity across enforcement layers.
 
 ## Implementation Guidance
-- Examine: `src/inspect_agents/approval.py` (inside `handoff_exclusive_policy()`), Inspect transcript API (`inspect_ai.log._transcript`), unit tests.
+- Examine: `src/inspect_agents/approval/registry.py` (inside `handoff_exclusive_policy()`), Inspect transcript API (`inspect_ai.log._transcript`), unit tests.
 - Grep tokens: `_log_tool_event(name="handoff_exclusive", phase="skipped"`, `Approval(decision="reject"`.
 - Proposed event shape:
   - `type: tool_event`, `pending: false`
