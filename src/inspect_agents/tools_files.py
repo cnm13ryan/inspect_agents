@@ -39,6 +39,7 @@ from .files_models import (
     WriteParams,
 )
 from .fs_access import create_default_filesystem_access
+from .settings import typed_results_enabled
 
 # Explicit module exports to clarify the public surface
 __all__ = [
@@ -73,6 +74,7 @@ _fs_root = _fs.fs_root
 _validate_sandbox_path = _fs.validate_sandbox_path
 _max_bytes = _fs.max_bytes
 _default_tool_timeout = _fs.default_tool_timeout
+_use_typed_results = typed_results_enabled
 
 # Import sandbox adapter for tests
 
@@ -100,8 +102,25 @@ def _get_lock(path: str, instance: str | None) -> anyio.Lock:
 # ---------------------------------------------------------------------------
 # Filesystem Access Façade
 # ---------------------------------------------------------------------------
-# Create a singleton instance of the filesystem access façade
-_fs_access = create_default_filesystem_access()
+# Lazy accessor for filesystem access façade (allows test patching to take effect)
+def _get_fs_access():
+    """Get or create the filesystem access façade instance.
+
+    Uses a module-level cache but allows tests to clear it via _reset_fs_access().
+    """
+    global _fs_access_instance
+    if _fs_access_instance is None:
+        _fs_access_instance = create_default_filesystem_access()
+    return _fs_access_instance
+
+
+_fs_access_instance = None
+
+
+def _reset_fs_access():
+    """Reset the façade instance (for testing)."""
+    global _fs_access_instance
+    _fs_access_instance = None
 
 
 # Execution functions (can be used by wrapper tools)
@@ -111,7 +130,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.ls(params)
+    return await _get_fs_access().ls(params)
 
 
 async def execute_read(params: ReadParams) -> str | FileReadResult:
@@ -119,7 +138,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.read(params)
+    return await _get_fs_access().read(params)
 
 
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
@@ -127,7 +146,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.write(params)
+    return await _get_fs_access().write(params)
 
 
 async def execute_edit(params: EditParams) -> str | FileEditResult:
@@ -135,7 +154,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.edit(params)
+    return await _get_fs_access().edit(params)
 
 
 async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
@@ -143,7 +162,7 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.delete(params)
+    return await _get_fs_access().delete(params)
 
 
 async def execute_trash(params: TrashParams) -> str | FileTrashResult:
@@ -151,7 +170,7 @@ async def execute_trash(params: TrashParams) -> str | FileTrashResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.trash(params)
+    return await _get_fs_access().trash(params)
 
 
 # The main files tool
@@ -267,7 +286,7 @@ async def execute_mkdir(params: MkdirParams) -> str:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.mkdir(params)
+    return await _get_fs_access().mkdir(params)
 
 
 async def execute_move(params: MoveParams) -> str | FileMoveResult:
@@ -275,7 +294,7 @@ async def execute_move(params: MoveParams) -> str | FileMoveResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.move(params)
+    return await _get_fs_access().move(params)
 
 
 async def execute_stat(params: StatParams) -> str | FileStatResult:
@@ -283,4 +302,4 @@ async def execute_stat(params: StatParams) -> str | FileStatResult:
 
     Delegates to FilesystemAccess façade which handles sandbox/store selection.
     """
-    return await _fs_access.stat(params)
+    return await _get_fs_access().stat(params)

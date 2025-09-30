@@ -917,12 +917,25 @@ def create_default_filesystem_access() -> FilesystemAccess:
     This factory function wires up the default implementations:
     - Sandbox adapter from fs_adapter.get_default_adapter()
     - Store context from tools_files._create_store_context()
-    - Mode selection from fs.use_sandbox_fs()
+    - Mode selection from fs.use_sandbox_fs() (wrapped for test patching)
     - Logging from files_instrumentation.log_tool_event()
     """
     from . import fs as _fs
     from .files_instrumentation import log_tool_event as _log_tool_event
-    from .fs_adapter import get_default_adapter as _get_sandbox_adapter
+
+    # Get sandbox adapter via lazy import so tests can patch tools_files._get_sandbox_adapter
+    def _get_sandbox_adapter_wrapper():
+        """Wrapper that references tools_files._get_sandbox_adapter for test patching."""
+        from . import tools_files as _tools_files
+
+        return _tools_files._get_sandbox_adapter()
+
+    # Wrapper to allow test patching via tools_files._use_sandbox_fs
+    def _use_sandbox_fs_wrapper() -> bool:
+        """Wrapper that checks tools_files._use_sandbox_fs for test patching."""
+        from . import tools_files as _tools_files
+
+        return _tools_files._use_sandbox_fs()
 
     # Import the store context factory
     def _create_store_context():
@@ -949,21 +962,39 @@ def create_default_filesystem_access() -> FilesystemAccess:
 
             return _tools_files._use_typed_results()
 
+        def _max_bytes_wrapper() -> int:
+            """Wrapper that references tools_files._max_bytes for test patching."""
+            from . import tools_files as _tools_files
+
+            return _tools_files._max_bytes()
+
+        def _fs_root_wrapper() -> str:
+            """Wrapper that references tools_files._fs_root for test patching."""
+            from . import tools_files as _tools_files
+
+            return _tools_files._fs_root()
+
+        def _default_tool_timeout_wrapper() -> float:
+            """Wrapper that references tools_files._default_tool_timeout for test patching."""
+            from . import tools_files as _tools_files
+
+            return _tools_files._default_tool_timeout()
+
         return StoreOpsContext(
             log_tool_event=_log_tool_event,
             get_lock=_get_lock,
-            default_tool_timeout=_fs.default_tool_timeout,
+            default_tool_timeout=_default_tool_timeout_wrapper,
             store_as=wrapped_store_as,
             use_typed_results=_use_typed_results_wrapper,
-            max_bytes=_fs.max_bytes,
-            fs_root=_fs.fs_root,
+            max_bytes=_max_bytes_wrapper,
+            fs_root=_fs_root_wrapper,
             check_policy=_fs.check_policy,
             match_path_policy=_fs.match_path_policy,
         )
 
     return FilesystemAccess(
-        sandbox_adapter=_get_sandbox_adapter(),
+        sandbox_adapter=_get_sandbox_adapter_wrapper(),  # Get adapter from tools_files for test patching
         store_context_factory=_create_store_context,
-        use_sandbox_fs=_fs.use_sandbox_fs,
+        use_sandbox_fs=_use_sandbox_fs_wrapper,
         log_tool_event=_log_tool_event,
     )
