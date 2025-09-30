@@ -429,7 +429,17 @@ class FilesystemAccess:
         from . import fs as _fs
         from .exceptions import ToolException
         from .files_ops_store import read_store
-        from .settings import typed_results_enabled as _use_typed_results
+
+        # Use wrappers to allow test patching via tools_files
+        def _use_typed_results() -> bool:
+            from . import tools_files as _tools_files
+
+            return _tools_files._use_typed_results()
+
+        def _max_bytes() -> int:
+            from . import tools_files as _tools_files
+
+            return _tools_files._max_bytes()
 
         def _format_lines(
             content_lines: list[str], start_line_num: int = 1, *, pad: bool = True
@@ -472,7 +482,7 @@ class FilesystemAccess:
             # Byte preflight
             file_bytes = await self._sandbox_adapter.wc_bytes(validated_path)
             if file_bytes is not None:
-                max_bytes = _fs.max_bytes()
+                max_bytes = _max_bytes()
                 if file_bytes > max_bytes:
                     self._log_tool_event(
                         name="files:read",
@@ -572,7 +582,12 @@ class FilesystemAccess:
         from . import fs as _fs
         from .exceptions import ToolException
         from .files_ops_store import write_store
-        from .settings import typed_results_enabled as _use_typed_results
+
+        # Use wrapper to allow test patching via tools_files._use_typed_results
+        def _use_typed_results() -> bool:
+            from . import tools_files as _tools_files
+
+            return _tools_files._use_typed_results()
 
         # Read-only guard
         if (
@@ -679,7 +694,12 @@ class FilesystemAccess:
         from . import fs as _fs
         from .exceptions import ToolException
         from .files_ops_store import edit_store
-        from .settings import typed_results_enabled as _use_typed_results
+
+        # Use wrapper to allow test patching via tools_files._use_typed_results
+        def _use_typed_results() -> bool:
+            from . import tools_files as _tools_files
+
+            return _tools_files._use_typed_results()
 
         # Read-only guard
         if (
