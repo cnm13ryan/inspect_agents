@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import os
+from typing import Any
+
+from inspect_agents.settings import truthy as _truthy
+
 """Approval policy helpers that wrap Inspect-specific internals.
 
 Each policy imports Inspect's private modules lazily so unit tests can stub the
 APIs without requiring the real Inspect runtime. When logging, we reuse the
 project-local observability hook (`inspect_agents.observability.log_tool_event`).
 """
-
-import os
-from typing import Any
-
-from inspect_agents.settings import truthy as _truthy
 
 __all__ = [
     "handoff_exclusive_policy",

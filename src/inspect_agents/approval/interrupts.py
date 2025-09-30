@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 """Compatibility helpers for DeepAgents-style interrupt configuration.
 
 This module depends on Inspect's private approval internals
@@ -7,8 +9,6 @@ This module depends on Inspect's private approval internals
 `inspect_ai._util.registry`. Tests commonly stub these modules, so imports remain
 inside function bodies to avoid hard failures when Inspect is absent.
 """
-
-from typing import Any
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:

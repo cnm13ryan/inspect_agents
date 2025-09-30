@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 """Redaction utilities for approval payloads.
 
 This module is self-contained and does not depend on Inspect internals so it can
 be imported safely from tests that stub Inspect modules.
 """
-
-from typing import Any
 
 REDACT_KEYS = {"api_key", "authorization", "token", "password", "file_text", "content"}
 

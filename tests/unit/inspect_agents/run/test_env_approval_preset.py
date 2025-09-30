@@ -23,7 +23,15 @@ def _install_engine_stub(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_env_preset_applies_when_no_explicit_approval(monkeypatch):
+async def test_env_preset_applies_when_no_explicit_approval(approval_modules_guard, monkeypatch):
+    # Clear and reimport approval and run modules to avoid stale imports against stubs
+    for name in list(sys.modules.keys()):
+        if name.startswith("inspect_agents.approval") or name == "inspect_agents.run":
+            try:
+                monkeypatch.delitem(sys.modules, name)
+            except KeyError:
+                pass
+
     # Arrange: env preset set and approval activation monkeypatched to capture calls
     from inspect_agents import approval as approval_mod
 
@@ -37,8 +45,13 @@ async def test_env_preset_applies_when_no_explicit_approval(monkeypatch):
         return ["PRESET_SENTINEL"]
 
     monkeypatch.setenv("INSPECT_APPROVAL_PRESET", "dev")
+    # Patch the approval module functions
     monkeypatch.setattr(approval_mod, "activate_approval_policies", fake_activate)
     monkeypatch.setattr(approval_mod, "approval_preset", fake_preset)
+
+    # Also patch using the full dotted path that run.py will use when importing
+    monkeypatch.setattr("inspect_agents.approval.activate_approval_policies", fake_activate)
+    monkeypatch.setattr("inspect_agents.approval.approval_preset", fake_preset)
     _install_engine_stub(monkeypatch)
 
     from inspect_agents.run import run_agent
@@ -53,7 +66,15 @@ async def test_env_preset_applies_when_no_explicit_approval(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_env_preset_ignored_when_explicit_approval_provided(monkeypatch):
+async def test_env_preset_ignored_when_explicit_approval_provided(approval_modules_guard, monkeypatch):
+    # Clear and reimport approval and run modules to avoid stale imports against stubs
+    for name in list(sys.modules.keys()):
+        if name.startswith("inspect_agents.approval") or name == "inspect_agents.run":
+            try:
+                monkeypatch.delitem(sys.modules, name)
+            except KeyError:
+                pass
+
     # Arrange: env preset set, but explicit approval passed to run_agent
     from inspect_agents import approval as approval_mod
 
