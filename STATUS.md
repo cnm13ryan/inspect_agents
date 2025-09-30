@@ -44,7 +44,7 @@ Themes
 
 4) Approvals & Human‑in‑the‑Loop
 - DONE: Approval mapping + presets (ci/dev/prod) and UX chains — docs/backlog/rewrite/TODO-approval-mapping.md, TODO-approval-ux-chains.md
-- DONE: Handoff exclusivity policy at approver layer — src/inspect_agents/approval.py::handoff_exclusive_policy()
+- DONE: Handoff exclusivity policy at approver layer — src/inspect_agents/approval/registry.py::handoff_exclusive_policy()
 - TODO: Executor‑level gating + transcript “skipped” events — docs/backlog/todos/feature-handoff-exclusivity.md, feature-skipped-tool-events.md
 
 5) Parallel Tools Policy

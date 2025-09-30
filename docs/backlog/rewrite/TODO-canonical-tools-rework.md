@@ -10,7 +10,7 @@ This document contains discrete, handoff‑ready prompts for improving the canon
 References
 - Tools code: `src/inspect_agents/tools.py`
 - State models: `src/inspect_agents/state.py`
-- Approvals: `src/inspect_agents/approval.py`
+- Approvals: `src/inspect_agents/approval/`
 - Umbrella & design docs: `docs/guides/tool-umbrellas.md`, `docs/guides/stateless-vs-stateful-tools-harmonized.md`
 
 ---
@@ -125,7 +125,7 @@ References
 - Problem: Current sensitive regex omits `python` and matches browser too broadly.
 
 **Implementation Guidance**
-- File: `src/inspect_agents/approval.py`
+- Files: `src/inspect_agents/approval/registry.py`
 - Greppables: `sensitive = re.compile`, `approval_preset`, `dev_gate`, `prod_gate`
 - Change: `sensitive = re.compile(r"^(write_file|text_editor|bash|python|web_browser_)")`.
 - Tests: Extend `tests/integration/inspect_agents/test_approval_chains.py` to include a `python` call and a `web_browser_go` call.
@@ -146,7 +146,7 @@ References
 - Problem: Current logging is sparse (e.g., a warning in `update_todo_status` only); no durations.
 
 **Implementation Guidance**
-- Files: `src/inspect_agents/tools.py` (helper + call sites), optionally reuse `redact_arguments` from `src/inspect_agents/approval.py`.
+- Files: `src/inspect_agents/tools.py` (helper + call sites), optionally reuse `redact_arguments` from `src/inspect_agents/approval/redaction.py`.
 - Greppables: `logging.getLogger(__name__)`, `redact_arguments`, `REDACT_KEYS`
 - Add helper: `_log_tool_event(name, phase, args, extra)` using `time.perf_counter()`; redact args and truncate large fields.
 - Call before/after key operations in Todos and Files tools.

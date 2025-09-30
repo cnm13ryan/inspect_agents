@@ -91,7 +91,7 @@ Always use:
   - Python API: `from inspect_agents.approval import approval_preset, activate_approval_policies; activate_approval_policies(approval_preset("dev"))`.
   - CLI/evals: pass approval policies via your runner as documented in `docs/how-to/approvals.md`.
 - Handoff exclusivity: when a handoff tool (`transfer_to_*`) appears alongside other tools in one assistant turn, only the first handoff should execute.
-  - Included by default in `approval_preset("dev")` and `approval_preset("prod")` via `handoff_exclusive_policy()`; `ci` does not include it. See `src/inspect_agents/approval.py` and `docs/adr/0005-tool-parallelism-policy.md`.
+  - Included by default in `approval_preset("dev")` and `approval_preset("prod")` via `handoff_exclusive_policy()`; `ci` does not include it. See `src/inspect_agents/approval/registry.py` and `docs/adr/0005-tool-parallelism-policy.md`.
   - To opt out, build a custom approval chain instead of using `dev`/`prod` presets.
 - Parallelism kill-switch (non-handoff tools): set `INSPECT_TOOL_PARALLELISM_DISABLE=1` (or `INSPECT_DISABLE_TOOL_PARALLEL=1`) to approve only the first non-handoff tool in a batch; others are skipped. Useful for deterministic tests and ops.
 

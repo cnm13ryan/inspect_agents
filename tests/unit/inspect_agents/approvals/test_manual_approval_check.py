@@ -7,11 +7,12 @@ Covers:
 - Prod preset behavior (terminate + redaction)
 - Direct redaction helper behavior
 
-This test imports approval.py directly with lightweight stubs for
-inspect_ai internals to avoid importing the full package.
+This test imports the approval facade package after installing lightweight stubs for
+inspect_ai internals to avoid importing the full Inspect runtime.
 """
 
 import asyncio
+import importlib
 import sys
 import types
 
@@ -67,12 +68,15 @@ def _load_module_with_stubs(monkeypatch):
     registry_mod.registry_tag = registry_tag
     monkeypatch.setitem(sys.modules, "inspect_ai._util.registry", registry_mod)
 
-    # ---- Load the approval module directly to avoid package __init__ side-effects ----
-    g = {}
-    with open("src/inspect_agents/approval.py", encoding="utf-8") as f:
-        code = f.read()
-    exec(code, g, g)  # noqa: S102
-    return g
+    # Import the approval facade after installing stubs for Inspect internals
+    for name in list(sys.modules.keys()):
+        if name.startswith("inspect_agents.approval"):
+            try:
+                monkeypatch.delitem(sys.modules, name)
+            except KeyError:
+                pass
+    module = importlib.import_module("inspect_agents.approval")
+    return vars(module)
 
 
 def test_sensitive_patterns_and_dev_preset(approval_modules_guard, monkeypatch):

@@ -46,9 +46,9 @@ References:
 
 This ADR is delivered in two phases to balance transcript visibility and executor‑level guarantees:
 
-- v1 — Approval policy enforcement (current): enforce first‑handoff exclusivity via an approval policy that approves only the first handoff call and rejects all other tool calls from the same assistant turn with explanation "Skipped due to handoff exclusivity". Also emit a local tool event (`name: handoff_exclusive`, `phase: skipped`) for observability. See `handoff_exclusive_policy()` in `src/inspect_agents/approval.py`.  
-  Rationale: centralizes the rule in the approval layer; keeps policy decisions visible in transcripts without changing the executor.  
-  References: `handoff_exclusive_policy` 〖F:src/inspect_agents/approval.py†L195-L284〗.
+- v1 — Approval policy enforcement (current): enforce first‑handoff exclusivity via an approval policy that approves only the first handoff call and rejects all other tool calls from the same assistant turn with explanation "Skipped due to handoff exclusivity". Also emit a local tool event (`name: handoff_exclusive`, `phase: skipped`) for observability. See `handoff_exclusive_policy()` in `src/inspect_agents/approval/registry.py`.
+  Rationale: centralizes the rule in the approval layer; keeps policy decisions visible in transcripts without changing the executor.
+  References: `handoff_exclusive_policy` 〖F:src/inspect_agents/approval/registry.py†L59-L126〗.
 
 - v2 — Optional executor pre‑scan (future): pre‑scan `assistant.tool_calls` in the executor (e.g., `execute_tools(...)`) and, if any handoff is present, select the first by order and avoid enqueuing all other calls from that turn. For each skipped call, mint a transcript ToolEvent with `pending=false` and `error={code:"skipped", message:"Skipped due to handoff"}` without appending any `ChatMessageTool` to the conversation. Ship behind an opt‑in flag (e.g., `INSPECT_EXECUTOR_PRESCAN_HANDOFF=1`) so v1 remains the default behavior.  
   Rationale: provides stronger executor‑level guarantees and reduces scheduling overhead while preserving transcript signals.

@@ -156,7 +156,7 @@ This epic groups production‑readiness features for sandboxing across filesyste
 - Purpose: approvals for sandbox mutations (write/edit/mkdir/move/trash).
 
 ### Implementation Guidance
-- Extend sensitive regex in `src/inspect_agents/approval.py` to include `files` mutation commands; reuse redaction in explanations.
+- Extend sensitive regex in `src/inspect_agents/approval/presets.py` to include `files` mutation commands; reuse redaction in explanations.
 
 ### Scope Definition
 - CI preset unchanged; enforce in dev/prod chains.

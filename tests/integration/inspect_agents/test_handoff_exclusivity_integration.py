@@ -10,6 +10,7 @@ dev/prod preset gates) to validate core semantics with the real policy engine.
 """
 
 import asyncio
+import importlib
 import sys
 from dataclasses import asdict
 
@@ -26,12 +27,9 @@ def _ensure_vendor_on_path():
 
 
 def _load_approval_module_symbols():
-    # Load approval.py directly to avoid importing the entire package
-    g: dict[str, object] = {}
-    with open("src/inspect_agents/approval.py", encoding="utf-8") as f:
-        code = f.read()
-    exec(code, g, g)
-    return g["handoff_exclusive_policy"]  # type: ignore[index]
+    # Import the approval facade package and return the exclusivity helper
+    module = importlib.import_module("inspect_agents.approval")
+    return module.handoff_exclusive_policy  # type: ignore[attr-defined]
 
 
 def test_policy_approver_enforces_exclusivity_on_mixed_batch():
